@@ -25,7 +25,7 @@ async fn main() {
         format_mem(stats.get_available_memory())
     );
 
-    println!("{}%", stats.get_cpu_usage());
+    println!("{:?}%", stats.get_cpu_usage());
 }
 
 fn format_mem(mem: i64) -> String {

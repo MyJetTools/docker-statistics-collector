@@ -53,11 +53,20 @@ impl ServicesCache {
         }
     }
 
-    pub async fn update_usage(&self, id: &str, mem_usage: i64, mem_available: i64, cpu_usage: f64) {
+    pub async fn update_usage(
+        &self,
+        id: &str,
+        mem_usage: i64,
+        mem_available: i64,
+        cpu_usage: Option<f64>,
+    ) {
         let mut write_access = self.data.write().await;
 
         if let Some(container) = write_access.get_mut(id) {
-            container.cpu_usage = Some(cpu_usage);
+            if let Some(cpu_usage) = cpu_usage {
+                container.cpu_usage = Some(cpu_usage);
+            }
+
             container.mem_usage = Some(mem_usage);
             container.mem_available = Some(mem_available);
         }
