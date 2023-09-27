@@ -45,6 +45,8 @@ impl MyTimerTick for SyncContainersInfoTimer {
                             usage.get_cpu_usage(),
                         )
                         .await;
+                } else {
+                    self.app.cache.reset_usage(&container.id).await;
                 }
             } else {
                 self.app.cache.reset_usage(&container.id).await;
