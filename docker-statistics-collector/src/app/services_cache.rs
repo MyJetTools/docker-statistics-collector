@@ -9,6 +9,7 @@ pub struct ServiceInfo {
     pub image: String,
     pub running: bool,
     pub mem_available: Option<i64>,
+    pub mem_limit: Option<i64>,
     pub mem_usage: Option<i64>,
     pub cpu_usage: Option<f64>,
 }
@@ -46,6 +47,7 @@ impl ServicesCache {
                         mem_available: None,
                         mem_usage: None,
                         cpu_usage: None,
+                        mem_limit: None,
                     },
                 );
             } else {
@@ -55,12 +57,20 @@ impl ServicesCache {
         }
     }
 
-    pub async fn update_usage(&self, id: &str, mem_usage: i64, mem_available: i64, cpu_usage: f64) {
+    pub async fn update_usage(
+        &self,
+        id: &str,
+        mem_usage: i64,
+        mem_available: i64,
+        mem_limit: i64,
+        cpu_usage: f64,
+    ) {
         let mut write_access = self.data.write().await;
 
         if let Some(container) = write_access.get_mut(id) {
             container.cpu_usage = Some(cpu_usage);
             container.mem_usage = Some(mem_usage);
+            container.mem_limit = Some(mem_limit);
             container.mem_available = Some(mem_available);
         }
     }
@@ -70,6 +80,9 @@ impl ServicesCache {
         if let Some(container) = write_access.get_mut(id) {
             container.mem_usage = None;
             container.mem_available = None;
+            container.mem_limit = None;
+
+            container.cpu_usage = None;
         }
     }
 

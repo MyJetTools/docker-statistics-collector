@@ -9,26 +9,26 @@ use std::sync::Arc;
 
 #[my_http_server::macros::http_route(
     method: "GET",
-    route: "/api/containers",
-    description: "Get containers info",
-    summary: "Get containers info",
+    route: "/api/containers/running",
+    description: "Get running containers info",
+    summary: "Get running containers info",
     controller: "Containers",
     result:[
-        {status_code: 200, description: "List of containers", model:"ContainersHtpResponse" },
+        {status_code: 200, description: "List of working containers", model:"ContainersHtpResponse" },
     ]
 )]
-pub struct GetContainersAction {
+pub struct GetRunningContainersAction {
     app: Arc<AppContext>,
 }
 
-impl GetContainersAction {
+impl GetRunningContainersAction {
     pub fn new(app: Arc<AppContext>) -> Self {
         Self { app }
     }
 }
 
 async fn handle_request(
-    action: &GetContainersAction,
+    action: &GetRunningContainersAction,
     _ctx: &mut HttpContext,
 ) -> Result<HttpOkResult, HttpFailResult> {
     let containers = action.app.cache.get_snapshot().await;
@@ -37,6 +37,7 @@ async fn handle_request(
         vm: action.app.settings_model.vm_name.clone(),
         containers: containers
             .into_iter()
+            .filter(|itm| itm.running)
             .map(|itm| ContainerJsonModel {
                 id: itm.id,
                 image: itm.image,

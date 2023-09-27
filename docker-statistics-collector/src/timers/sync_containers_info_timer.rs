@@ -42,6 +42,7 @@ impl MyTimerTick for SyncContainersInfoTimer {
                             &container.id,
                             usage.get_used_memory(),
                             usage.get_available_memory(),
+                            usage.memory_stats.limit,
                             usage.get_cpu_usage(),
                         )
                         .await;
