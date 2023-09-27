@@ -1,3 +1,5 @@
+use std::sync::atomic::AtomicBool;
+
 use flurl::IntoFlUrl;
 use serde::*;
 
@@ -29,7 +31,7 @@ impl ContainerStatsJsonModel {
         Some(result)
     }
 
-    pub fn number_cpus(&self) -> i64 {
+    pub fn number_cpus(&self) -> Option<i64> {
         self.cpu_stats.online_cpus
     }
 
@@ -37,7 +39,7 @@ impl ContainerStatsJsonModel {
         let cpu_delta = self.cpu_delta() as f64;
         let system_cpu_delta = self.system_cpu_delta()? as f64;
 
-        let result = (cpu_delta / system_cpu_delta) * self.number_cpus() as f64 * 100.0;
+        let result = (cpu_delta / system_cpu_delta) * self.number_cpus()? as f64 * 100.0;
 
         Some(result)
     }
@@ -58,22 +60,31 @@ pub struct MemoryStatsData {
 pub struct CpuStatsJsonModel {
     pub system_cpu_usage: Option<i64>,
     pub cpu_usage: CpuUsageJsonModel,
-    pub online_cpus: i64,
+    pub online_cpus: Option<i64>,
 }
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CpuUsageJsonModel {
     pub total_usage: i64,
 }
 
+static MADE_PRINT: AtomicBool = AtomicBool::new(false);
+
 pub async fn get_container_stats(url: String, container_id: String) -> ContainerStatsJsonModel {
-    url.append_path_segment("containers")
+    let mut response = url
+        .append_path_segment("containers")
         .append_path_segment(container_id)
         .append_path_segment("stats")
         .append_query_param("stream", Some("false"))
         .get()
         .await
-        .unwrap()
-        .get_json()
-        .await
-        .unwrap()
+        .unwrap();
+
+    let result = response.get_body().await.unwrap();
+
+    if !MADE_PRINT.load(std::sync::atomic::Ordering::Relaxed) {
+        println!("{:?}", std::str::from_utf8(result).unwrap());
+        MADE_PRINT.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    serde_json::from_slice(&result).unwrap()
 }
