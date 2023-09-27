@@ -37,6 +37,18 @@ impl ServicesCache {
     pub async fn update_services(&self, infos: &[ContainerJsonModel]) {
         let mut write_access = self.data.write().await;
 
+        let mut to_remove = Vec::new();
+
+        for container in write_access.values() {
+            if !infos.into_iter().any(|itm| itm.id == container.id) {
+                to_remove.push(container.id.to_string());
+            }
+        }
+
+        for id in to_remove {
+            write_access.remove(&id);
+        }
+
         for info in infos {
             if !write_access.contains_key(&info.id) {
                 write_access.insert(
