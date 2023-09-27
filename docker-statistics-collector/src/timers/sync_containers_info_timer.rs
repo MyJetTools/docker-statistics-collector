@@ -28,13 +28,13 @@ impl MyTimerTick for SyncContainersInfoTimer {
         self.app.cache.update_services(&list_of_containers).await;
 
         for container in list_of_containers {
-            let usage = docker_sdk::container_stats::get_container_stats(
-                self.app.settings_model.url.to_string(),
-                container.id.to_string(),
-            )
-            .await;
-
             if container.is_running() {
+                let usage = docker_sdk::container_stats::get_container_stats(
+                    self.app.settings_model.url.to_string(),
+                    container.id.to_string(),
+                )
+                .await;
+
                 if let Some(usage) = usage {
                     self.app
                         .cache
