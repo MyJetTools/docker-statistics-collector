@@ -7,6 +7,7 @@ use tokio::sync::RwLock;
 pub struct ServiceInfo {
     pub id: String,
     pub image: String,
+    pub running: bool,
     pub mem_available: Option<i64>,
     pub mem_usage: Option<i64>,
     pub cpu_usage: Option<f64>,
@@ -41,6 +42,7 @@ impl ServicesCache {
                     ServiceInfo {
                         id: info.id.to_string(),
                         image: info.image.to_string(),
+                        running: info.is_running(),
                         mem_available: None,
                         mem_usage: None,
                         cpu_usage: None,
