@@ -41,6 +41,7 @@ async fn handle_request(
             .map(|itm| ContainerJsonModel {
                 id: itm.id,
                 image: itm.image,
+                names: itm.names,
                 enabled: itm.running,
                 cpu: CpuUsageJsonMode {
                     usage: itm.cpu_usage,
@@ -67,6 +68,7 @@ pub struct ContainersHtpResponse {
 pub struct ContainerJsonModel {
     pub id: String,
     pub image: String,
+    pub names: Vec<String>,
     pub enabled: bool,
     pub cpu: CpuUsageJsonMode,
     pub mem: MemUsageJsonMode,
