@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use flurl::IntoFlUrl;
 use rust_extensions::date_time::DateTimeAsMicroseconds;
 use serde::*;
@@ -10,6 +12,8 @@ pub struct ContainerJsonModel {
     pub names: Vec<String>,
     #[serde(rename = "Image")]
     pub image: String,
+    #[serde(rename = "Labels")]
+    pub labels: Option<HashMap<String, String>>,
     #[serde(rename = "Created")]
     pub created: i64,
     #[serde(rename = "State")]

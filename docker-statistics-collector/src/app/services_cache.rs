@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use docker_sdk::list_of_containers::ContainerJsonModel;
 use tokio::sync::RwLock;
@@ -8,6 +8,7 @@ pub struct ServiceInfo {
     pub id: String,
     pub image: String,
     pub names: Vec<String>,
+    pub labels: Option<HashMap<String, String>>,
     pub running: bool,
     pub mem_available: Option<i64>,
     pub mem_limit: Option<i64>,
@@ -58,6 +59,7 @@ impl ServicesCache {
                         image: info.image.to_string(),
                         names: info.names.clone(),
                         running: info.is_running(),
+                        labels: info.labels.clone(),
                         mem_available: None,
                         mem_usage: None,
                         cpu_usage: None,

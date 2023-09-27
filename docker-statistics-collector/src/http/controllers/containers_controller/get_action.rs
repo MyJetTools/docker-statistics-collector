@@ -1,11 +1,10 @@
 use crate::app::AppContext;
 
-use my_http_server::{
-    macros::MyHttpObjectStructure, HttpContext, HttpFailResult, HttpOkResult, HttpOutput,
-};
-use serde::Serialize;
+use my_http_server::{HttpContext, HttpFailResult, HttpOkResult, HttpOutput};
 
 use std::sync::Arc;
+
+use super::contracts::*;
 
 #[my_http_server::macros::http_route(
     method: "GET",
@@ -49,35 +48,11 @@ async fn handle_request(
                     available: itm.mem_available,
                     limit: itm.mem_limit,
                 },
+                names: itm.names,
+                labels: itm.labels,
             })
             .collect(),
     };
 
     HttpOutput::as_json(response).into_ok_result(false).into()
-}
-
-#[derive(MyHttpObjectStructure, Serialize)]
-pub struct ContainersHtpResponse {
-    pub vm: String,
-    pub containers: Vec<ContainerJsonModel>,
-}
-
-#[derive(Serialize, MyHttpObjectStructure)]
-pub struct ContainerJsonModel {
-    pub id: String,
-    pub image: String,
-    pub enabled: bool,
-    pub cpu: CpuUsageJsonMode,
-    pub mem: MemUsageJsonMode,
-}
-#[derive(Serialize, MyHttpObjectStructure)]
-pub struct CpuUsageJsonMode {
-    pub usage: Option<f64>,
-}
-
-#[derive(Serialize, MyHttpObjectStructure)]
-pub struct MemUsageJsonMode {
-    pub usage: Option<i64>,
-    pub available: Option<i64>,
-    pub limit: Option<i64>,
 }
