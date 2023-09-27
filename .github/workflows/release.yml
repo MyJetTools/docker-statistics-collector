@@ -32,7 +32,6 @@ jobs:
       - run: |
           cd ${BUILD_PATH}
           cargo build --release
-
       - name: Docker login
         env:
           DOCKER_USER: ${{ secrets.DOCKER_USERNAME }}
