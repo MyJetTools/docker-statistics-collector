@@ -15,7 +15,8 @@ async fn main() {
         url.to_string(),
         "49b9068b28ac68992712bd921cb56c32360275f1d3709399489b22b530edb87c".to_string(),
     )
-    .await;
+    .await
+    .unwrap();
 
     println!("{:#?}", stats);
 

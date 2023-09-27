@@ -34,15 +34,21 @@ impl MyTimerTick for SyncContainersInfoTimer {
             )
             .await;
 
-            self.app
-                .cache
-                .update_usage(
-                    &container.id,
-                    usage.get_used_memory(),
-                    usage.get_available_memory(),
-                    usage.get_cpu_usage(),
-                )
-                .await;
+            if container.is_running() {
+                if let Some(usage) = usage {
+                    self.app
+                        .cache
+                        .update_usage(
+                            &container.id,
+                            usage.get_used_memory(),
+                            usage.get_available_memory(),
+                            usage.get_cpu_usage(),
+                        )
+                        .await;
+                }
+            } else {
+                self.app.cache.reset_usage(&container.id).await;
+            }
         }
 
         sw.pause();
