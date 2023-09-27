@@ -82,7 +82,7 @@ pub async fn get_container_stats(url: String, container_id: String) -> Container
     let result = response.get_body().await.unwrap();
 
     if !MADE_PRINT.load(std::sync::atomic::Ordering::Relaxed) {
-        println!("{:?}", std::str::from_utf8(result).unwrap());
+        println!("{}", std::str::from_utf8(result).unwrap());
         MADE_PRINT.store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
