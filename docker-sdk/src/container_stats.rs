@@ -67,8 +67,6 @@ pub struct CpuUsageJsonModel {
     pub total_usage: i64,
 }
 
-static MADE_PRINT: AtomicBool = AtomicBool::new(false);
-
 pub async fn get_container_stats(url: String, container_id: String) -> ContainerStatsJsonModel {
     let mut response = url
         .append_path_segment("containers")
@@ -79,12 +77,14 @@ pub async fn get_container_stats(url: String, container_id: String) -> Container
         .await
         .unwrap();
 
-    let result = response.get_body().await.unwrap();
+    let response = response.get_body().await.unwrap();
 
-    if !MADE_PRINT.load(std::sync::atomic::Ordering::Relaxed) {
-        println!("{}", std::str::from_utf8(result).unwrap());
-        MADE_PRINT.store(true, std::sync::atomic::Ordering::Relaxed);
+    let result = serde_json::from_slice(&response);
+
+    if let Err(err) = &result {
+        println!("Err:{}", err);
+        println!("{}", std::str::from_utf8(response).unwrap());
     }
 
-    serde_json::from_slice(&result).unwrap()
+    result.unwrap()
 }
