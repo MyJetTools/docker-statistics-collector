@@ -1,5 +1,4 @@
 use flurl::IntoFlUrl;
-use rust_extensions::StrOrString;
 use serde::*;
 
 #[derive(Serialize, Deserialize, Debug)]
