@@ -15,7 +15,12 @@ impl ContainerStatsJsonModel {
     }
 
     pub fn get_used_memory(&self) -> i64 {
-        self.memory_stats.usage - self.memory_stats.stats.cache
+        if let Some(cache) = self.memory_stats.stats.cache {
+            return self.memory_stats.usage - cache;
+        }
+
+        self.memory_stats.usage
+
         //self.memory_stats.usage
     }
 
@@ -49,7 +54,7 @@ pub struct MemoryStatsJsonModel {
 }
 #[derive(Serialize, Deserialize, Debug)]
 pub struct MemoryStatsData {
-    pub cache: i64,
+    pub cache: Option<i64>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
