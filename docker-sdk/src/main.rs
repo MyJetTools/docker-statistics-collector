@@ -32,22 +32,22 @@ async fn main() {
 fn format_mem(mem: i64) -> String {
     let mem = mem as f64;
     if mem < 1024.0 {
-        return format!("{}B", mem);
+        return format!("{:.2}B", mem);
     }
 
     let mem = mem / 1024.0;
 
     if mem < 1024.0 {
-        return format!("{}KB", mem);
+        return format!("{:.2}KB", mem);
     }
 
     let mem = mem / 1024.0;
 
     if mem < 1024.0 {
-        return format!("{}MB", mem);
+        return format!("{:.2}MB", mem);
     }
 
     let mem = mem / 1024.0;
 
-    return format!("{}GB", mem);
+    return format!("{:.2}GB", mem);
 }
