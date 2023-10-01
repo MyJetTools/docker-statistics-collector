@@ -40,7 +40,7 @@ impl ContainerStatsJsonModel {
         let cpu_delta = self.cpu_delta() as f64;
         let system_cpu_delta = self.system_cpu_delta() as f64;
 
-        let result = (cpu_delta / system_cpu_delta) * self.number_cpus() as f64 * 100.0;
+        let result = (cpu_delta / system_cpu_delta) * self.number_cpus() as f64;
 
         result
     }
