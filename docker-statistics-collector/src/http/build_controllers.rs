@@ -15,5 +15,9 @@ pub fn build_controllers(app: &Arc<AppContext>) -> ControllersMiddleware {
         super::controllers::containers_controller::GetRunningContainersAction::new(app.clone()),
     ));
 
+    controllers_middleware.register_get_action(Arc::new(
+        super::controllers::containers_controller::GetLogsAction::new(app.clone()),
+    ));
+
     controllers_middleware
 }

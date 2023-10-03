@@ -93,3 +93,17 @@ pub async fn get_container_stats(
 
     Some(result.unwrap())
 }
+
+pub async fn get_container_logs(url: String, container_id: String) -> String {
+    let response = url
+        .append_path_segment("containers")
+        .append_path_segment(container_id)
+        .append_path_segment("logs")
+        .get()
+        .await
+        .unwrap();
+
+    let response = response.receive_body().await.unwrap();
+
+    String::from_utf8(response).unwrap()
+}
