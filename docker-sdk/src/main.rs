@@ -11,7 +11,7 @@ async fn main() {
        }
     */
 
-    let stats = docker_sdk::container_stats::get_container_stats(
+    let stats = docker_sdk::sdk::get_container_stats(
         url.to_string(),
         "49b9068b28ac68992712bd921cb56c32360275f1d3709399489b22b530edb87c".to_string(),
     )

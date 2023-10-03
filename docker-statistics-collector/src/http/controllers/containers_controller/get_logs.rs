@@ -1,10 +1,8 @@
 use crate::app::AppContext;
 
-use my_http_server::{HttpContext, HttpFailResult, HttpOkResult, HttpOutput};
+use my_http_server::{macros::MyHttpInput, HttpContext, HttpFailResult, HttpOkResult, HttpOutput};
 
 use std::sync::Arc;
-
-use super::contracts::*;
 
 #[my_http_server::macros::http_route(
     method: "GET",
@@ -12,6 +10,7 @@ use super::contracts::*;
     description: "Get containers logs",
     summary: "Get containers logs",
     controller: "Containers",
+    input_data: "GetLogsHttpInput",
     result:[
         {status_code: 200, description: "Logs of container", model:"String" },
     ]
@@ -28,31 +27,18 @@ impl GetLogsAction {
 
 async fn handle_request(
     action: &GetLogsAction,
+    input_data: GetLogsHttpInput,
     _ctx: &mut HttpContext,
 ) -> Result<HttpOkResult, HttpFailResult> {
-    let containers = action.app.cache.get_snapshot().await;
+    let url = action.app.settings_model.url.to_string();
 
-    let response = ContainersHtpResponse {
-        vm: action.app.settings_model.vm_name.clone(),
-        containers: containers
-            .into_iter()
-            .map(|itm| ContainerJsonModel {
-                id: itm.id,
-                image: itm.image,
-                enabled: itm.running,
-                cpu: CpuUsageJsonMode {
-                    usage: itm.cpu_usage,
-                },
-                mem: MemUsageJsonMode {
-                    usage: itm.mem_usage,
-                    available: itm.mem_available,
-                    limit: itm.mem_limit,
-                },
-                names: itm.names,
-                labels: itm.labels,
-            })
-            .collect(),
-    };
+    let result = docker_sdk::sdk::get_container_logs(url, input_data.id).await;
 
-    HttpOutput::as_json(response).into_ok_result(false).into()
+    HttpOutput::as_text(result).into_ok_result(false).into()
+}
+
+#[derive(MyHttpInput)]
+pub struct GetLogsHttpInput {
+    #[http_query(description:"Container id")]
+    pub id: String,
 }

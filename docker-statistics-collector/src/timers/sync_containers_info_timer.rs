@@ -34,11 +34,8 @@ impl MyTimerTick for SyncContainersInfoTimer {
                 let container_id = container.id.to_string();
                 let url = self.app.settings_model.url.to_string();
                 let statistics_task = tokio::spawn(async move {
-                    let usage = docker_sdk::container_stats::get_container_stats(
-                        url,
-                        container_id.to_string(),
-                    )
-                    .await;
+                    let usage =
+                        docker_sdk::sdk::get_container_stats(url, container_id.to_string()).await;
 
                     (container_id, usage)
                 });
