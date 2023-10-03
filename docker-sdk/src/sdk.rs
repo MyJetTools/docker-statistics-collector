@@ -94,12 +94,17 @@ pub async fn get_container_stats(
     Some(result.unwrap())
 }
 
-pub async fn get_container_logs(url: String, container_id: String) -> String {
+pub async fn get_container_logs(
+    url: String,
+    container_id: String,
+    last_lines_number: u32,
+) -> String {
     let response = url
         .append_path_segment("containers")
         .append_path_segment(container_id)
         .append_path_segment("logs")
         .append_query_param("stdout", Some("true"))
+        .append_query_param("tail", Some(last_lines_number.to_string()))
         .get()
         .await
         .unwrap();

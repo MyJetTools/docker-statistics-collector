@@ -32,7 +32,8 @@ async fn handle_request(
 ) -> Result<HttpOkResult, HttpFailResult> {
     let url = action.app.settings_model.url.to_string();
 
-    let result = docker_sdk::sdk::get_container_logs(url, input_data.id).await;
+    let result =
+        docker_sdk::sdk::get_container_logs(url, input_data.id, input_data.lines_number).await;
 
     HttpOutput::as_text(result).into_ok_result(false).into()
 }
@@ -41,4 +42,6 @@ async fn handle_request(
 pub struct GetLogsHttpInput {
     #[http_query(description:"Container id")]
     pub id: String,
+    #[http_query(description:"number of lines to return (from the tail)")]
+    pub lines_number: u32,
 }
