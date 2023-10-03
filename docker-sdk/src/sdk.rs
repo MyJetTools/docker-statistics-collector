@@ -99,6 +99,7 @@ pub async fn get_container_logs(url: String, container_id: String) -> String {
         .append_path_segment("containers")
         .append_path_segment(container_id)
         .append_path_segment("logs")
+        .append_query_param("stdout", Some("true"))
         .get()
         .await
         .unwrap();
