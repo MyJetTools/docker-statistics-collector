@@ -114,13 +114,15 @@ pub async fn get_container_logs(
         panic!("{:?}", err);
     }
 
-    let mut response = response.unwrap().receive_body().await.unwrap();
+    let response = response.unwrap().receive_body().await.unwrap();
+
+    let mut result = Vec::with_capacity(response.len());
 
     for i in 0..response.len() {
-        if response[i] < 10 {
-            response[i] = 32;
+        if response[i] == 10 || response[i] >= 32 {
+            result.push(response[i])
         }
     }
 
-    String::from_utf8(response).unwrap()
+    String::from_utf8(result).unwrap()
 }
