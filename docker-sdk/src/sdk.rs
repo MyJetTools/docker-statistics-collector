@@ -124,5 +124,5 @@ pub async fn get_container_logs(
         }
     }
 
-    String::from_utf8(result).unwrap()
+    String::from_utf8_lossy(result.as_slice()).into()
 }
