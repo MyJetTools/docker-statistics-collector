@@ -106,10 +106,14 @@ pub async fn get_container_logs(
         .append_query_param("stdout", Some("true"))
         .append_query_param("tail", Some(last_lines_number.to_string()))
         .get()
-        .await
-        .unwrap();
+        .await;
 
-    let response = response.receive_body().await.unwrap();
+    if let Err(err) = &response {
+        print!("get_container_logs Err:{:? }", err);
+        panic!("{:?}", err);
+    }
+
+    let response = response.unwrap().receive_body().await.unwrap();
 
     String::from_utf8(response).unwrap()
 }
