@@ -28,7 +28,16 @@ impl ContainerJsonModel {
     }
 
     pub fn is_running(&self) -> bool {
-        self.state == "running"
+        let result = self.state == "running";
+
+        if !result {
+            println!(
+                "Container {} is not running. State is: {}",
+                self.image, self.state
+            );
+        }
+
+        result
     }
 }
 
