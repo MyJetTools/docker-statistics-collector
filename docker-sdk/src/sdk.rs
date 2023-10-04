@@ -114,7 +114,13 @@ pub async fn get_container_logs(
         panic!("{:?}", err);
     }
 
-    let response = response.unwrap().receive_body().await.unwrap();
+    let mut response = response.unwrap().receive_body().await.unwrap();
+
+    for i in 0..response.len() {
+        if response[i] < 10 {
+            response[i] = 32;
+        }
+    }
 
     String::from_utf8(response).unwrap()
 }
