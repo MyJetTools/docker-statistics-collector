@@ -21,6 +21,11 @@ impl ServiceInfo {
         if self.image != info.image {
             self.image = info.image.to_string();
         }
+
+        self.running = info.is_running();
+
+        self.labels = info.labels.clone();
+        self.names = info.names.clone();
     }
 }
 
