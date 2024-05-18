@@ -81,9 +81,9 @@ pub async fn get_container_stats(
         .await
         .unwrap();
 
-    let response = response.get_body().await.unwrap();
+    let response = response.get_body_as_slice().await.unwrap();
 
-    let result = serde_json::from_slice(&response);
+    let result = serde_json::from_slice(response);
 
     if let Err(err) = &result {
         println!("Err:{}", err);

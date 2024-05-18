@@ -20,6 +20,9 @@ pub struct ContainerJsonModel {
     pub state: String,
     #[serde(rename = "Status")]
     pub status: String,
+
+    #[serde(rename = "Ports")]
+    pub ports: Option<Vec<ContainerStatsPortModel>>,
 }
 
 impl ContainerJsonModel {
@@ -51,4 +54,16 @@ pub async fn get_list_of_containers(url: String) -> Vec<ContainerJsonModel> {
         .get_json()
         .await
         .unwrap()
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ContainerStatsPortModel {
+    #[serde(rename = "IP")]
+    pub ip: Option<String>,
+    #[serde(rename = "PrivatePort")]
+    pub private_port: u16,
+    #[serde(rename = "PublicPort")]
+    pub public_port: Option<u16>,
+    #[serde(rename = "Type")]
+    pub r#type: String,
 }

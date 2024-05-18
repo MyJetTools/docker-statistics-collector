@@ -14,6 +14,8 @@ pub struct ServiceInfo {
     pub mem_limit: Option<i64>,
     pub mem_usage: Option<i64>,
     pub cpu_usage: Option<f64>,
+
+    pub ports: Vec<ServiceInfoPortModel>,
 }
 
 impl ServiceInfo {
@@ -69,6 +71,18 @@ impl ServicesCache {
                         mem_usage: None,
                         cpu_usage: None,
                         mem_limit: None,
+                        ports: match info.ports.as_ref() {
+                            None => Vec::new(),
+                            Some(ports) => ports
+                                .iter()
+                                .map(|itm| ServiceInfoPortModel {
+                                    ip: itm.ip.clone(),
+                                    private_port: itm.private_port,
+                                    public_port: itm.public_port,
+                                    port_type: itm.r#type.clone(),
+                                })
+                                .collect(),
+                        },
                     },
                 );
             } else {
@@ -118,4 +132,12 @@ impl ServicesCache {
 
         result
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct ServiceInfoPortModel {
+    pub ip: Option<String>,
+    pub private_port: u16,
+    pub public_port: Option<u16>,
+    pub port_type: String,
 }

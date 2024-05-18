@@ -36,21 +36,7 @@ async fn handle_request(
         vm: action.app.settings_model.vm_name.clone(),
         containers: containers
             .into_iter()
-            .map(|itm| ContainerJsonModel {
-                id: itm.id,
-                image: itm.image,
-                enabled: itm.running,
-                cpu: CpuUsageJsonMode {
-                    usage: itm.cpu_usage,
-                },
-                mem: MemUsageJsonMode {
-                    usage: itm.mem_usage,
-                    available: itm.mem_available,
-                    limit: itm.mem_limit,
-                },
-                names: itm.names,
-                labels: itm.labels,
-            })
+            .map(|itm| ContainerJsonModel::new(itm))
             .collect(),
     };
 

@@ -37,21 +37,7 @@ async fn handle_request(
         containers: containers
             .into_iter()
             .filter(|itm| itm.running)
-            .map(|itm| ContainerJsonModel {
-                id: itm.id,
-                image: itm.image,
-                names: itm.names,
-                enabled: itm.running,
-                cpu: CpuUsageJsonMode {
-                    usage: itm.cpu_usage,
-                },
-                mem: MemUsageJsonMode {
-                    usage: itm.mem_usage,
-                    available: itm.mem_available,
-                    limit: itm.mem_limit,
-                },
-                labels: itm.labels,
-            })
+            .map(|itm| ContainerJsonModel::new(itm))
             .collect(),
     };
 
