@@ -28,4 +28,13 @@ impl MetricsCache {
             self.cache.lock().await;
         read_access.get(service_id).cloned()
     }
+
+    pub async fn get_aggregated_metrics(&self) -> Vec<u8> {
+        let read_access = self.cache.lock().await;
+        let mut result = Vec::new();
+        for (_, value) in read_access.iter() {
+            result.extend(value);
+        }
+        result
+    }
 }
