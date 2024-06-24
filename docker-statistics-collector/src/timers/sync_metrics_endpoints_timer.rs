@@ -38,7 +38,9 @@ impl MyTimerTick for SyncMetricsEndpointsTimer {
                 Ok(metrics) => {
                     if metrics.get_status_code() == 200 {
                         if let Ok(body) = metrics.receive_body().await {
-                            self.app.metrics_cache.update(service_name, body).await;
+                            if is_prometheus_metrics_content(body.as_slice()) {
+                                self.app.metrics_cache.update(service_name, body).await;
+                            }
                         }
                     }
                 }
@@ -48,4 +50,18 @@ impl MyTimerTick for SyncMetricsEndpointsTimer {
             }
         }
     }
+}
+
+fn is_prometheus_metrics_content(src: &[u8]) -> bool {
+    for b in src {
+        let b = *b;
+
+        if b <= 32 {
+            continue;
+        }
+
+        return b == b'#';
+    }
+
+    false
 }
