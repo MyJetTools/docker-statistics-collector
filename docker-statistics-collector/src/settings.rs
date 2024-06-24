@@ -4,4 +4,5 @@ use serde::Deserialize;
 pub struct SettingsModel {
     pub vm_name: String,
     pub url: String,
+    pub metrics_port: u16,
 }

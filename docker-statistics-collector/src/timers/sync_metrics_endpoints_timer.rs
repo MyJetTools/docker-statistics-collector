@@ -29,8 +29,10 @@ impl MyTimerTick for SyncMetricsEndpointsTimer {
             }
         }
 
+        let metrics_port = self.app.settings_model.metrics_port;
+
         for service_name in service_names {
-            let url = format!("http://{}:8000/metrics", service_name);
+            let url = format!("http://{}:{}/metrics", service_name, metrics_port);
 
             let metrics = FlUrl::new(url.as_str()).get().await;
 
