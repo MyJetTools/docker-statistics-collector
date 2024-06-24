@@ -25,5 +25,9 @@ pub fn build_controllers(app: &Arc<AppContext>) -> ControllersMiddleware {
         super::controllers::metrics_controller::GetListOfServicesWithMetrics::new(app.clone()),
     ));
 
+    controllers_middleware.register_get_action(Arc::new(
+        super::controllers::metrics_controller::GetMetricsAction::new(app.clone()),
+    ));
+
     controllers_middleware
 }

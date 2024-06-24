@@ -22,4 +22,10 @@ impl MetricsCache {
         let read_access = self.cache.lock().await;
         read_access.keys().cloned().collect()
     }
+
+    pub async fn get_content(&self, service_id: &str) -> Option<Vec<u8>> {
+        let read_access: tokio::sync::MutexGuard<BTreeMap<String, Vec<u8>>> =
+            self.cache.lock().await;
+        read_access.get(service_id).cloned()
+    }
 }
