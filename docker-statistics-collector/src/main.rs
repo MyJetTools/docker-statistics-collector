@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use rust_extensions::MyTimer;
 use settings::SettingsModel;
-use timers::SyncContainersInfoTimer;
+use timers::{SyncContainersInfoTimer, SyncMetricsEndpointsTimer};
 
 mod app;
 mod http;
@@ -24,6 +24,11 @@ async fn main() {
     timer_5s.register_timer(
         "Containers reader",
         Arc::new(SyncContainersInfoTimer::new(app_ctx.clone())),
+    );
+
+    timer_5s.register_timer(
+        "Sync metrics",
+        Arc::new(SyncMetricsEndpointsTimer::new(app_ctx.clone())),
     );
 
     timer_5s.start(app_ctx.states.clone(), my_logger::LOGGER.clone());
