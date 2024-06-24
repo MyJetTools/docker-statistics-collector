@@ -35,13 +35,18 @@ impl MyTimerTick for SyncMetricsEndpointsTimer {
                 self.app.settings_model.url.to_string()
             );
 
-            let metrics = FlUrl::new(url).get().await;
+            let metrics = FlUrl::new(url.as_str()).get().await;
 
-            if let Ok(metrics) = metrics {
-                if metrics.get_status_code() == 200 {
-                    if let Ok(body) = metrics.receive_body().await {
-                        self.app.metrics_cache.update(service_name, body).await;
+            match metrics {
+                Ok(metrics) => {
+                    if metrics.get_status_code() == 200 {
+                        if let Ok(body) = metrics.receive_body().await {
+                            self.app.metrics_cache.update(service_name, body).await;
+                        }
                     }
+                }
+                Err(err) => {
+                    println!("Can not load metric from: {}. Error: {:?}", url, err);
                 }
             }
         }
