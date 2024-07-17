@@ -60,6 +60,11 @@ impl MyTimerTick for SyncMetricsEndpointsTimer {
                 }
             }
         }
+
+        println!(
+            "Now metrics content size is: {}",
+            self.app.metrics_cache.get_content_size().await
+        );
     }
 }
 
