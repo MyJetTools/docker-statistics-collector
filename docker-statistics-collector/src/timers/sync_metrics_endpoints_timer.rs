@@ -18,6 +18,12 @@ impl SyncMetricsEndpointsTimer {
 #[async_trait::async_trait]
 impl MyTimerTick for SyncMetricsEndpointsTimer {
     async fn tick(&self) {
+        if let Some(disabled) = self.app.settings_model.disable_metics_collecting {
+            if disabled {
+                return;
+            }
+        }
+
         let snapshot = self.app.cache.get_snapshot().await;
 
         let mut service_names = Vec::new();
