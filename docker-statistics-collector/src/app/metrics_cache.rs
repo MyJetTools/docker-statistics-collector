@@ -13,13 +13,13 @@ impl MetricsCache {
         }
     }
 
-    pub async fn get_content_size(&self) -> usize {
+    pub async fn get_content_size(&self) -> (usize, usize) {
         let read_access = self.cache.lock().await;
         let mut result = 0;
         for (_, value) in read_access.iter() {
             result += value.len();
         }
-        result
+        (read_access.len(), result)
     }
 
     pub async fn update(&self, service_name: String, content: Vec<u8>) {
