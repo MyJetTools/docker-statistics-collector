@@ -38,7 +38,11 @@ impl MyTimerTick for SyncMetricsEndpointsTimer {
         let metrics_port = self.app.settings_model.metrics_port;
 
         for service_name in service_names {
-            if service_name == "docker-statistics-collector" {
+            if self
+                .app
+                .settings_model
+                .ignore_service(service_name.as_str())
+            {
                 continue;
             }
 
