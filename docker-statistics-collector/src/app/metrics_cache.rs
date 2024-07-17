@@ -46,4 +46,13 @@ impl MetricsCache {
         }
         result
     }
+
+    pub async fn get_sizes(&self) -> BTreeMap<String, usize> {
+        let read_access = self.cache.lock().await;
+        let mut result = BTreeMap::new();
+        for (key, value) in read_access.iter() {
+            result.insert(key.clone(), value.len());
+        }
+        result
+    }
 }

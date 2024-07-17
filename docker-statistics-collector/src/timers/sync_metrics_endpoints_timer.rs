@@ -61,12 +61,9 @@ impl MyTimerTick for SyncMetricsEndpointsTimer {
             }
         }
 
-        let size = self.app.metrics_cache.get_content_size().await;
+        let snapshot = self.app.metrics_cache.get_sizes().await;
 
-        println!(
-            "Now metrics content size is: {}. Amount of records: {}",
-            size.1, size.0
-        );
+        println!("{:#?}", snapshot);
     }
 }
 
