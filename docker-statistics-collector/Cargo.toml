@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 
-my-http-server = { tag = "0.7.0", git = "https://github.com/MyJetTools/my-http-server.git", features = [
+my-http-server = { tag = "0.7.1", git = "https://github.com/MyJetTools/my-http-server.git", features = [
     "controllers",
     "macros",
 ] }

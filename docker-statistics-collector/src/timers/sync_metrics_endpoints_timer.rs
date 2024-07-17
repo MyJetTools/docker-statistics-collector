@@ -40,7 +40,10 @@ impl MyTimerTick for SyncMetricsEndpointsTimer {
         for service_name in service_names {
             let url = format!("http://{}:{}/metrics", service_name, metrics_port);
 
-            let metrics = FlUrl::new(url.as_str()).get().await;
+            let metrics = FlUrl::new(url.as_str())
+                .do_not_reuse_connection()
+                .get()
+                .await;
 
             match metrics {
                 Ok(metrics) => {
