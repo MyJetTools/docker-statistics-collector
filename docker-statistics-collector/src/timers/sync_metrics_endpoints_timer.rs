@@ -58,7 +58,12 @@ impl MyTimerTick for SyncMetricsEndpointsTimer {
                     if metrics.get_status_code() == 200 {
                         if let Ok(body) = metrics.receive_body().await {
                             if is_prometheus_metrics_content(body.as_slice()) {
-                                self.app.metrics_cache.update(service_name, body).await;
+                                let injected_with_app =
+                                    inject_app_name(body.as_slice(), service_name.as_str());
+                                self.app
+                                    .metrics_cache
+                                    .update(service_name, injected_with_app)
+                                    .await;
                             }
                         }
                     }
@@ -87,4 +92,21 @@ fn is_prometheus_metrics_content(src: &[u8]) -> bool {
     }
 
     false
+}
+
+fn inject_app_name(src: &[u8], app_name: &str) -> Vec<u8> {
+    let mut result = Vec::new();
+
+    let to_inject = format!("app=\"{}\",", app_name);
+
+    for b in src {
+        let b = *b;
+
+        result.push(b);
+        if b == b'{' {
+            result.extend(to_inject.as_bytes());
+        }
+    }
+
+    result
 }
