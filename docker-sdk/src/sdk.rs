@@ -19,6 +19,10 @@ impl ContainerStatsJsonModel {
             return self.memory_stats.usage - total_inactive_file;
         }
 
+        if let Some(inactive_file) = self.memory_stats.stats.inactive_file {
+            return self.memory_stats.usage - inactive_file;
+        }
+
         if let Some(cache) = self.memory_stats.stats.cache {
             return self.memory_stats.usage - cache;
         }
@@ -60,6 +64,7 @@ pub struct MemoryStatsJsonModel {
 pub struct MemoryStatsData {
     pub cache: Option<i64>,
     pub total_inactive_file: Option<i64>,
+    pub inactive_file: Option<i64>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
