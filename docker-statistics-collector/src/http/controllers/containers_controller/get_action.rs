@@ -13,7 +13,7 @@ use super::contracts::*;
     summary: "Get containers info",
     controller: "Containers",
     result:[
-        {status_code: 200, description: "List of containers", model:"ContainersHtpResponse" },
+        {status_code: 200, description: "List of containers", model:"ContainersHttpResponse" },
     ]
 )]
 pub struct GetContainersAction {
@@ -32,7 +32,7 @@ async fn handle_request(
 ) -> Result<HttpOkResult, HttpFailResult> {
     let containers = action.app.cache.get_snapshot().await;
 
-    let response = ContainersHtpResponse {
+    let response = ContainersHttpResponse {
         vm: action.app.settings_model.vm_name.clone(),
         containers: containers
             .into_iter()

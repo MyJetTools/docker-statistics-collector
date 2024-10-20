@@ -6,7 +6,7 @@ use serde::Serialize;
 use crate::app::ServiceInfo;
 
 #[derive(MyHttpObjectStructure, Serialize)]
-pub struct ContainersHtpResponse {
+pub struct ContainersHttpResponse {
     pub vm: String,
     pub containers: Vec<ContainerJsonModel>,
 }
@@ -18,6 +18,7 @@ pub struct ContainerJsonModel {
     pub names: Vec<String>,
     pub labels: Option<HashMap<String, String>>,
     pub enabled: bool,
+    pub created: i64,
     pub cpu: CpuUsageJsonMode,
     pub mem: MemUsageJsonMode,
     pub ports: Vec<PortHttpModel>,
@@ -39,6 +40,7 @@ impl ContainerJsonModel {
             },
             names: itm.names,
             labels: itm.labels,
+            created: itm.created,
 
             ports: itm
                 .ports
