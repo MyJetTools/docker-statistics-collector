@@ -11,6 +11,8 @@ pub struct ServiceInfo {
     pub labels: Option<HashMap<String, String>>,
     pub running: bool,
     pub created: i64,
+    pub state: String,
+    pub status: String,
     pub mem_available: Option<i64>,
     pub mem_limit: Option<i64>,
     pub mem_usage: Option<i64>,
@@ -73,6 +75,8 @@ impl ServicesCache {
                         mem_usage: None,
                         cpu_usage: None,
                         mem_limit: None,
+                        state: info.state.clone(),
+                        status: info.status.clone(),
                         ports: match info.ports.as_ref() {
                             None => Vec::new(),
                             Some(ports) => ports

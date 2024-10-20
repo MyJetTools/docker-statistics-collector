@@ -19,6 +19,8 @@ pub struct ContainerJsonModel {
     pub labels: Option<HashMap<String, String>>,
     pub enabled: bool,
     pub created: i64,
+    pub state: String,
+    pub status: String,
     pub cpu: CpuUsageJsonMode,
     pub mem: MemUsageJsonMode,
     pub ports: Vec<PortHttpModel>,
@@ -41,6 +43,9 @@ impl ContainerJsonModel {
             names: itm.names,
             labels: itm.labels,
             created: itm.created,
+
+            state: itm.state,
+            status: itm.status,
 
             ports: itm
                 .ports
