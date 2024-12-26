@@ -53,6 +53,8 @@ pub async fn get_list_of_containers(url: String) -> Vec<ContainerJsonModel> {
         .await
         .unwrap();
 
+    println!("Status code: {}", result.get_status_code());
+    println!("Headers: {:#?}", result.get_headers());
     let body = result.body_as_str().await.unwrap();
 
     println!("Body: {:?}", body);
