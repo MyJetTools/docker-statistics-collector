@@ -137,5 +137,9 @@ pub async fn get_container_logs(
     println!("Status code: {}", response.get_status_code());
     println!("Headers: {:#?}", response.get_headers());
 
-    response.receive_body().await.unwrap()
+    let body = response.receive_body().await.unwrap();
+
+    println!("Body Len: {}", body.len());
+
+    body
 }
