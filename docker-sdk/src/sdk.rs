@@ -91,6 +91,10 @@ pub async fn get_container_stats(
         .await
         .unwrap();
 
+    println!("Status code: {}", response.get_status_code());
+
+    println!("Headers: {:#?}", response.get_headers());
+
     let response = response.get_body_as_slice().await.unwrap();
 
     let result = serde_json::from_slice(response);
