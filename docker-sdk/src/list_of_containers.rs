@@ -46,7 +46,6 @@ impl ContainerJsonModel {
 
 pub async fn get_list_of_containers(url: String, api_version: &str) -> Vec<ContainerJsonModel> {
     let mut result = url
-        .append_path_segment(api_version)
         .append_path_segment("containers")
         .append_path_segment("json")
         .append_query_param("all", Some("true"))
@@ -61,7 +60,7 @@ pub async fn get_list_of_containers(url: String, api_version: &str) -> Vec<Conta
     println!("Headers: {:#?}", result.get_headers());
     let body = result.body_as_str().await.unwrap();
 
-    println!("Body: {:?}", body);
+    println!("Body Leb: {}", body.len());
 
     serde_json::from_str(body).unwrap()
 }
