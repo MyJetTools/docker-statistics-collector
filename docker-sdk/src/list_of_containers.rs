@@ -50,6 +50,9 @@ pub async fn get_list_of_containers(url: String, api_version: &str) -> Vec<Conta
         .append_path_segment("containers")
         .append_path_segment("json")
         .append_query_param("all", Some("true"))
+        .with_header("Host", "docker")
+        .with_header("Accept", "*/*")
+        .with_header("User-Agent", "Rust application")
         .get()
         .await
         .unwrap();
