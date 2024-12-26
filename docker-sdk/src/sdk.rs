@@ -121,6 +121,7 @@ pub async fn get_container_logs(
         .append_path_segment(container_id)
         .append_path_segment("logs")
         .append_query_param("stdout", Some("true"))
+        .append_query_param("stderr", Some("true"))
         .append_query_param("timestamps", Some("true"))
         .append_query_param("tail", Some(last_lines_number.to_string()))
         .print_input_request()
