@@ -108,7 +108,7 @@ pub async fn get_container_logs(
     url: String,
     container_id: String,
     last_lines_number: u32,
-) -> String {
+) -> Vec<u8> {
     let response = url
         .append_path_segment("containers")
         .append_path_segment(container_id)
@@ -124,15 +124,5 @@ pub async fn get_container_logs(
         panic!("{:?}", err);
     }
 
-    let response = response.unwrap().receive_body().await.unwrap();
-
-    let mut result = Vec::with_capacity(response.len());
-
-    for i in 0..response.len() {
-        if response[i] == 10 || response[i] >= 32 {
-            result.push(response[i])
-        }
-    }
-
-    String::from_utf8_lossy(result.as_slice()).into()
+    response.unwrap().receive_body().await.unwrap()
 }
