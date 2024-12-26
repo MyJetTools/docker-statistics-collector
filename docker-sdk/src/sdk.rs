@@ -116,6 +116,7 @@ pub async fn get_container_logs(
     last_lines_number: u32,
 ) -> Vec<u8> {
     let response = url
+        .as_str()
         .append_path_segment("containers")
         .append_path_segment(container_id)
         .append_path_segment("logs")
@@ -130,5 +131,13 @@ pub async fn get_container_logs(
         panic!("{:?}", err);
     }
 
-    response.unwrap().receive_body().await.unwrap()
+    let response = response.unwrap();
+
+    if response.get_status_code() != 200 {
+        println!("url: {}", url);
+        println!("Status code: {}", response.get_status_code());
+        println!("Headers: {:#?}", response.get_headers());
+    }
+
+    response.receive_body().await.unwrap()
 }
