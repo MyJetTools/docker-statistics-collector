@@ -7,7 +7,6 @@ pub struct SettingsModel {
     pub metrics_port: u16,
     pub disable_metics_collecting: Option<bool>,
     pub services_to_ignore: Vec<String>,
-    pub api_version: String,
 }
 
 impl SettingsModel {

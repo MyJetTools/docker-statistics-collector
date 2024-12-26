@@ -44,25 +44,28 @@ impl ContainerJsonModel {
     }
 }
 
-pub async fn get_list_of_containers(url: String, api_version: &str) -> Vec<ContainerJsonModel> {
+pub async fn get_list_of_containers(url: String) -> Vec<ContainerJsonModel> {
     let mut result = url
         .append_path_segment("containers")
         .append_path_segment("json")
         .append_query_param("all", Some("true"))
-        .with_header("Host", "docker")
-        .with_header("Accept", "*/*")
-        .with_header("User-Agent", "Rust application")
         .get()
         .await
         .unwrap();
 
-    println!("Status code: {}", result.get_status_code());
-    println!("Headers: {:#?}", result.get_headers());
-    let body = result.body_as_str().await.unwrap();
+    let body = if result.get_status_code() != 200 {
+        println!("Status code: {}", result.get_status_code());
+        println!("Headers: {:#?}", result.get_headers());
+        let body = result.get_body_as_slice().await.unwrap();
 
-    println!("Body Leb: {}", body.len());
+        println!("Body Len: {}", body.len());
+        body
+    } else {
+        let body = result.get_body_as_slice().await.unwrap();
+        body
+    };
 
-    serde_json::from_str(body).unwrap()
+    serde_json::from_slice(body).unwrap()
 }
 
 #[derive(Serialize, Deserialize, Debug)]

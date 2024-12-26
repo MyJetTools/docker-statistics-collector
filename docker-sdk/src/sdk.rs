@@ -83,6 +83,7 @@ pub async fn get_container_stats(
     container_id: String,
 ) -> Option<ContainerStatsJsonModel> {
     let mut response = url
+        .clone()
         .append_path_segment("containers")
         .append_path_segment(container_id)
         .append_path_segment("stats")
@@ -91,12 +92,13 @@ pub async fn get_container_stats(
         .await
         .unwrap();
 
-    println!("Status code: {}", response.get_status_code());
-
-    println!("Headers: {:#?}", response.get_headers());
+    if response.get_status_code() != 200 {
+        println!("url: {}", url);
+        println!("Status code: {}", response.get_status_code());
+        println!("Headers: {:#?}", response.get_headers());
+    }
 
     let response = response.get_body_as_slice().await.unwrap();
-
     let result = serde_json::from_slice(response);
 
     if let Err(err) = &result {
