@@ -83,7 +83,7 @@ pub async fn get_container_stats(
     container_id: String,
 ) -> Option<ContainerStatsJsonModel> {
     let mut response = url
-        .clone()
+        .as_str()
         .append_path_segment("containers")
         .append_path_segment(container_id)
         .append_path_segment("stats")
