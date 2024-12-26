@@ -44,8 +44,9 @@ impl ContainerJsonModel {
     }
 }
 
-pub async fn get_list_of_containers(url: String) -> Vec<ContainerJsonModel> {
+pub async fn get_list_of_containers(url: String, api_version: &str) -> Vec<ContainerJsonModel> {
     let mut result = url
+        .append_path_segment(api_version)
         .append_path_segment("containers")
         .append_path_segment("json")
         .append_query_param("all", Some("true"))

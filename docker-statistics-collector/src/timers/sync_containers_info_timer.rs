@@ -22,6 +22,7 @@ impl MyTimerTick for SyncContainersInfoTimer {
         sw.start();
         let list_of_containers = docker_sdk::list_of_containers::get_list_of_containers(
             self.app.settings_model.url.to_string(),
+            self.app.settings_model.api_version.as_str(),
         )
         .await;
 
