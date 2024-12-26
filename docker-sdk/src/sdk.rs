@@ -133,11 +133,9 @@ pub async fn get_container_logs(
 
     let response = response.unwrap();
 
-    if response.get_status_code() != 200 {
-        println!("url: {}", url);
-        println!("Status code: {}", response.get_status_code());
-        println!("Headers: {:#?}", response.get_headers());
-    }
+    println!("url: {}", url);
+    println!("Status code: {}", response.get_status_code());
+    println!("Headers: {:#?}", response.get_headers());
 
     response.receive_body().await.unwrap()
 }
