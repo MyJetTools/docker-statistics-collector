@@ -50,7 +50,8 @@ pub async fn get_list_of_containers(url: String) -> Vec<ContainerJsonModel> {
         .append_path_segment("containers")
         .append_path_segment("json")
         .append_query_param("all", Some("true"))
-        .set_timeout(Duration::from_secs(3))
+        .set_timeout(Duration::from_secs(5))
+        .do_not_reuse_connection()
         .get()
         .await
         .unwrap();
