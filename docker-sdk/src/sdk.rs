@@ -128,6 +128,7 @@ pub async fn get_container_logs(
         .append_query_param("timestamps", Some("true"))
         .append_query_param("tail", Some(last_lines_number.to_string()))
         .set_timeout(Duration::from_secs(2))
+        .do_not_reuse_connection()
         .print_input_request()
         .get()
         .await;
