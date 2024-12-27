@@ -130,7 +130,7 @@ pub async fn get_container_logs(
         .append_query_param("tail", Some(last_lines_number.to_string()))
         .set_timeout(Duration::from_secs(5))
         .do_not_reuse_connection()
-        .print_input_request()
+        //  .print_input_request()
         .get()
         .await;
 
@@ -141,13 +141,13 @@ pub async fn get_container_logs(
 
     let response = response.unwrap();
 
-    println!("url: {}", url);
-    println!("Status code: {}", response.get_status_code());
-    println!("Headers: {:#?}", response.get_headers());
+    //  println!("url: {}", url);
+    //  println!("Status code: {}", response.get_status_code());
+    //  println!("Headers: {:#?}", response.get_headers());
 
     let body = response.receive_body().await.unwrap();
 
-    println!("Body Len: {}", body.len());
+    //    println!("Body Len: {}", body.len());
 
     body
 }
