@@ -117,13 +117,8 @@ pub async fn get_container_stats(
     Some(result.unwrap())
 }
 
-pub async fn get_container_logs(
-    url: String,
-    container_id: String,
-    last_lines_number: u32,
-) -> Vec<u8> {
+pub async fn get_container_logs(url: &str, container_id: &str, last_lines_number: u32) -> Vec<u8> {
     let response = url
-        .as_str()
         .append_path_segment("containers")
         .append_path_segment(container_id)
         .append_path_segment("logs")

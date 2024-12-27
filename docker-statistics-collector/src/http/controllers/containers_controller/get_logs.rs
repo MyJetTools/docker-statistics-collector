@@ -32,8 +32,22 @@ async fn handle_request(
 ) -> Result<HttpOkResult, HttpFailResult> {
     let url = action.app.settings_model.url.to_string();
 
-    let result =
-        docker_sdk::sdk::get_container_logs(url, input_data.id, input_data.lines_number).await;
+    let mut result = Vec::new();
+
+    for _ in 0..10 {
+        let payload = docker_sdk::sdk::get_container_logs(
+            url.as_str(),
+            input_data.id.as_str(),
+            input_data.lines_number,
+        )
+        .await;
+
+        if payload.len() > result.len() {
+            result = payload;
+        }
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    }
 
     HttpOutput::Content {
         headers: None,
