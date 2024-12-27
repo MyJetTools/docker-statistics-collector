@@ -69,7 +69,7 @@ impl MyTimerTick for SyncMetricsEndpointsTimer {
                     }
                 }
                 Err(err) => {
-                    println!("Can not load metric from: {}. Error: {:?}", url, err);
+                    eprintln!("Can not load metric from: {}. Error: {:?}", url, err);
                 }
             }
         }

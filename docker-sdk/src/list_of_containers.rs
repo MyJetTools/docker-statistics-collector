@@ -34,7 +34,7 @@ impl ContainerJsonModel {
         let result = self.state == "running";
 
         if !result {
-            println!(
+            eprintln!(
                 "Container {} is not running. State is: {}",
                 self.image, self.state
             );
