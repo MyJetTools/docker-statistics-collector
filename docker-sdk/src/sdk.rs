@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use flurl::IntoFlUrl;
 use serde::*;
 
@@ -88,6 +90,7 @@ pub async fn get_container_stats(
         .append_path_segment(container_id)
         .append_path_segment("stats")
         .append_query_param("stream", Some("false"))
+        .set_timeout(Duration::from_secs(2))
         .get()
         .await
         .unwrap();
@@ -124,6 +127,7 @@ pub async fn get_container_logs(
         .append_query_param("stderr", Some("true"))
         .append_query_param("timestamps", Some("true"))
         .append_query_param("tail", Some(last_lines_number.to_string()))
+        .set_timeout(Duration::from_secs(2))
         .print_input_request()
         .get()
         .await;

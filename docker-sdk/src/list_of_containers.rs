@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
 use flurl::IntoFlUrl;
 use rust_extensions::date_time::DateTimeAsMicroseconds;
@@ -50,6 +50,7 @@ pub async fn get_list_of_containers(url: String) -> Vec<ContainerJsonModel> {
         .append_path_segment("containers")
         .append_path_segment("json")
         .append_query_param("all", Some("true"))
+        .set_timeout(Duration::from_secs(3))
         .get()
         .await
         .unwrap();
