@@ -1,6 +1,9 @@
 use std::time::Duration;
 
-use flurl::IntoFlUrl;
+use flurl::{
+    hyper::header::{CONNECTION, HOST},
+    IntoFlUrl,
+};
 use serde::*;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -124,10 +127,12 @@ pub async fn get_container_logs(
         .append_path_segment("containers")
         .append_path_segment(container_id)
         .append_path_segment("logs")
-        .append_query_param("stdout", Some("true"))
-        .append_query_param("stderr", Some("true"))
-        .append_query_param("timestamps", Some("true"))
+        .append_query_param("stdout", Some("1"))
+        .append_query_param("stderr", Some("1"))
+        .append_query_param("timestamps", Some("1"))
         .append_query_param("tail", Some(last_lines_number.to_string()))
+        .with_header(HOST.as_str(), "docker")
+        .with_header(CONNECTION.as_str(), "close")
         .set_timeout(Duration::from_secs(5))
         .do_not_reuse_connection()
         //  .print_input_request()
