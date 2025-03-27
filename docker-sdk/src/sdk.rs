@@ -94,7 +94,6 @@ pub async fn get_container_stats(
         .append_path_segment("stats")
         .append_query_param("stream", Some("false"))
         .set_timeout(Duration::from_secs(5))
-        .do_not_reuse_connection()
         .get()
         .await
         .unwrap();
@@ -129,7 +128,6 @@ pub async fn get_container_logs(url: &str, container_id: &str, last_lines_number
         .with_header(HOST.as_str(), "docker")
         .with_header(CONNECTION.as_str(), "close")
         .set_timeout(Duration::from_secs(5))
-        .do_not_reuse_connection()
         //  .print_input_request()
         .get()
         .await;
