@@ -56,6 +56,8 @@ impl MyTimerTick for SyncMetricsEndpointsTimer {
             match metrics {
                 Ok(metrics) => {
                     if metrics.get_status_code() == 200 {
+                        /*
+                        todo!("Debugging");
                         if let Ok(body) = metrics.receive_body().await {
                             if is_prometheus_metrics_content(body.as_slice()) {
                                 let injected_with_app =
@@ -66,6 +68,7 @@ impl MyTimerTick for SyncMetricsEndpointsTimer {
                                     .await;
                             }
                         }
+                         */
                     }
                 }
                 Err(err) => {
