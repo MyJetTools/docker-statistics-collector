@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-flurl = { branch = "main", git = "https://github.com/MyJetTools/fl-url.git", features = [
+flurl = { tag = "0.6.1", git = "https://github.com/MyJetTools/fl-url.git", features = [
     "unix-socket",
 ] }
 
