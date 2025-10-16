@@ -128,6 +128,7 @@ pub async fn get_container_logs(url: &str, container_id: &str, last_lines_number
         .with_header(HOST.as_str(), "docker")
         .with_header(CONNECTION.as_str(), "close")
         .set_timeout(Duration::from_secs(5))
+        .update_mode(flurl::FlUrlMode::Http1NoHyper)
         //  .print_input_request()
         .get()
         .await;

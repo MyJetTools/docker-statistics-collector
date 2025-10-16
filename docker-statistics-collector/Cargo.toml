@@ -7,15 +7,13 @@ edition = "2021"
 
 [dependencies]
 
-my-http-server = { tag = "0.8.2", git = "https://github.com/MyJetTools/my-http-server.git", features = [
+my-http-server = { tag = "0.8.3", git = "https://github.com/MyJetTools/my-http-server.git", features = [
     "controllers",
     "macros",
 ] }
 
 my-logger = { tag = "1.2.1", git = "https://github.com/MyJetTools/my-logger.git" }
-flurl = { tag = "0.6.1", git = "https://github.com/MyJetTools/fl-url.git", features = [
-    "unix-socket",
-] }
+flurl = { tag = "0.6.1", git = "https://github.com/MyJetTools/fl-url.git" }
 
 my-settings-reader = { tag = "0.4.1", git = "https://github.com/MyJetTools/my-settings-reader.git" }
 

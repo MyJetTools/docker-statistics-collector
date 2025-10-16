@@ -17,9 +17,8 @@ impl SyncContainersInfoTimer {
 #[async_trait::async_trait]
 impl MyTimerTick for SyncContainersInfoTimer {
     async fn tick(&self) {
-        let mut sw = StopWatch::new();
+        let sw = StopWatch::new();
 
-        sw.start();
         let list_of_containers = docker_sdk::list_of_containers::get_list_of_containers(
             self.app.settings_model.url.to_string(),
         )
@@ -71,7 +70,6 @@ impl MyTimerTick for SyncContainersInfoTimer {
             }
         }
 
-        sw.pause();
         println!("Iteration is finished in {}", sw.duration_as_string());
     }
 }

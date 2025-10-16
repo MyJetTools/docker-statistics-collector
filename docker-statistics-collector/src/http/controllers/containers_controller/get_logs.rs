@@ -40,6 +40,7 @@ async fn handle_request(
     .await;
 
     HttpOutput::Content {
+        status_code: 200,
         headers: None,
         content_type: None,
         content,

@@ -25,6 +25,7 @@ async fn handle_request(
     let content = action.app.metrics_cache.get_aggregated_metrics().await;
 
     HttpOutput::Content {
+        status_code: 200,
         content: content,
         content_type: WebContentType::Text.into(),
         headers: None,

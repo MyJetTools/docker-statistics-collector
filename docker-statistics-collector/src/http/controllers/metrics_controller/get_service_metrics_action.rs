@@ -34,6 +34,7 @@ async fn handle_request(
 ) -> Result<HttpOkResult, HttpFailResult> {
     match action.app.metrics_cache.get_content(&input_data.id).await {
         Some(content) => HttpOutput::Content {
+            status_code: 200,
             content: content,
             content_type: WebContentType::Text.into(),
             headers: None,
