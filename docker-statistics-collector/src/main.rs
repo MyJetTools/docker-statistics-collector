@@ -10,7 +10,7 @@ mod settings;
 mod timers;
 #[tokio::main]
 async fn main() {
-    let settings = SettingsModel::read_from_file(".docker-statistics-collector".to_string())
+    let settings = SettingsModel::read_from_file("~/.docker-statistics-collector".to_string())
         .await
         .unwrap();
 
