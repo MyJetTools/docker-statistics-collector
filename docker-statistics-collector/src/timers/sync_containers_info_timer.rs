@@ -20,7 +20,7 @@ impl MyTimerTick for SyncContainersInfoTimer {
         let sw = StopWatch::new();
 
         let list_of_containers = docker_sdk::list_of_containers::get_list_of_containers(
-            self.app.settings_model.url.to_string(),
+            self.app.settings_model.docker_url.to_string(),
         )
         .await;
 
@@ -31,7 +31,7 @@ impl MyTimerTick for SyncContainersInfoTimer {
         for container in list_of_containers {
             if container.is_running() {
                 let container_id = container.id.to_string();
-                let url = self.app.settings_model.url.to_string();
+                let url = self.app.settings_model.docker_url.to_string();
                 let statistics_task = tokio::spawn(async move {
                     let usage =
                         docker_sdk::sdk::get_container_stats(url, container_id.to_string()).await;

@@ -2,7 +2,7 @@ use serde::Deserialize;
 
 #[derive(my_settings_reader::SettingsModel, Clone, Deserialize)]
 pub struct SettingsModel {
-    pub url: String,
+    pub docker_url: String,
     pub metrics_port: u16,
     pub disable_metics_collecting: Option<bool>,
     pub services_to_ignore: Vec<String>,

@@ -30,7 +30,7 @@ async fn handle_request(
     input_data: GetLogsHttpInput,
     _ctx: &mut HttpContext,
 ) -> Result<HttpOkResult, HttpFailResult> {
-    let url = action.app.settings_model.url.to_string();
+    let url = action.app.settings_model.docker_url.to_string();
 
     let content = docker_sdk::sdk::get_container_logs(
         url.as_str(),
