@@ -91,6 +91,21 @@ docker run --rm \
   docker-statistics-collector
 ```
 
+Minimal `docker-compose.yaml`:
+
+```yaml
+services:
+  docker-statistics-collector:
+    image: ghcr.io/myjettools/docker-statistics-collector:0.2.5
+    container_name: docker-statistics-collector
+    restart: always
+    environment:
+    - ENV_INFO
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    - ./.docker-statistics-collector:/root/.docker-statistics-collector:ro
+```
+
 To use a Unix socket, set `docker_url: http+unix://var/run/docker.sock` and
 keep the `/var/run/docker.sock` bind-mount (read-only is enough). For TCP,
 drop the socket mount and point `docker_url` at the daemon's HTTP endpoint.
