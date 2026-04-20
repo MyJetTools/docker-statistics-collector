@@ -26,4 +26,11 @@ impl AppContext {
             metrics_cache: MetricsCache::new(),
         }
     }
+
+    pub fn get_env_info(&self) -> String {
+        match std::env::var("ENV_INFO") {
+            Ok(value) => value,
+            Err(_) => "NotSpecified".to_string(),
+        }
+    }
 }

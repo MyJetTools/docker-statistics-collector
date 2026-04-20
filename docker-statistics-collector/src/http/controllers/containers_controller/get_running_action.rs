@@ -33,7 +33,7 @@ async fn handle_request(
     let containers = action.app.cache.get_snapshot().await;
 
     let response = ContainersHttpResponse {
-        vm: action.app.settings_model.vm_name.clone(),
+        vm: action.app.get_env_info(),
         containers: containers
             .into_iter()
             .filter(|itm| itm.running)

@@ -36,9 +36,7 @@ async fn handle_request(
         Some(content) => HttpOutput::Content {
             status_code: 200,
             content: content,
-            content_type: WebContentType::Text.into(),
-            headers: None,
-            set_cookies: None,
+            headers: WebContentType::Text.into(),
         }
         .into_ok_result(false)
         .into(),

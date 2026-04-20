@@ -41,10 +41,8 @@ async fn handle_request(
 
     HttpOutput::Content {
         status_code: 200,
-        headers: None,
-        content_type: None,
+        headers: Default::default(),
         content,
-        set_cookies: None,
     }
     .into_ok_result(false)
 }
