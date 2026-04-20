@@ -69,7 +69,8 @@ pub async fn get_list_of_containers(url: String) -> Vec<ContainerJsonModel> {
         println!("Headers: {:#?}", result.get_headers());
         let body = result.get_body_as_slice().await.unwrap();
         println!("Body Len: {}", body.len());
-        println!("Body: {}", String::from_utf8_lossy(body));
+        println!("Body: {:?}", std::str::from_utf8(body));
+        println!("BodyAsBytes: {:?}", body);
         panic!("Docker returned non-200 status: {}", status_code);
     }
 
