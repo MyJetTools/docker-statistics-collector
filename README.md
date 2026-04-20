@@ -49,7 +49,7 @@ Settings are read from `~/.docker-statistics-collector` (YAML). See
 
 | Field                        | Type           | Description                                                                       |
 | ---------------------------- | -------------- | --------------------------------------------------------------------------------- |
-| `docker_url`                 | `string`       | Base URL of the Docker Engine API (e.g. `http://localhost:2375`).                 |
+| `docker_url`                 | `string`       | Docker Engine API endpoint. TCP: `http://localhost:2375`. Unix socket: `http+unix://var/run/docker.sock`. |
 | `metrics_port`               | `u16`          | Port on which each service exposes its Prometheus `/metrics` endpoint.            |
 | `disable_metics_collecting`  | `bool?`        | If `true`, the metrics scraping timer is a no-op.                                 |
 | `services_to_ignore`         | `list<string>?`| Optional. `com.docker.compose.service` values to skip during scraping.            |
@@ -91,8 +91,9 @@ docker run --rm \
   docker-statistics-collector
 ```
 
-To talk to the Docker daemon over TCP instead of the Unix socket, point
-`docker_url` at the daemon's HTTP endpoint and omit the socket mount.
+To use a Unix socket, set `docker_url: http+unix://var/run/docker.sock` and
+keep the `/var/run/docker.sock` bind-mount (read-only is enough). For TCP,
+drop the socket mount and point `docker_url` at the daemon's HTTP endpoint.
 
 ## Requirements
 
