@@ -61,18 +61,17 @@ pub async fn get_list_of_containers(url: String) -> Vec<ContainerJsonModel> {
     println!("---Debug Request---");
     println!("{}", debug_data);
 
-    let body = if result.get_status_code() != 200 {
-        println!("url: {}", url);
-        println!("Status code: {}", result.get_status_code());
-        println!("Headers: {:#?}", result.get_headers());
-        let body = result.get_body_as_slice().await.unwrap();
+    let status_code = result.get_status_code();
+    let body = result.get_body_as_slice().await.unwrap();
 
+    if status_code != 200 {
+        println!("url: {}", url);
+        println!("Status code: {}", status_code);
+        println!("Headers: {:#?}", result.get_headers());
         println!("Body Len: {}", body.len());
-        body
-    } else {
-        let body = result.get_body_as_slice().await.unwrap();
-        body
-    };
+        println!("Body: {}", String::from_utf8_lossy(body));
+        panic!("Docker returned non-200 status: {}", status_code);
+    }
 
     serde_json::from_slice(body).unwrap()
 }
