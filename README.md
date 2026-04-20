@@ -52,7 +52,7 @@ Settings are read from `~/.docker-statistics-collector` (YAML). See
 | `docker_url`                 | `string`       | Base URL of the Docker Engine API (e.g. `http://localhost:2375`).                 |
 | `metrics_port`               | `u16`          | Port on which each service exposes its Prometheus `/metrics` endpoint.            |
 | `disable_metics_collecting`  | `bool?`        | If `true`, the metrics scraping timer is a no-op.                                 |
-| `services_to_ignore`         | `list<string>` | `com.docker.compose.service` values to skip during scraping.                      |
+| `services_to_ignore`         | `list<string>?`| Optional. `com.docker.compose.service` values to skip during scraping.            |
 
 Example:
 
