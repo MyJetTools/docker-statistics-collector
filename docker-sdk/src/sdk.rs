@@ -87,7 +87,6 @@ pub async fn get_container_stats(
     url: String,
     container_id: String,
 ) -> Option<ContainerStatsJsonModel> {
-    let mut debug_data = String::new();
     let mut response = url
         .as_str()
         .append_path_segment("containers")
@@ -96,11 +95,9 @@ pub async fn get_container_stats(
         .with_header("host", "localhost")
         .append_query_param("stream", Some("false"))
         .set_timeout(Duration::from_secs(5))
-        .get_with_debug(&mut debug_data)
+        .get()
         .await
         .unwrap();
-
-    println!("{:?}", debug_data);
 
     if response.get_status_code() != 200 {
         println!("url: {}", url);

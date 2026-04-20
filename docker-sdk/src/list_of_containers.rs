@@ -45,7 +45,6 @@ impl ContainerJsonModel {
 }
 
 pub async fn get_list_of_containers(url: String) -> Vec<ContainerJsonModel> {
-    let mut debug_data = String::new();
     let mut result = url
         .as_str()
         .with_header("host", "localhost")
@@ -54,12 +53,9 @@ pub async fn get_list_of_containers(url: String) -> Vec<ContainerJsonModel> {
         .append_query_param("all", Some("true"))
         .set_timeout(Duration::from_secs(5))
         .do_not_reuse_connection()
-        .get_with_debug(&mut debug_data)
+        .get()
         .await
         .unwrap();
-
-    println!("---Debug Request---");
-    println!("{}", debug_data);
 
     let status_code = result.get_status_code();
 
