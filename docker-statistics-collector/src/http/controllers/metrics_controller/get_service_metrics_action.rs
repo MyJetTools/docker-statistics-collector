@@ -35,7 +35,7 @@ async fn handle_request(
     match action.app.metrics_cache.get_content(&input_data.id).await {
         Some(content) => HttpOutput::Content {
             status_code: 200,
-            content: content,
+            content: Arc::try_unwrap(content).unwrap_or_else(|arc| (*arc).clone()),
             headers: WebContentType::Text.into(),
         }
         .into_ok_result(false)
