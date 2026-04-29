@@ -27,12 +27,7 @@ docker-sdk = { path = "../docker-sdk" }
 async-trait = "*"
 serde_yaml = "*"
 
-rmcp = { version = "1.5", features = [
-    "server",
-    "macros",
-    "transport-streamable-http-server",
+mcp-server-middleware = { tag = "0.8.3", git = "https://github.com/my-ai-utils/mcp-server-middleware.git" }
+my-ai-agent = { tag = "0.1.0", git = "https://github.com/my-ai-utils/my-ai-agent.git", features = [
+    "agent",
 ] }
-schemars = "0.8"
-http = "1"
-http-body-util = "0.1"
-bytes = "1"
