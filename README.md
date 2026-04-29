@@ -9,7 +9,8 @@ metrics exposed by containers running under `docker compose`.
 - [docker-sdk/](docker-sdk/) — a minimal async client for the Docker Engine
   HTTP API (list containers, fetch container stats).
 - [docker-statistics-collector/](docker-statistics-collector/) — the collector
-  service: background timers, in-memory caches, and an HTTP/Swagger API.
+  service: background timers, in-memory caches, an HTTP/Swagger API, and an
+  MCP (Model Context Protocol) endpoint at `/mcp`.
 
 ## How it works
 
@@ -53,6 +54,9 @@ Settings are read from `~/.docker-statistics-collector` (YAML). See
 | `metrics_port`               | `u16`          | Port on which each service exposes its Prometheus `/metrics` endpoint.            |
 | `disable_metics_collecting`  | `bool?`        | If `true`, the metrics scraping timer is a no-op.                                 |
 | `services_to_ignore`         | `list<string>?`| Optional. `com.docker.compose.service` values to skip during scraping.            |
+| `peers`                      | `list<string>?`| Optional. Base URLs of peer collector instances to federate with (see below).     |
+| `peers_sync_interval_secs`   | `u64?`         | Optional. Interval for polling peers. Default `5`.                                |
+| `peers_request_timeout_secs` | `u64?`         | Optional. Per-peer request timeout. Default `5`.                                  |
 
 Example:
 
@@ -63,6 +67,11 @@ disable_metics_collecting: false
 services_to_ignore:
   - nginx
   - redis
+peers:
+  - http://collector-b:8000
+  - http://collector-c:8000
+peers_sync_interval_secs: 5
+peers_request_timeout_secs: 5
 ```
 
 The HTTP listen port (`8000`) is hardcoded in
@@ -109,6 +118,59 @@ services:
 To use a Unix socket, set `docker_url: http+unix://var/run/docker.sock` and
 keep the `/var/run/docker.sock` bind-mount (read-only is enough). For TCP,
 drop the socket mount and point `docker_url` at the daemon's HTTP endpoint.
+
+## Federation
+
+When `peers` is set, a third timer (cadence `peers_sync_interval_secs`) polls
+each peer's `GET /api/containers/local` endpoint and stores the response in an
+in-memory peer cache. The instance identifier of each peer comes from the
+peer's `ENV_INFO` environment variable.
+
+The merging happens at read time:
+
+- `GET /api/containers` and `GET /api/containers/running` now return the union
+  of local containers and every peer's last successful snapshot. Each item
+  carries an `instance` field naming the source.
+- `GET /api/containers/logs?id=...&lines_number=...` auto-resolves: if the id
+  belongs to a peer it proxies the request to that peer's local logs endpoint.
+- The `/mcp` tools (`find_containers`, `get_container_logs`) behave the same
+  way — searches span all instances and log retrieval auto-routes.
+- `GET /api/containers/local` is the **peer-facing** endpoint; it returns only
+  this instance's data and never recurses into peers, so two collectors can
+  reciprocally peer each other safely.
+- `/metrics` aggregation across peers is **not** federated in this version.
+
+## MCP endpoint
+
+The collector exposes an MCP (Model Context Protocol) endpoint at `/mcp` on the
+same port (`8000`). It uses MCP **Streamable HTTP** transport and is built on
+the official [`rmcp`](https://crates.io/crates/rmcp) SDK. Two tools are
+exposed:
+
+- `find_containers(phrase, only_running?)` — case-insensitive substring match
+  against container id, names, image, and labels. Returns id, names, image,
+  state, status, ports, labels, the `com.docker.compose.service` value, and the
+  latest CPU/memory snapshot from the cache.
+- `get_container_logs(container_id, tail?)` — combined stdout/stderr tail
+  (defaults to 200 lines), with Docker's multiplexed framing stripped.
+
+Implementation: see [mcp/server.rs](docker-statistics-collector/src/mcp/server.rs)
+and [mcp/middleware.rs](docker-statistics-collector/src/mcp/middleware.rs);
+the middleware is registered in
+[start_up.rs](docker-statistics-collector/src/http/start_up.rs).
+
+Register with an MCP-aware client that supports streamable-HTTP transport:
+
+```json
+{
+  "mcpServers": {
+    "docker-statistics": {
+      "type": "http",
+      "url": "http://localhost:8000/mcp"
+    }
+  }
+}
+```
 
 ## Requirements
 

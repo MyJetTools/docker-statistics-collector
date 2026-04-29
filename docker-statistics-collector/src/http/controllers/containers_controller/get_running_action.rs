@@ -30,15 +30,24 @@ async fn handle_request(
     action: &GetRunningContainersAction,
     _ctx: &mut HttpContext,
 ) -> Result<HttpOkResult, HttpFailResult> {
-    let containers = action.app.cache.get_snapshot().await;
+    let local = action.app.cache.get_snapshot().await;
+    let local_instance = action.app.get_env_info();
+
+    let mut containers: Vec<ContainerJsonModel> = local
+        .into_iter()
+        .filter(|itm| itm.running)
+        .map(|itm| ContainerJsonModel::new(itm, local_instance.clone()))
+        .collect();
+
+    for peer in action.app.peers_cache.get_snapshot().await {
+        for itm in peer.containers.into_iter().filter(|c| c.running) {
+            containers.push(ContainerJsonModel::new(itm, peer.instance.clone()));
+        }
+    }
 
     let response = ContainersHttpResponse {
-        vm: action.app.get_env_info(),
-        containers: containers
-            .into_iter()
-            .filter(|itm| itm.running)
-            .map(|itm| ContainerJsonModel::new(itm))
-            .collect(),
+        vm: local_instance,
+        containers,
     };
 
     HttpOutput::as_json(response).into_ok_result(false).into()

@@ -4,6 +4,8 @@ use my_http_server::{macros::MyHttpInput, HttpContext, HttpFailResult, HttpOkRes
 
 use std::sync::Arc;
 
+use super::route_logs::{route_logs, RouteLogsResult};
+
 #[my_http_server::macros::http_route(
     method: "GET",
     route: "/api/containers/logs",
@@ -30,21 +32,19 @@ async fn handle_request(
     input_data: GetLogsHttpInput,
     _ctx: &mut HttpContext,
 ) -> Result<HttpOkResult, HttpFailResult> {
-    let url = action.app.settings_model.docker_url.to_string();
-
-    let content = docker_sdk::sdk::get_container_logs(
-        url.as_str(),
-        input_data.id.as_str(),
-        input_data.lines_number,
-    )
-    .await;
-
-    HttpOutput::Content {
-        status_code: 200,
-        headers: Default::default(),
-        content,
+    match route_logs(&action.app, input_data.id.as_str(), input_data.lines_number).await {
+        RouteLogsResult::Ok(content) => HttpOutput::Content {
+            status_code: 200,
+            headers: Default::default(),
+            content,
+        }
+        .into_ok_result(false),
+        RouteLogsResult::NotFound => Err(HttpFailResult::as_not_found(
+            format!("container {} not found on this instance or any peer", input_data.id),
+            false,
+        )),
+        RouteLogsResult::PeerError(err) => Err(HttpFailResult::as_fatal_error(err)),
     }
-    .into_ok_result(false)
 }
 
 #[derive(MyHttpInput)]

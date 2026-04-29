@@ -26,3 +26,13 @@ rust-extensions = { tag = "0.1.5", git = "https://github.com/MyJetTools/rust-ext
 docker-sdk = { path = "../docker-sdk" }
 async-trait = "*"
 serde_yaml = "*"
+
+rmcp = { version = "1.5", features = [
+    "server",
+    "macros",
+    "transport-streamable-http-server",
+] }
+schemars = "0.8"
+http = "1"
+http-body-util = "0.1"
+bytes = "1"
