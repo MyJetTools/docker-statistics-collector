@@ -4,7 +4,9 @@ use mcp_server_middleware::McpMiddleware;
 use my_http_server::{controllers::swagger::SwaggerMiddleware, MyHttpServer};
 
 use crate::app::AppContext;
-use crate::mcp::{FindContainersHandler, GetContainerLogsHandler};
+use crate::mcp::{
+    FindContainersHandler, GetContainerLogsHandler, ListServersAndServicesHandler,
+};
 
 pub async fn start_http_server(app: &Arc<AppContext>) {
     let mut http_server = MyHttpServer::new(SocketAddr::from(([0, 0, 0, 0], 8000)));
@@ -19,6 +21,8 @@ pub async fn start_http_server(app: &Arc<AppContext>) {
         "Tools to inspect Docker containers across this instance and federated peers.",
     );
 
+    mcp.register_tool_call(Arc::new(ListServersAndServicesHandler::new(app.clone())))
+        .await;
     mcp.register_tool_call(Arc::new(FindContainersHandler::new(app.clone())))
         .await;
     mcp.register_tool_call(Arc::new(GetContainerLogsHandler::new(app.clone())))
