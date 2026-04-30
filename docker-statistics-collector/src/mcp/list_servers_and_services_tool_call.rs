@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use mcp_server_middleware::*;
@@ -26,11 +26,35 @@ pub struct ServerEntry {
     #[property(description = "Instance identifier (ENV_INFO of that collector).")]
     pub instance: String,
 
-    #[property(description = "Distinct values of the com.docker.compose.service label, sorted.")]
-    pub services: Vec<String>,
+    #[property(description = "Distinct docker-compose services running on this instance with their published port mappings.")]
+    pub services: Vec<ServiceEntry>,
 
     #[property(description = "Total number of containers reported by this instance after filtering.")]
     pub container_count: i64,
+}
+
+#[derive(ApplyJsonSchema, Debug, Serialize, Deserialize)]
+pub struct ServiceEntry {
+    #[property(description = "com.docker.compose.service label value.")]
+    pub service_name: String,
+
+    #[property(description = "Distinct port mappings observed on containers of this service. Format: host_ip:host_port -> container_port (protocol).")]
+    pub ports: Vec<PortMapping>,
+}
+
+#[derive(ApplyJsonSchema, Debug, Serialize, Deserialize)]
+pub struct PortMapping {
+    #[property(description = "Host IP the port is bound on, e.g. 0.0.0.0. Empty string when not published to the host.")]
+    pub host_ip: String,
+
+    #[property(description = "Host (published) port. None means the port is not exposed outside the container network.")]
+    pub host_port: Option<u16>,
+
+    #[property(description = "Container-internal port the host port maps to.")]
+    pub container_port: u16,
+
+    #[property(description = "Protocol: tcp, udp, or sctp.")]
+    pub protocol: String,
 }
 
 pub struct ListServersAndServicesHandler {
@@ -72,7 +96,8 @@ impl McpToolCall<ListServersAndServicesInputData, ListServersAndServicesResponse
 }
 
 fn build_entry(instance: &str, containers: &[ServiceInfo], only_running: bool) -> ServerEntry {
-    let mut services: BTreeSet<String> = BTreeSet::new();
+    // service_name -> set of unique port-mapping keys -> PortMapping
+    let mut by_service: BTreeMap<String, BTreeMap<String, PortMapping>> = BTreeMap::new();
     let mut count: i64 = 0;
 
     for c in containers {
@@ -81,16 +106,46 @@ fn build_entry(instance: &str, containers: &[ServiceInfo], only_running: bool) -
         }
         count += 1;
 
-        if let Some(labels) = c.labels.as_ref() {
-            if let Some(svc) = labels.get("com.docker.compose.service") {
-                services.insert(svc.clone());
-            }
+        let service_name = c
+            .labels
+            .as_ref()
+            .and_then(|l| l.get("com.docker.compose.service").cloned());
+
+        let Some(service_name) = service_name else {
+            continue;
+        };
+
+        let entry = by_service.entry(service_name).or_default();
+
+        for p in &c.ports {
+            let host_ip = p.ip.clone().unwrap_or_default();
+            let key = format!(
+                "{}:{}->{}/{}",
+                host_ip,
+                p.public_port.map(|n| n.to_string()).unwrap_or_default(),
+                p.private_port,
+                p.port_type
+            );
+            entry.entry(key).or_insert_with(|| PortMapping {
+                host_ip,
+                host_port: p.public_port,
+                container_port: p.private_port,
+                protocol: p.port_type.clone(),
+            });
         }
     }
 
+    let services = by_service
+        .into_iter()
+        .map(|(service_name, ports)| ServiceEntry {
+            service_name,
+            ports: ports.into_values().collect(),
+        })
+        .collect();
+
     ServerEntry {
         instance: instance.to_string(),
-        services: services.into_iter().collect(),
+        services,
         container_count: count,
     }
 }

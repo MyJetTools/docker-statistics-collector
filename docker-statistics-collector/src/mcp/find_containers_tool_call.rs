@@ -62,6 +62,9 @@ pub struct ContainerSummary {
 
     #[property(description = "Container labels as key/value pairs.")]
     pub labels: Vec<LabelEntry>,
+
+    #[property(description = "Published port mappings: host_ip:host_port -> container_port (protocol).")]
+    pub ports: Vec<PortSummary>,
 }
 
 #[derive(ApplyJsonSchema, Debug, Serialize, Deserialize)]
@@ -71,6 +74,21 @@ pub struct LabelEntry {
 
     #[property(description = "Label value")]
     pub label_value: String,
+}
+
+#[derive(ApplyJsonSchema, Debug, Serialize, Deserialize)]
+pub struct PortSummary {
+    #[property(description = "Host IP the port is bound on, e.g. 0.0.0.0 or 10.0.0.5. Empty string when not published to the host.")]
+    pub host_ip: String,
+
+    #[property(description = "Host (published) port. None means the port is not exposed outside the container network.")]
+    pub host_port: Option<u16>,
+
+    #[property(description = "Container-internal port the host port maps to.")]
+    pub container_port: u16,
+
+    #[property(description = "Protocol: tcp, udp, or sctp.")]
+    pub protocol: String,
 }
 
 pub struct FindContainersHandler {
@@ -165,6 +183,17 @@ fn to_summary(c: ServiceInfo, instance: String) -> ContainerSummary {
         })
         .unwrap_or_default();
 
+    let ports = c
+        .ports
+        .into_iter()
+        .map(|p| PortSummary {
+            host_ip: p.ip.unwrap_or_default(),
+            host_port: p.public_port,
+            container_port: p.private_port,
+            protocol: p.port_type,
+        })
+        .collect();
+
     ContainerSummary {
         id: c.id,
         instance,
@@ -178,5 +207,6 @@ fn to_summary(c: ServiceInfo, instance: String) -> ContainerSummary {
         mem_usage: c.mem_usage,
         mem_limit: c.mem_limit,
         labels,
+        ports,
     }
 }
