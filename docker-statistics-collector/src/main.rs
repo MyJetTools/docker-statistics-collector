@@ -11,6 +11,18 @@ mod settings;
 mod timers;
 #[tokio::main]
 async fn main() {
+    match std::env::var("ENV_INFO") {
+        Ok(v) if !v.trim().is_empty() => {}
+        _ => {
+            eprintln!(
+                "FATAL: ENV_INFO environment variable is required and must be non-empty. \
+                 It tags every container in federated responses and MUST be unique \
+                 across peered collectors. Refusing to start."
+            );
+            std::process::exit(1);
+        }
+    }
+
     let settings = SettingsModel::read_from_file("~/.docker-statistics-collector".to_string())
         .await
         .unwrap();
@@ -18,6 +30,12 @@ async fn main() {
     let app_ctx = app::AppContext::new(Arc::new(settings));
 
     let app_ctx = Arc::new(app_ctx);
+
+    println!(
+        "Instance name resolved to: {} (this value tags every container in federated responses; \
+         it MUST be unique across peered collectors)",
+        app_ctx.get_env_info()
+    );
 
     let mut timer_5s =
         MyTimer::new_with_execute_timeout(Duration::from_secs(5), Duration::from_secs(60 * 5));

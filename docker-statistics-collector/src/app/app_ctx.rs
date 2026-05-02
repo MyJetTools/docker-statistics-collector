@@ -29,10 +29,11 @@ impl AppContext {
         }
     }
 
+    /// Instance name used to tag containers in federated responses. Comes from
+    /// the `ENV_INFO` environment variable, which is verified to be set at
+    /// startup in `main`.
     pub fn get_env_info(&self) -> String {
-        match std::env::var("ENV_INFO") {
-            Ok(value) => value,
-            Err(_) => "NotSpecified".to_string(),
-        }
+        std::env::var("ENV_INFO")
+            .expect("ENV_INFO must be set (checked at startup in main)")
     }
 }
