@@ -1,5 +1,6 @@
 use dioxus::prelude::*;
 
+use crate::api::apply_pass_phrase;
 use crate::MainState;
 #[component]
 pub fn PromptSshPassKey() -> Element {
@@ -49,12 +50,3 @@ impl PromptSshPassKeyState {
     }
 }
 
-#[server]
-async fn apply_pass_phrase(pass_phrase: String) -> Result<(), ServerFnError> {
-    crate::server::APP_CTX
-        .ssh_private_key_resolver
-        .set_pass_phrase(pass_phrase)
-        .await;
-
-    Ok(())
-}
