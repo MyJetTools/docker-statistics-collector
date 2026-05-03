@@ -1,4 +1,9 @@
-/target
-Cargo.lock
+**/target
+**/Cargo.lock
+**/node_modules
 **/.DS_Store
+my-settings-ui/static
 .claude
+local
+tmp/
+.vscode

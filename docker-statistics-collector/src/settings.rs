@@ -9,7 +9,6 @@ pub struct SettingsModel {
     pub disable_metics_collecting: Option<bool>,
     pub services_to_ignore: Option<Vec<String>>,
     pub peers: Option<Vec<String>>,
-    pub peers_sync_interval_secs: Option<u64>,
     pub peers_request_timeout_secs: Option<u64>,
 }
 
@@ -33,10 +32,6 @@ impl SettingsModel {
             Some(peers) => peers.as_slice(),
             None => &[],
         }
-    }
-
-    pub fn peers_sync_interval(&self) -> Duration {
-        Duration::from_secs(self.peers_sync_interval_secs.unwrap_or(5))
     }
 
     pub fn peers_request_timeout(&self) -> Duration {

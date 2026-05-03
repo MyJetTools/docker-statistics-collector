@@ -129,14 +129,15 @@ impl McpToolCall<FindContainersInputData, FindContainersResponse> for FindContai
             .map(|c| to_summary(c, local_instance.clone()))
             .collect();
 
-        for peer in self.app.peers_cache.get_snapshot().await {
-            for c in peer
-                .containers
+        for (peer_instance, peer_containers) in
+            crate::peers_client::fanout_local_containers(&self.app).await
+        {
+            for c in peer_containers
                 .into_iter()
                 .filter(|c| !only_running || c.running)
                 .filter(|c| matches_phrase(c, &needle))
             {
-                containers.push(to_summary(c, peer.instance.clone()));
+                containers.push(to_summary(c, peer_instance.clone()));
             }
         }
 

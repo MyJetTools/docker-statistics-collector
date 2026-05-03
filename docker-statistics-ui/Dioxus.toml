@@ -1,0 +1,44 @@
+[application]
+
+# App (Project) Name
+name = "docker-statistics-ui"
+
+# Dioxus App Default Platform
+# desktop, web, mobile, ssr
+default_platform = "web"
+
+# `build` & `serve` dist path
+#out_dir = "dist"
+
+# resource (public) file folder
+asset_dir = "assets"
+
+[web.app]
+# HTML title tag content
+title = "Dockers Statistics"
+
+[web.watcher]
+
+# when watcher trigger, regenerate the `index.html`
+reload_html = true
+
+# which files or dirs will be watcher monitoring
+#watch_path = ["src", "public", "index.html"]
+
+# let the SPA handle any non "/" path
+index_on_404 = true
+
+# include `assets` in web platform
+[web.resource]
+
+# CSS style file
+style = ["/assets/styled.css", "/assets/app.css"]
+
+# Javascript code file
+script = []
+
+[web.resource.dev]
+
+# Javascript code file
+# serve: [dev-server] only
+script = []

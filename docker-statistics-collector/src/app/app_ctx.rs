@@ -4,7 +4,7 @@ use rust_extensions::AppStates;
 
 use crate::settings::SettingsModel;
 
-use super::{MetricsCache, PeersCache, ServicesCache};
+use super::{MetricsCache, ServicesCache};
 
 pub const APP_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 pub const APP_NAME: &'static str = env!("CARGO_PKG_NAME");
@@ -15,7 +15,6 @@ pub struct AppContext {
     pub cache: ServicesCache,
 
     pub metrics_cache: MetricsCache,
-    pub peers_cache: PeersCache,
 }
 
 impl AppContext {
@@ -25,7 +24,6 @@ impl AppContext {
             settings_model,
             cache: ServicesCache::new(),
             metrics_cache: MetricsCache::new(),
-            peers_cache: PeersCache::new(),
         }
     }
 

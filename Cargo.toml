@@ -1,2 +1,3 @@
 [workspace]
 members = ["docker-sdk", "docker-statistics-collector"]
+exclude = ["docker-statistics-ui"]

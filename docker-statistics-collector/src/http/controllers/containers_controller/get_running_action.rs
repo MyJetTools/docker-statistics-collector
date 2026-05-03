@@ -39,9 +39,11 @@ async fn handle_request(
         .map(|itm| ContainerJsonModel::new(itm, local_instance.clone()))
         .collect();
 
-    for peer in action.app.peers_cache.get_snapshot().await {
-        for itm in peer.containers.into_iter().filter(|c| c.running) {
-            containers.push(ContainerJsonModel::new(itm, peer.instance.clone()));
+    for (peer_instance, peer_containers) in
+        crate::peers_client::fanout_local_containers(&action.app).await
+    {
+        for itm in peer_containers.into_iter().filter(|c| c.running) {
+            containers.push(ContainerJsonModel::new(itm, peer_instance.clone()));
         }
     }
 
