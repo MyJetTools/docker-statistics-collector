@@ -38,7 +38,6 @@ jobs:
           cd ${DIR}
           dx bundle --web --release
           ls ./target/dx/${APP_NAME}/release/web
-          cp -f ./public/assets/bootstrap.js ./target/dx/${APP_NAME}/release/web/public/assets/bootstrap.js
           python3 build.py ./target/dx/${APP_NAME}/release/web/public/index.html
 
       - name: Zip and upload
