@@ -5,7 +5,8 @@ use my_http_server::{controllers::swagger::SwaggerMiddleware, MyHttpServer};
 
 use crate::app::AppContext;
 use crate::mcp::{
-    FindContainersHandler, GetContainerLogsHandler, ListServersAndServicesHandler,
+    FindContainersHandler, GetContainerLogsHandler, HowToUseItPromptHandler,
+    ListServersAndServicesHandler,
 };
 
 /// Sent to MCP clients on `initialize` as ServerInfo.instructions. Loaded at
@@ -32,6 +33,8 @@ pub async fn start_http_server(app: &Arc<AppContext>) {
         .await;
     mcp.register_tool_call(Arc::new(GetContainerLogsHandler::new(app.clone())))
         .await;
+
+    mcp.register_prompt(Arc::new(HowToUseItPromptHandler)).await;
 
     http_server.add_middleware(Arc::new(mcp));
 
