@@ -121,45 +121,37 @@ drop the socket mount and point `docker_url` at the daemon's HTTP endpoint.
 
 ## Federation
 
-When `peers` is set, a third timer (cadence `peers_sync_interval_secs`) polls
-each peer's `GET /api/containers/local` endpoint and stores the response in an
-in-memory peer cache. The instance identifier of each peer comes from the
-peer's `ENV_INFO` environment variable.
+When `peers` is set in the master collector's settings, every request that needs
+cross-host data **fans out to peers in real time** (parallel HTTP calls,
+`peers_request_timeout_secs` per call, default 5s). There is no peer cache and
+no sync timer — adding/removing peers in the YAML is picked up on the next
+request.
 
-The merging happens at read time:
-
-- `GET /api/containers` and `GET /api/containers/running` now return the union
-  of local containers and every peer's last successful snapshot. Each item
-  carries an `instance` field naming the source.
-- `GET /api/containers/logs?id=...&lines_number=...` auto-resolves: if the id
-  belongs to a peer it proxies the request to that peer's local logs endpoint.
-- The `/mcp` tools (`find_containers`, `get_container_logs`) behave the same
-  way — searches span all instances and log retrieval auto-routes.
-- `GET /api/containers/local` is the **peer-facing** endpoint; it returns only
-  this instance's data and never recurses into peers, so two collectors can
-  reciprocally peer each other safely.
+- `GET /api/containers` and `GET /api/containers/running` return the union of
+  local containers and a real-time fan-out to every peer's
+  `/api/containers/local`. Each item carries an `instance` field naming the
+  source's `ENV_INFO`. Failed peers are logged to stderr and skipped
+  (best-effort merge).
+- `GET /api/containers/logs?id=...&lines_number=...` tries the local Docker
+  socket first; if the id is unknown locally it broadcasts the log fetch to all
+  peers in parallel and returns the first 200 response.
+- `GET /api/containers/local` is the **peer-facing** endpoint — local data only,
+  never re-fanouts. This makes A↔B reciprocal peering safe (no recursion).
+- The `/mcp` tools behave the same way — searches and log retrieval span the
+  fleet through the master.
 - `/metrics` aggregation across peers is **not** federated in this version.
 
 ## MCP endpoint
 
-The collector exposes an MCP (Model Context Protocol) endpoint at `/mcp` on the
-same port (`8000`). It uses MCP **Streamable HTTP** transport and is built on
-the official [`rmcp`](https://crates.io/crates/rmcp) SDK. Two tools are
-exposed:
+The collector exposes an MCP (Model Context Protocol) endpoint at `POST /mcp`
+on the same port (`8000`). Three tools are exposed: `list_servers_and_services`,
+`find_containers`, `get_container_logs`. All federation-aware.
 
-- `find_containers(phrase, only_running?)` — case-insensitive substring match
-  against container id, names, image, and labels. Returns id, names, image,
-  state, status, ports, labels, the `com.docker.compose.service` value, and the
-  latest CPU/memory snapshot from the cache.
-- `get_container_logs(container_id, tail?)` — combined stdout/stderr tail
-  (defaults to 200 lines), with Docker's multiplexed framing stripped.
+See [MCP.md](MCP.md) for the full guide — endpoint, tool schemas, response
+shapes, client registration, sample tool-call flows, and notes on extending the
+server.
 
-Implementation: see [mcp/server.rs](docker-statistics-collector/src/mcp/server.rs)
-and [mcp/middleware.rs](docker-statistics-collector/src/mcp/middleware.rs);
-the middleware is registered in
-[start_up.rs](docker-statistics-collector/src/http/start_up.rs).
-
-Register with an MCP-aware client that supports streamable-HTTP transport:
+Quick client config:
 
 ```json
 {

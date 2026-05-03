@@ -8,6 +8,11 @@ use crate::mcp::{
     FindContainersHandler, GetContainerLogsHandler, ListServersAndServicesHandler,
 };
 
+/// Sent to MCP clients on `initialize` as ServerInfo.instructions. Loaded at
+/// compile time from MCP_INSTRUCTION.md so the document can be edited as
+/// markdown without touching Rust source. Re-build the binary after editing.
+const MCP_INSTRUCTIONS: &str = include_str!("../../MCP_INSTRUCTION.md");
+
 pub async fn start_http_server(app: &Arc<AppContext>) {
     let mut http_server = MyHttpServer::new(SocketAddr::from(([0, 0, 0, 0], 8000)));
 
@@ -18,7 +23,7 @@ pub async fn start_http_server(app: &Arc<AppContext>) {
         "/mcp",
         crate::app::APP_NAME,
         crate::app::APP_VERSION,
-        "Tools to inspect Docker containers across this instance and federated peers.",
+        MCP_INSTRUCTIONS,
     );
 
     mcp.register_tool_call(Arc::new(ListServersAndServicesHandler::new(app.clone())))
