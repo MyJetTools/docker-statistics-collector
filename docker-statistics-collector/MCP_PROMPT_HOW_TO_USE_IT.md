@@ -7,12 +7,22 @@ server. Read this prompt before drilling into the tools.
 
 1. `list_servers_and_services` — discover instances and the docker-compose
    services running on each, with their published port mappings.
-2. `find_containers` — substring-search containers across all instances by
-   id, name, image, or label. Returns CPU/memory snapshot, ports, labels, and
-   `compose_service`.
-3. `get_container_logs` — fetch tail logs by `container_id` (full or prefix
-   returned by `find_containers`). Routing across hosts is automatic; do not
-   pass an instance hint.
+2. `find_application` — **regex** match against the application identity
+   (compose service name, container names, image). Best when the user says
+   "the X service / app" and you want a precise, pattern-based lookup. Each
+   result tells you the host (`instance`) and the container's description
+   (id, names, image, state, status, `compose_service`).
+3. `find_containers` — broader **substring** search across id, names, image,
+   AND labels. Returns the same fields as `find_application` plus CPU/memory
+   snapshot, ports, full label list. Use when you need extra detail or when
+   the search term is a label key/value rather than an application name.
+4. `get_container_logs` — fetch tail logs by `container_id` (full or prefix
+   returned by `find_application` / `find_containers`). Routing across hosts
+   is automatic; do not pass an instance hint.
+
+When in doubt: start with `find_application` for "where is X running" type
+questions, fall back to `find_containers` if you also need ports / labels /
+resource usage.
 
 ## Reading the `instance` field
 
