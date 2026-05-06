@@ -7,7 +7,7 @@ pub struct LogLineHttpModel {
     pub line: String,
 }
 
-#[get("/api/logs")]
+#[get("/api/logs?env&url&id&lines_amount")]
 pub async fn get_logs(
     env: String,
     url: String,
