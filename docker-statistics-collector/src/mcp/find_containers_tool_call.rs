@@ -65,6 +65,9 @@ pub struct ContainerSummary {
 
     #[property(description = "Published port mappings: host_ip:host_port -> container_port (protocol).")]
     pub ports: Vec<PortSummary>,
+
+    #[property(description = "Mapped volumes/mounts (bind mounts, named volumes, tmpfs).")]
+    pub volumes: Vec<VolumeSummary>,
 }
 
 #[derive(ApplyJsonSchema, Debug, Serialize, Deserialize)]
@@ -89,6 +92,24 @@ pub struct PortSummary {
 
     #[property(description = "Protocol: tcp, udp, or sctp.")]
     pub protocol: String,
+}
+
+#[derive(ApplyJsonSchema, Debug, Serialize, Deserialize)]
+pub struct VolumeSummary {
+    #[property(description = "Mount type: bind, volume, or tmpfs.")]
+    pub mount_type: String,
+
+    #[property(description = "Named volume identifier, or empty string for bind/tmpfs mounts.")]
+    pub name: String,
+
+    #[property(description = "Host path or volume source. Empty string when not provided by Docker.")]
+    pub source: String,
+
+    #[property(description = "Path inside the container where the volume is mounted.")]
+    pub destination: String,
+
+    #[property(description = "True if the mount is writable. None when Docker did not report it.")]
+    pub rw: Option<bool>,
 }
 
 pub struct FindContainersHandler {
@@ -195,6 +216,18 @@ fn to_summary(c: ServiceInfo, instance: String) -> ContainerSummary {
         })
         .collect();
 
+    let volumes = c
+        .volumes
+        .into_iter()
+        .map(|v| VolumeSummary {
+            mount_type: v.mount_type.unwrap_or_default(),
+            name: v.name.unwrap_or_default(),
+            source: v.source.unwrap_or_default(),
+            destination: v.destination.unwrap_or_default(),
+            rw: v.rw,
+        })
+        .collect();
+
     ContainerSummary {
         id: c.id,
         instance,
@@ -209,5 +242,6 @@ fn to_summary(c: ServiceInfo, instance: String) -> ContainerSummary {
         mem_limit: c.mem_limit,
         labels,
         ports,
+        volumes,
     }
 }
