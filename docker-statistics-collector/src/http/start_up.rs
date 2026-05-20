@@ -27,16 +27,12 @@ pub async fn start_http_server(app: &Arc<AppContext>) {
         MCP_INSTRUCTIONS,
     );
 
-    mcp.register_tool_call(Arc::new(ListServersAndServicesHandler::new(app.clone())))
-        .await;
-    mcp.register_tool_call(Arc::new(FindApplicationHandler::new(app.clone())))
-        .await;
-    mcp.register_tool_call(Arc::new(FindContainersHandler::new(app.clone())))
-        .await;
-    mcp.register_tool_call(Arc::new(GetContainerLogsHandler::new(app.clone())))
-        .await;
+    mcp.register_tool_call(Arc::new(ListServersAndServicesHandler::new(app.clone())));
+    mcp.register_tool_call(Arc::new(FindApplicationHandler::new(app.clone())));
+    mcp.register_tool_call(Arc::new(FindContainersHandler::new(app.clone())));
+    mcp.register_tool_call(Arc::new(GetContainerLogsHandler::new(app.clone())));
 
-    mcp.register_prompt(Arc::new(HowToUseItPromptHandler)).await;
+    mcp.register_prompt(Arc::new(HowToUseItPromptHandler));
 
     http_server.add_middleware(Arc::new(mcp));
 
