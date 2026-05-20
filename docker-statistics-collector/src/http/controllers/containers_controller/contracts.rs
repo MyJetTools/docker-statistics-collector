@@ -25,6 +25,7 @@ pub struct ContainerJsonModel {
     pub cpu: CpuUsageJsonMode,
     pub mem: MemUsageJsonMode,
     pub ports: Vec<PortHttpModel>,
+    pub volumes: Vec<VolumeHttpModel>,
 }
 
 impl ContainerJsonModel {
@@ -59,11 +60,26 @@ impl ContainerJsonModel {
                     port_type: itm.port_type,
                 })
                 .collect(),
+
+            volumes: itm
+                .volumes
+                .into_iter()
+                .map(|itm| VolumeHttpModel {
+                    mount_type: itm.mount_type,
+                    name: itm.name,
+                    source: itm.source,
+                    destination: itm.destination,
+                    driver: itm.driver,
+                    mode: itm.mode,
+                    rw: itm.rw,
+                    propagation: itm.propagation,
+                })
+                .collect(),
         }
     }
 
     pub fn into_service_info(self) -> ServiceInfo {
-        use crate::app::ServiceInfoPortModel;
+        use crate::app::{ServiceInfoPortModel, ServiceInfoVolumeModel};
         ServiceInfo {
             id: self.id,
             image: self.image,
@@ -85,6 +101,20 @@ impl ContainerJsonModel {
                     private_port: p.private_port,
                     public_port: p.public_port,
                     port_type: p.port_type,
+                })
+                .collect(),
+            volumes: self
+                .volumes
+                .into_iter()
+                .map(|v| ServiceInfoVolumeModel {
+                    mount_type: v.mount_type,
+                    name: v.name,
+                    source: v.source,
+                    destination: v.destination,
+                    driver: v.driver,
+                    mode: v.mode,
+                    rw: v.rw,
+                    propagation: v.propagation,
                 })
                 .collect(),
         }
@@ -112,4 +142,17 @@ pub struct PortHttpModel {
     pub public_port: Option<u16>,
     #[serde(rename = "portType")]
     pub port_type: String,
+}
+
+#[derive(Serialize, Deserialize, MyHttpObjectStructure)]
+pub struct VolumeHttpModel {
+    #[serde(rename = "mountType")]
+    pub mount_type: Option<String>,
+    pub name: Option<String>,
+    pub source: Option<String>,
+    pub destination: Option<String>,
+    pub driver: Option<String>,
+    pub mode: Option<String>,
+    pub rw: Option<bool>,
+    pub propagation: Option<String>,
 }

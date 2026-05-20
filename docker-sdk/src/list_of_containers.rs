@@ -23,6 +23,9 @@ pub struct ContainerJsonModel {
 
     #[serde(rename = "Ports")]
     pub ports: Option<Vec<ContainerStatsPortModel>>,
+
+    #[serde(rename = "Mounts")]
+    pub mounts: Option<Vec<ContainerMountModel>>,
 }
 
 impl ContainerJsonModel {
@@ -72,6 +75,26 @@ pub async fn get_list_of_containers(url: String) -> Vec<ContainerJsonModel> {
 
     let body = result.get_body_as_slice().await.unwrap();
     serde_json::from_slice(body).unwrap()
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ContainerMountModel {
+    #[serde(rename = "Type")]
+    pub mount_type: Option<String>,
+    #[serde(rename = "Name")]
+    pub name: Option<String>,
+    #[serde(rename = "Source")]
+    pub source: Option<String>,
+    #[serde(rename = "Destination")]
+    pub destination: Option<String>,
+    #[serde(rename = "Driver")]
+    pub driver: Option<String>,
+    #[serde(rename = "Mode")]
+    pub mode: Option<String>,
+    #[serde(rename = "RW")]
+    pub rw: Option<bool>,
+    #[serde(rename = "Propagation")]
+    pub propagation: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

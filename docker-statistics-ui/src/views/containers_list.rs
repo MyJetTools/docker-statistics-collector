@@ -91,7 +91,7 @@ pub fn containers_list(env: Rc<String>) -> Element {
                     let mut ports_to_render = Vec::new();
 
                      if let Some(ports) = itm.container.ports.as_ref() {
-                        
+
 
                         for port in ports{
 
@@ -99,7 +99,7 @@ pub fn containers_list(env: Rc<String>) -> Element {
                             let public_port = if let Some(public_port) = port.public_port{
                                 let ip = port.ip.clone().unwrap_or("*".to_string());
                                 format!("{}:{}", ip, public_port)
-    
+
                             }else{
                                 "".to_string()
                             };
@@ -121,6 +121,52 @@ pub fn containers_list(env: Rc<String>) -> Element {
                             });
                         }
 
+                    }
+
+                    let mut volumes_to_render = Vec::new();
+
+                    if let Some(volumes) = itm.container.volumes.as_ref() {
+                        for volume in volumes {
+                            let source = volume.source.clone().unwrap_or_else(|| {
+                                volume.name.clone().unwrap_or_else(|| "?".to_string())
+                            });
+
+                            let destination =
+                                volume.destination.clone().unwrap_or_else(|| "?".to_string());
+
+                            let kind = volume
+                                .mount_type
+                                .clone()
+                                .unwrap_or_else(|| "mount".to_string());
+
+                            let ro_badge = if matches!(volume.rw, Some(false)) {
+                                rsx! {
+                                    span {
+                                        class: "badge text-bg-warning",
+                                        style: "border-radius: 0px 5px 5px 0px; margin-left: 2px;",
+                                        "ro"
+                                    }
+                                }
+                            } else {
+                                rsx! {}
+                            };
+
+                            volumes_to_render.push(rsx! {
+                                div { style: "padding: 2px 10px;",
+                                    span {
+                                        class: "badge text-bg-info",
+                                        style: "border-radius: 5px 0px 0px 5px;",
+                                        "{kind}"
+                                    }
+                                    span {
+                                        class: "badge text-bg-dark",
+                                        style: "border-radius: 0px 5px 5px 0px;",
+                                        "{source} >> {destination}"
+                                    }
+                                    {ro_badge}
+                                }
+                            });
+                        }
                     }
 
                     let cpu_usage = if let Some(usage) = itm.container.cpu.usage {
@@ -240,6 +286,7 @@ pub fn containers_list(env: Rc<String>) -> Element {
                                     }
                                 }
                                 {ports_to_render.into_iter()}
+                                {volumes_to_render.into_iter()}
                             }
                             td { {items} }
 

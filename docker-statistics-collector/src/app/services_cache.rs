@@ -19,6 +19,7 @@ pub struct ServiceInfo {
     pub cpu_usage: Option<f64>,
 
     pub ports: Vec<ServiceInfoPortModel>,
+    pub volumes: Vec<ServiceInfoVolumeModel>,
 }
 
 impl ServiceInfo {
@@ -89,6 +90,22 @@ impl ServicesCache {
                                 })
                                 .collect(),
                         },
+                        volumes: match info.mounts.as_ref() {
+                            None => Vec::new(),
+                            Some(mounts) => mounts
+                                .iter()
+                                .map(|itm| ServiceInfoVolumeModel {
+                                    mount_type: itm.mount_type.clone(),
+                                    name: itm.name.clone(),
+                                    source: itm.source.clone(),
+                                    destination: itm.destination.clone(),
+                                    driver: itm.driver.clone(),
+                                    mode: itm.mode.clone(),
+                                    rw: itm.rw,
+                                    propagation: itm.propagation.clone(),
+                                })
+                                .collect(),
+                        },
                     },
                 );
             } else {
@@ -146,4 +163,16 @@ pub struct ServiceInfoPortModel {
     pub private_port: u16,
     pub public_port: Option<u16>,
     pub port_type: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct ServiceInfoVolumeModel {
+    pub mount_type: Option<String>,
+    pub name: Option<String>,
+    pub source: Option<String>,
+    pub destination: Option<String>,
+    pub driver: Option<String>,
+    pub mode: Option<String>,
+    pub rw: Option<bool>,
+    pub propagation: Option<String>,
 }

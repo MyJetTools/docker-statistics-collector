@@ -43,6 +43,7 @@ impl Into<ContainerModel> for ContainerJsonModel {
             cpu_usage_history: None,
             mem_usage_history: None,
             ports: self.ports,
+            volumes: self.volumes,
         }
     }
 }

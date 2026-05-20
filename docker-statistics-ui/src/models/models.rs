@@ -13,6 +13,19 @@ pub struct PortHttpModel {
     pub port_type: String,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct VolumeHttpModel {
+    #[serde(rename = "mountType")]
+    pub mount_type: Option<String>,
+    pub name: Option<String>,
+    pub source: Option<String>,
+    pub destination: Option<String>,
+    pub driver: Option<String>,
+    pub mode: Option<String>,
+    pub rw: Option<bool>,
+    pub propagation: Option<String>,
+}
+
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ContainerModel {
     pub id: String,
@@ -31,6 +44,8 @@ pub struct ContainerModel {
     pub mem_usage_history: Option<Vec<i64>>,
 
     pub ports: Option<Vec<PortHttpModel>>,
+    #[serde(default)]
+    pub volumes: Option<Vec<VolumeHttpModel>>,
 }
 
 impl ContainerModel {
@@ -96,6 +111,8 @@ pub struct ContainerJsonModel {
     pub cpu: CpuUsageJsonMode,
     pub mem: MemUsageJsonMode,
     pub ports: Option<Vec<PortHttpModel>>,
+    #[serde(default)]
+    pub volumes: Option<Vec<VolumeHttpModel>>,
 }
 
 #[derive(Serialize, Deserialize)]
