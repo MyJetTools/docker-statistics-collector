@@ -266,9 +266,12 @@ pub fn containers_list(env: Rc<String>) -> Element {
                     };
 
                     let files_graph = match &itm.container.open_files_history {
-                        Some(history) if !history.is_empty() => rsx! {
-                            render_files_graph { values: history.clone() }
-                        },
+                        Some(history) if !history.is_empty() => {
+                            let fd_limit_value = itm.container.files.limit.unwrap_or(0);
+                            rsx! {
+                                render_files_graph { fd_limit: fd_limit_value, values: history.clone() }
+                            }
+                        }
                         _ => rsx! {
                             div {}
                         },

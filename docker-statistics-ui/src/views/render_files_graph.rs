@@ -6,13 +6,18 @@ const HEIGHT: usize = 70;
 
 /// Open-file-descriptor history graph for a container's main process.
 ///
-/// The graph auto-scales to the highest value in the window (not to the
-/// `nofile` limit) — the limit is usually so large that scaling to it would
-/// flatten the line and hide a slow leak. The point of this graph is the
-/// *shape*: a steadily climbing line means the process is leaking descriptors.
+/// The graph is scaled to the `nofile` limit, so a bar's height reads directly
+/// as "how close to the limit" — a steadily climbing line is a descriptor leak
+/// marching toward the wall. Bars are coloured green / orange / red by that
+/// same ratio. When the limit is unknown the graph falls back to auto-scaling
+/// to the highest value in the window.
 #[component]
-pub fn render_files_graph(values: Vec<i64>) -> Element {
-    let scale = get_max_scale(&values);
+pub fn render_files_graph(fd_limit: i64, values: Vec<i64>) -> Element {
+    let scale = if fd_limit > 0 {
+        fd_limit as f64
+    } else {
+        get_max_scale(&values)
+    };
 
     let max_scale_text = (scale as i64).to_string();
 
@@ -22,10 +27,17 @@ pub fn render_files_graph(values: Vec<i64>) -> Element {
 
     let mut items = Vec::new();
     for v in values {
-        let v = v as f64;
-        let y = v / scale;
+        let ratio = v as f64 / scale;
 
-        let y = height_f64 - y * height_f64;
+        let y = height_f64 - ratio * height_f64;
+
+        let the_color = if ratio >= 0.9 {
+            "rgb(220,0,0)"
+        } else if ratio >= 0.7 {
+            "rgb(255,140,0)"
+        } else {
+            "rgb(40,167,69)"
+        };
 
         items.push(rsx! {
             line {
@@ -33,7 +45,7 @@ pub fn render_files_graph(values: Vec<i64>) -> Element {
                 x2: "{x}",
                 y1: "{y}",
                 y2: "{HEIGHT}",
-                style: "stroke:rgb(255,140,0);stroke-width:1"
+                style: "stroke:{the_color};stroke-width:1"
             }
         });
         x += 1;
