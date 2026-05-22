@@ -52,6 +52,12 @@ pub struct ApplicationMatch {
     #[property(description = "Value of the com.docker.compose.service label, or empty string if absent.")]
     pub compose_service: String,
 
+    #[property(description = "File descriptors currently open by the container's main process. None when the host /proc is not reachable.")]
+    pub open_files: Option<i64>,
+
+    #[property(description = "nofile soft limit (RLIMIT_NOFILE) of the container's main process. None when the host /proc is not reachable.")]
+    pub fd_limit: Option<i64>,
+
     #[property(description = "Which fields the regex matched: compose_service, name, and/or image.")]
     pub matched_on: Vec<String>,
 }
@@ -146,6 +152,8 @@ fn match_application(c: &ServiceInfo, regex: &Regex, instance: &str) -> Option<A
         status: c.status.clone(),
         running: c.running,
         compose_service,
+        open_files: c.open_files,
+        fd_limit: c.fd_limit,
         matched_on,
     })
 }
