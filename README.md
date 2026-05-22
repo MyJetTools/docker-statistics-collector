@@ -18,8 +18,11 @@ Two timers run every 5 seconds:
 
 1. **Containers sync** — calls the Docker Engine API to list containers and,
    for each running container, fetches runtime stats. CPU usage, memory usage,
-   available memory, and memory limit are stored in an in-memory cache. See
+   available memory, memory limit, the number of open file descriptors and the
+   `nofile` limit are stored in an in-memory cache. See
    [sync_containers_info_timer.rs](docker-statistics-collector/src/timers/sync_containers_info_timer.rs).
+   File-descriptor stats require the host `/proc` to be mounted — see
+   [File descriptor statistics](#file-descriptor-statistics).
 2. **Metrics sync** — for every container that carries the
    `com.docker.compose.service` label, the collector scrapes
    `http://<service_name>:<metrics_port>/metrics`. If the response looks like
@@ -32,8 +35,9 @@ The HTTP server listens on port `8000` and exposes a Swagger UI. See
 
 ## HTTP endpoints
 
-- `GET /containers` — list of containers with their state, image, ports and
-  usage snapshot.
+- `GET /containers` — list of containers with their state, image, ports, volumes
+  and usage snapshot (CPU, memory, and a `files` block with open file descriptors
+  and the `nofile` limit).
 - `GET /containers/running` — only running containers.
 - `GET /containers/logs` — container logs.
 - `GET /metrics` — aggregated Prometheus metrics from all scraped services.
@@ -57,6 +61,7 @@ Settings are read from `~/.docker-statistics-collector` (YAML). See
 | `peers`                      | `list<string>?`| Optional. Base URLs of peer collector instances to federate with (see below).     |
 | `peers_sync_interval_secs`   | `u64?`         | Optional. Interval for polling peers. Default `5`.                                |
 | `peers_request_timeout_secs` | `u64?`         | Optional. Per-peer request timeout. Default `5`.                                  |
+| `host_proc_path`             | `string?`      | Optional. Path inside the collector container where the host `/proc` is mounted. Used to read per-container open file descriptors and `nofile` limits. Default `/host/proc`. See [File descriptor statistics](#file-descriptor-statistics). |
 
 Example:
 
@@ -95,10 +100,14 @@ cargo build --release
 docker build -t docker-statistics-collector .
 docker run --rm \
   -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /proc:/host/proc:ro \
   -v $HOME/.docker-statistics-collector:/root/.docker-statistics-collector \
   -p 8000:8000 \
   docker-statistics-collector
 ```
+
+The `-v /proc:/host/proc:ro` mount is what makes the per-container
+file-descriptor stats work — see [File descriptor statistics](#file-descriptor-statistics).
 
 Minimal `docker-compose.yaml`:
 
@@ -112,12 +121,71 @@ services:
     - ENV_INFO
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
+    - /proc:/host/proc:ro
     - ./.docker-statistics-collector:/root/.docker-statistics-collector:ro
 ```
 
 To use a Unix socket, set `docker_url: http+unix://var/run/docker.sock` and
 keep the `/var/run/docker.sock` bind-mount (read-only is enough). For TCP,
 drop the socket mount and point `docker_url` at the daemon's HTTP endpoint.
+
+## File descriptor statistics
+
+For every running container the collector reports **how many file descriptors
+its main process currently has open** and that process's **`nofile` soft
+limit** (`RLIMIT_NOFILE`). The "main process" is the one started by the image
+`ENTRYPOINT`/`CMD` — PID 1 inside the container. `RLIMIT_NOFILE` is enforced
+per process, so this is the process whose `open / limit` ratio actually matters.
+
+In the UI each container shows a `Files: <open>/<limit>` line — colour-coded
+green / orange / red as it approaches the limit — and an open-files **history
+graph** next to the CPU/memory graphs: a steadily climbing line is a
+file-descriptor leak. The values are also in the `files` block of
+`GET /containers`.
+
+File descriptors are a *per-process* kernel resource — the Docker Engine API
+does not expose them. The collector obtains them by reading the host `/proc`:
+for each container it gets the main process PID from `docker inspect`
+(`/containers/{id}/json` → `State.Pid`), then counts `<proc>/<pid>/fd` and reads
+the `Max open files` line of `<proc>/<pid>/limits`.
+
+### Paths to mount into the collector container
+
+Because the collector runs inside Docker, the host `/proc` must be made visible
+to it. **Mount it as a volume** — this is the single extra path required, on top
+of the Docker socket:
+
+| Host path | Mount inside the container | Mode        | Why                                              |
+| --------- | -------------------------- | ----------- | ------------------------------------------------ |
+| `/proc`   | `/host/proc`               | `ro` (read) | Per-container open file descriptors and `nofile` limits |
+
+```yaml
+volumes:
+- /var/run/docker.sock:/var/run/docker.sock
+- /proc:/host/proc:ro
+- ./.docker-statistics-collector:/root/.docker-statistics-collector:ro
+```
+
+The mount point is configurable via the `host_proc_path` setting (default
+`/host/proc`). The bind-mounted `/proc` carries the host's process table, so the
+host PIDs returned by Docker resolve correctly. The collector must run as `root`
+(the default) to read `<proc>/<pid>/fd` of processes owned by other users.
+
+**Alternative — `pid: host`.** Instead of the volume mount you can give the
+collector the host PID namespace; then its own `/proc` already shows host
+processes and you set `host_proc_path: /proc`:
+
+```yaml
+pid: host
+```
+
+### When the stats are unavailable
+
+`files.open` / `files.limit` stay `null` (UI shows `N/A`) when the host `/proc`
+cannot be read — i.e. the volume is not mounted, the Docker daemon is on a
+**remote** host (`docker_url` points elsewhere), or the platform has no `/proc`
+(e.g. running the collector on macOS for development). This is non-fatal: CPU and
+memory stats keep working regardless.
 
 ## Federation
 

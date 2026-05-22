@@ -40,6 +40,7 @@ pub async fn get_vm_cpu_and_mem(
             if let Some(wrapper) = cache_access.metrics_history.get(&result.container.id) {
                 result.container.cpu_usage_history = Some(wrapper.cpu.get_snapshot());
                 result.container.mem_usage_history = Some(wrapper.mem.get_snapshot());
+                result.container.open_files_history = Some(wrapper.open_files.get_snapshot());
             }
         }
 

@@ -18,6 +18,13 @@ pub struct ServiceInfo {
     pub mem_usage: Option<i64>,
     pub cpu_usage: Option<f64>,
 
+    /// File descriptors currently open by the container's main process.
+    /// `None` when the host `/proc` is not reachable.
+    pub open_files: Option<i64>,
+    /// `nofile` soft limit (`RLIMIT_NOFILE`) of the container's main process.
+    /// `None` when the host `/proc` is not reachable.
+    pub fd_limit: Option<i64>,
+
     pub ports: Vec<ServiceInfoPortModel>,
     pub volumes: Vec<ServiceInfoVolumeModel>,
 }
@@ -76,6 +83,8 @@ impl ServicesCache {
                         mem_usage: None,
                         cpu_usage: None,
                         mem_limit: None,
+                        open_files: None,
+                        fd_limit: None,
                         state: info.state.clone(),
                         status: info.status.clone(),
                         ports: match info.ports.as_ref() {
@@ -133,6 +142,15 @@ impl ServicesCache {
         }
     }
 
+    pub async fn update_fd_usage(&self, id: &str, open_files: Option<i64>, fd_limit: Option<i64>) {
+        let mut write_access = self.data.write().await;
+
+        if let Some(container) = write_access.get_mut(id) {
+            container.open_files = open_files;
+            container.fd_limit = fd_limit;
+        }
+    }
+
     pub async fn reset_usage(&self, id: &str) {
         let mut write_access = self.data.write().await;
         if let Some(container) = write_access.get_mut(id) {
@@ -141,6 +159,9 @@ impl ServicesCache {
             container.mem_limit = None;
 
             container.cpu_usage = None;
+
+            container.open_files = None;
+            container.fd_limit = None;
         }
     }
 

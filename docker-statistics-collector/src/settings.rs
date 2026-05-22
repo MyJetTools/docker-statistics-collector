@@ -10,6 +10,10 @@ pub struct SettingsModel {
     pub services_to_ignore: Option<Vec<String>>,
     pub peers: Option<Vec<String>>,
     pub peers_request_timeout_secs: Option<u64>,
+    /// Path inside the collector container where the host `/proc` is visible.
+    /// Used to read per-container open file descriptors and `nofile` limits.
+    /// Defaults to `/host/proc` (the recommended bind-mount target).
+    pub host_proc_path: Option<String>,
 }
 
 impl SettingsModel {
@@ -36,5 +40,12 @@ impl SettingsModel {
 
     pub fn peers_request_timeout(&self) -> Duration {
         Duration::from_secs(self.peers_request_timeout_secs.unwrap_or(5))
+    }
+
+    pub fn host_proc_path(&self) -> &str {
+        match self.host_proc_path.as_deref() {
+            Some(path) => path,
+            None => "/host/proc",
+        }
     }
 }

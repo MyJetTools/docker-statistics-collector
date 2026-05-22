@@ -60,6 +60,12 @@ pub struct ContainerSummary {
     #[property(description = "Memory limit in bytes.")]
     pub mem_limit: Option<i64>,
 
+    #[property(description = "File descriptors currently open by the container's main process. None when the host /proc is not reachable.")]
+    pub open_files: Option<i64>,
+
+    #[property(description = "nofile soft limit (RLIMIT_NOFILE) of the container's main process. None when the host /proc is not reachable.")]
+    pub fd_limit: Option<i64>,
+
     #[property(description = "Container labels as key/value pairs.")]
     pub labels: Vec<LabelEntry>,
 
@@ -240,6 +246,8 @@ fn to_summary(c: ServiceInfo, instance: String) -> ContainerSummary {
         cpu_usage: c.cpu_usage,
         mem_usage: c.mem_usage,
         mem_limit: c.mem_limit,
+        open_files: c.open_files,
+        fd_limit: c.fd_limit,
         labels,
         ports,
         volumes,

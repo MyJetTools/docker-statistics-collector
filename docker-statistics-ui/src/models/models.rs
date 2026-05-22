@@ -40,8 +40,11 @@ pub struct ContainerModel {
     pub instance: String,
     pub cpu: CpuUsageJsonMode,
     pub mem: MemUsageJsonMode,
+    #[serde(default)]
+    pub files: FilesUsageJsonMode,
     pub cpu_usage_history: Option<Vec<f64>>,
     pub mem_usage_history: Option<Vec<i64>>,
+    pub open_files_history: Option<Vec<i64>>,
 
     pub ports: Option<Vec<PortHttpModel>>,
     #[serde(default)]
@@ -89,6 +92,7 @@ impl ContainerModel {
     pub fn update(&mut self, src: ContainerJsonModel) {
         self.cpu = src.cpu;
         self.mem = src.mem;
+        self.files = src.files;
         self.labels = src.labels;
         self.enabled = src.enabled;
         self.image = src.image;
@@ -110,6 +114,8 @@ pub struct ContainerJsonModel {
     pub instance: String,
     pub cpu: CpuUsageJsonMode,
     pub mem: MemUsageJsonMode,
+    #[serde(default)]
+    pub files: FilesUsageJsonMode,
     pub ports: Option<Vec<PortHttpModel>>,
     #[serde(default)]
     pub volumes: Option<Vec<VolumeHttpModel>>,
@@ -130,6 +136,14 @@ pub struct CpuUsageJsonMode {
 pub struct MemUsageJsonMode {
     pub usage: Option<i64>,
     pub available: Option<i64>,
+    pub limit: Option<i64>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct FilesUsageJsonMode {
+    /// File descriptors currently open by the container's main process.
+    pub open: Option<i64>,
+    /// `nofile` soft limit (`RLIMIT_NOFILE`) of the container's main process.
     pub limit: Option<i64>,
 }
 

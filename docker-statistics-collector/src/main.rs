@@ -8,6 +8,7 @@ mod app;
 mod http;
 mod mcp;
 mod peers_client;
+mod proc_fd;
 mod settings;
 mod timers;
 #[tokio::main]

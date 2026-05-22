@@ -5,7 +5,7 @@ use rust_extensions::date_time::DateTimeAsMicroseconds;
 use super::icons::*;
 use crate::{
     states::{MainState, DialogState, DialogType},
-    views::{render_cpu_graph, render_mem_graph}, utils::format_mem,
+    views::{render_cpu_graph, render_files_graph, render_mem_graph}, utils::format_mem,
 };
 
 #[component]
@@ -187,6 +187,32 @@ pub fn containers_list(env: Rc<String>) -> Element {
                         "N/A".to_string()
                     };
 
+                    let open_files = match itm.container.files.open {
+                        Some(open) => open.to_string(),
+                        None => "N/A".to_string(),
+                    };
+
+                    let fd_limit = match itm.container.files.limit {
+                        Some(limit) => limit.to_string(),
+                        None => "N/A".to_string(),
+                    };
+
+                    // Colour the line by how close the main process is to its
+                    // nofile limit.
+                    let files_color = match (itm.container.files.open, itm.container.files.limit) {
+                        (Some(open), Some(limit)) if limit > 0 => {
+                            let ratio = open as f64 / limit as f64;
+                            if ratio >= 0.9 {
+                                "color:red"
+                            } else if ratio >= 0.7 {
+                                "color:darkorange"
+                            } else {
+                                "color:green"
+                            }
+                        }
+                        _ => "",
+                    };
+
                     let id_cloned = itm.container.id.clone();
 
 
@@ -237,6 +263,15 @@ pub fn containers_list(env: Rc<String>) -> Element {
                         }, rsx! {
                             div {}
                         })
+                    };
+
+                    let files_graph = match &itm.container.open_files_history {
+                        Some(history) if !history.is_empty() => rsx! {
+                            render_files_graph { values: history.clone() }
+                        },
+                        _ => rsx! {
+                            div {}
+                        },
                     };
 
                     let items = if let Some(labels) = &itm.container.labels {
@@ -301,6 +336,12 @@ pub fn containers_list(env: Rc<String>) -> Element {
                                     ": {mem_usage}/{mem_limit}"
                                 }
                                 div { style: "padding:0", {mem_graph} }
+                                div {
+                                    style: "padding:0;font-size: 12px; margin-top: 5px; {files_color}",
+                                    title: "Open file descriptors of the container's main process vs its nofile limit",
+                                    "Files: {open_files}/{fd_limit}"
+                                }
+                                div { style: "padding:0", {files_graph} }
                             }
                         }
                     }

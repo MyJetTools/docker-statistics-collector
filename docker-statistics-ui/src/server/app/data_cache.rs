@@ -10,12 +10,14 @@ use super::MetricsHistory;
 pub struct MetricsHistoryWrapper {
     pub cpu: MetricsHistory<f64>,
     pub mem: MetricsHistory<i64>,
+    pub open_files: MetricsHistory<i64>,
 }
 impl MetricsHistoryWrapper {
     pub fn new() -> Self {
         Self {
             cpu: MetricsHistory::new(),
             mem: MetricsHistory::new(),
+            open_files: MetricsHistory::new(),
         }
     }
 }
@@ -40,8 +42,10 @@ impl Into<ContainerModel> for ContainerJsonModel {
             instance: self.instance,
             cpu: self.cpu,
             mem: self.mem,
+            files: self.files,
             cpu_usage_history: None,
             mem_usage_history: None,
+            open_files_history: None,
             ports: self.ports,
             volumes: self.volumes,
         }
@@ -126,6 +130,21 @@ impl DataCache {
                 }
             }
 
+            // Open-file history is recorded independently of CPU/mem — a leak
+            // shows up as a steadily climbing line on the graph.
+            if let Some(open) = container.files.open {
+                if !self.metrics_history.contains_key(&id) {
+                    self.metrics_history
+                        .insert(id.to_string(), MetricsHistoryWrapper::new());
+                }
+
+                self.metrics_history
+                    .get_mut(&id)
+                    .unwrap()
+                    .open_files
+                    .add(open);
+            }
+
             if !by_vm.containers.contains_key(&id) {
                 by_vm.containers.insert(id.clone(), container.into());
             } else {
@@ -205,6 +224,7 @@ impl DataCache {
             let mut mem = 0;
             let mut mem_limit = 0;
             let mut containers_amount = 0;
+            let mut open_files = 0;
 
             for itm in wrapper.containers.values() {
                 if let Some(usage) = itm.cpu.usage {
@@ -217,6 +237,10 @@ impl DataCache {
 
                 if let Some(mem_limit_value) = itm.mem.limit {
                     mem_limit += mem_limit_value;
+                }
+
+                if let Some(open) = itm.files.open {
+                    open_files += open;
                 }
 
                 if itm.enabled {
@@ -232,6 +256,7 @@ impl DataCache {
                     mem,
                     containers_amount,
                     mem_limit,
+                    open_files,
                 },
             );
         }

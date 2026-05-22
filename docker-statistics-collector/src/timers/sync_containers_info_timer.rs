@@ -32,11 +32,16 @@ impl MyTimerTick for SyncContainersInfoTimer {
             if container.is_running() {
                 let container_id = container.id.to_string();
                 let url = self.app.settings_model.docker_url.to_string();
+                let proc_base = self.app.settings_model.host_proc_path().to_string();
                 let statistics_task = tokio::spawn(async move {
                     let usage =
-                        docker_sdk::sdk::get_container_stats(url, container_id.to_string()).await;
+                        docker_sdk::sdk::get_container_stats(url.clone(), container_id.clone())
+                            .await;
 
-                    (container_id, usage)
+                    let fd_usage =
+                        crate::proc_fd::collect_fd_usage(&url, &proc_base, &container_id).await;
+
+                    (container_id, usage, fd_usage)
                 });
 
                 usages_result.push(statistics_task);
@@ -52,7 +57,7 @@ impl MyTimerTick for SyncContainersInfoTimer {
                 continue;
             }
 
-            let (container_id, usage_result) = usage_result.unwrap();
+            let (container_id, usage_result, fd_usage) = usage_result.unwrap();
 
             if let Some(usage) = usage_result {
                 self.app
@@ -68,6 +73,13 @@ impl MyTimerTick for SyncContainersInfoTimer {
             } else {
                 self.app.cache.reset_usage(&container_id).await;
             }
+
+            // Set after the stats branch — `reset_usage` also clears fd fields,
+            // so writing fd usage last keeps it intact even when stats failed.
+            self.app
+                .cache
+                .update_fd_usage(&container_id, fd_usage.0, fd_usage.1)
+                .await;
         }
 
         println!("Iteration is finished in {}", sw.duration_as_string());

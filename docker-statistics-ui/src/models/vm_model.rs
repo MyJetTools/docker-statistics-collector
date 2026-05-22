@@ -7,4 +7,6 @@ pub struct VmModel {
     pub mem: i64,
     pub mem_limit: i64,
     pub containers_amount: usize,
+    // Total file descriptors open by the VM's containers.
+    pub open_files: i64,
 }

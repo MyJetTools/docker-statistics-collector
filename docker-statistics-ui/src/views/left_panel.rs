@@ -40,6 +40,7 @@ pub fn left_panel() -> Element {
         mem: 0,
         mem_limit: 0,
         containers_amount: 0,
+        open_files: 0,
     };
 
     let vms_state = main_state_read_access.vms_state.as_ref();
@@ -53,6 +54,7 @@ pub fn left_panel() -> Element {
                 all_vms.mem += vm_model.mem;
                 all_vms.containers_amount += vm_model.containers_amount;
                 all_vms.mem_limit += vm_model.mem_limit;
+                all_vms.open_files += vm_model.open_files;
 
                 if main_state_read_access.is_single_vm_selected(&vm) {
                     rsx! {
@@ -63,6 +65,7 @@ pub fn left_panel() -> Element {
                                 mem: vm_model.mem,
                                 mem_limit: vm_model.mem_limit,
                                 amount: vm_model.containers_amount,
+                                open_files: vm_model.open_files,
                                 url: vm_model.api_url.to_string(),
                             }
                         }
@@ -80,6 +83,7 @@ pub fn left_panel() -> Element {
                                 mem: vm_model.mem,
                                 mem_limit: vm_model.mem_limit,
                                 amount: vm_model.containers_amount,
+                                open_files: vm_model.open_files,
                                 url: vm_model.api_url.to_string(),
                             }
                         }
@@ -111,6 +115,7 @@ pub fn left_panel() -> Element {
                         mem: all_vms.mem,
                         mem_limit: all_vms.mem_limit,
                         amount: all_vms.containers_amount,
+                        open_files: all_vms.open_files,
                         url: all_vms.api_url.to_string(),
                     }
                 }
@@ -147,6 +152,7 @@ fn render_vm_menu_item(
     mem: i64,
     mem_limit: i64,
     amount: usize,
+    open_files: i64,
     url: String,
 ) -> Element {
     let mem = format_mem(mem);
@@ -166,6 +172,9 @@ fn render_vm_menu_item(
                     div {
                         memory_icon {}
                         span { style: "font-size:10px", ":{mem}/{mem_limit}" }
+                    }
+                    div {
+                        span { style: "font-size:10px", "Files: {open_files}" }
                     }
                 }
             }

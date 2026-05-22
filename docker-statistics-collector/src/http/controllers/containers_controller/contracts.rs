@@ -24,6 +24,8 @@ pub struct ContainerJsonModel {
     pub instance: String,
     pub cpu: CpuUsageJsonMode,
     pub mem: MemUsageJsonMode,
+    #[serde(default)]
+    pub files: FilesUsageJsonMode,
     pub ports: Vec<PortHttpModel>,
     pub volumes: Vec<VolumeHttpModel>,
 }
@@ -42,6 +44,10 @@ impl ContainerJsonModel {
                 usage: itm.mem_usage,
                 available: itm.mem_available,
                 limit: itm.mem_limit,
+            },
+            files: FilesUsageJsonMode {
+                open: itm.open_files,
+                limit: itm.fd_limit,
             },
             names: itm.names,
             labels: itm.labels,
@@ -93,6 +99,8 @@ impl ContainerJsonModel {
             mem_limit: self.mem.limit,
             mem_usage: self.mem.usage,
             cpu_usage: self.cpu.usage,
+            open_files: self.files.open,
+            fd_limit: self.files.limit,
             ports: self
                 .ports
                 .into_iter()
@@ -130,6 +138,14 @@ pub struct CpuUsageJsonMode {
 pub struct MemUsageJsonMode {
     pub usage: Option<i64>,
     pub available: Option<i64>,
+    pub limit: Option<i64>,
+}
+
+// `open`  — file descriptors currently open by the container's main process.
+// `limit` — `nofile` soft limit (`RLIMIT_NOFILE`) of the container's main process.
+#[derive(Serialize, Deserialize, MyHttpObjectStructure, Default)]
+pub struct FilesUsageJsonMode {
+    pub open: Option<i64>,
     pub limit: Option<i64>,
 }
 
