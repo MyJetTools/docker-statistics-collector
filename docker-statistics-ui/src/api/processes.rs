@@ -7,6 +7,9 @@ pub struct ProcessHttpModel {
     pub cmd: String,
     pub open_files: Option<i64>,
     pub fd_limit: Option<i64>,
+    pub mem_rss: Option<i64>,
+    pub mem_vsize: Option<i64>,
+    pub threads: Option<i64>,
 }
 
 #[get("/api/processes?env&url&id")]

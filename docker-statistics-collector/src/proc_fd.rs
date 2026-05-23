@@ -36,12 +36,17 @@ fn read_fd_usage(proc_base: &str, pid: u32) -> (Option<i64>, Option<i64>) {
     (open, limit)
 }
 
-/// File-descriptor usage of a single process inside a container.
+/// File-descriptor usage and core stats of a single process inside a container.
 pub struct ProcessFdInfo {
     pub pid: u32,
     pub cmd: String,
     pub open_files: Option<i64>,
     pub fd_limit: Option<i64>,
+    /// Resident memory in bytes (`VmRSS`) — what's actually in RAM.
+    pub mem_rss: Option<i64>,
+    /// Virtual memory in bytes (`VmSize`) — full allocated address space.
+    pub mem_vsize: Option<i64>,
+    pub threads: Option<i64>,
 }
 
 /// Lists every process inside a container with its open file descriptors and
@@ -65,17 +70,67 @@ pub async fn collect_process_fd_list(
     let result = tokio::task::spawn_blocking(move || {
         processes
             .into_iter()
-            .map(|process| ProcessFdInfo {
-                pid: process.pid,
-                cmd: process.cmd,
-                open_files: count_open_fds(&proc_base, process.pid).map(|count| count as i64),
-                fd_limit: read_nofile_soft_limit(&proc_base, process.pid),
+            .map(|process| {
+                let (mem_rss, mem_vsize, threads) = read_status_metrics(&proc_base, process.pid);
+                ProcessFdInfo {
+                    pid: process.pid,
+                    cmd: process.cmd,
+                    open_files: count_open_fds(&proc_base, process.pid).map(|count| count as i64),
+                    fd_limit: read_nofile_soft_limit(&proc_base, process.pid),
+                    mem_rss,
+                    mem_vsize,
+                    threads,
+                }
             })
             .collect()
     })
     .await;
 
     result.unwrap_or_default()
+}
+
+/// Reads `VmRSS` (resident memory, bytes), `VmSize` (virtual memory, bytes)
+/// and `Threads` (thread count) from `<proc_base>/<pid>/status` in a single
+/// pass.
+fn read_status_metrics(proc_base: &str, pid: u32) -> (Option<i64>, Option<i64>, Option<i64>) {
+    let content = match std::fs::read_to_string(format!("{}/{}/status", proc_base, pid)) {
+        Ok(content) => content,
+        Err(_) => return (None, None, None),
+    };
+
+    let mut mem_rss_bytes: Option<i64> = None;
+    let mut mem_vsize_bytes: Option<i64> = None;
+    let mut threads: Option<i64> = None;
+
+    for line in content.lines() {
+        if let Some(rest) = line.strip_prefix("VmRSS:") {
+            if let Some(kb) = rest
+                .split_whitespace()
+                .next()
+                .and_then(|s| s.parse::<i64>().ok())
+            {
+                mem_rss_bytes = Some(kb * 1024);
+            }
+        } else if let Some(rest) = line.strip_prefix("VmSize:") {
+            if let Some(kb) = rest
+                .split_whitespace()
+                .next()
+                .and_then(|s| s.parse::<i64>().ok())
+            {
+                mem_vsize_bytes = Some(kb * 1024);
+            }
+        } else if let Some(rest) = line.strip_prefix("Threads:") {
+            if let Some(n) = rest
+                .split_whitespace()
+                .next()
+                .and_then(|s| s.parse::<i64>().ok())
+            {
+                threads = Some(n);
+            }
+        }
+    }
+
+    (mem_rss_bytes, mem_vsize_bytes, threads)
 }
 
 /// Counts the entries in `<proc_base>/<pid>/fd` — the file descriptors the

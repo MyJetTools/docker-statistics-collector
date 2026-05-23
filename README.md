@@ -79,6 +79,10 @@ peers:
   - http://collector-c:8000
 peers_sync_interval_secs: 5
 peers_request_timeout_secs: 5
+# Path where the host `/proc` is mounted inside the collector container.
+# Default is `/host/proc` — see "File descriptor statistics" below for the
+# required `-v /proc:/host/proc:ro` volume mount.
+host_proc_path: /host/proc
 ```
 
 The HTTP listen port (`8000`) is hardcoded in
@@ -106,6 +110,9 @@ docker run --rm \
   -v $HOME/.docker-statistics-collector:/root/.docker-statistics-collector \
   -p 8000:8000 \
   docker-statistics-collector
+# ^ the -v /proc:/host/proc:ro mount is REQUIRED for the per-container
+#   file-descriptor stats (Files: open/limit, leak graph, Processes dialog).
+#   Without it the `files` block in the API and the UI just shows N/A.
 ```
 
 The `-v /proc:/host/proc:ro` mount is what makes the per-container
@@ -123,6 +130,8 @@ services:
     - ENV_INFO
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
+    # REQUIRED for the per-container file-descriptor stats (Files: open/limit,
+    # leak graph, Processes dialog). Without this the `files` block is N/A.
     - /proc:/host/proc:ro
     - ./.docker-statistics-collector:/root/.docker-statistics-collector:ro
 ```

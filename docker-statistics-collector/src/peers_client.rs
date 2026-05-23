@@ -154,6 +154,9 @@ pub async fn fanout_processes(app: &AppContext, container_id: &str) -> RouteProc
             cmd: p.cmd,
             open_files: p.open_files,
             fd_limit: p.fd_limit,
+            mem_rss: p.mem_rss,
+            mem_vsize: p.mem_vsize,
+            threads: p.threads,
         })
         .collect();
 

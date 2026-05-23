@@ -2,6 +2,7 @@ use dioxus::prelude::*;
 use dioxus_utils::*;
 
 use crate::api::{get_processes, ProcessHttpModel};
+use crate::utils::format_mem;
 
 #[component]
 pub fn show_processes(env: String, url: String, container_id: String) -> Element {
@@ -93,12 +94,33 @@ fn render_processes_table(processes: &[ProcessHttpModel]) -> Element {
             _ => "",
         };
 
+        let rss = p
+            .mem_rss
+            .map(format_mem)
+            .unwrap_or_else(|| "N/A".to_string());
+        let virt = p
+            .mem_vsize
+            .map(format_mem)
+            .unwrap_or_else(|| "N/A".to_string());
+        let threads = p
+            .threads
+            .map(|v| v.to_string())
+            .unwrap_or_else(|| "N/A".to_string());
+
         rsx! {
             tr {
-                td { "{p.pid}" }
-                td { style: "{color}; font-weight:bold", "{open}" }
-                td { "{limit}" }
-                td { style: "font-family:monospace; font-size:12px", "{p.cmd}" }
+                td { style: "padding-right: 20px", "{p.pid}" }
+                td { style: "{color}; font-weight:bold; padding-right: 20px", "{open}" }
+                td { style: "padding-right: 20px", "{limit}" }
+                td { style: "padding-right: 20px", "{rss}" }
+                td { style: "padding-right: 20px; color:gray", "{virt}" }
+                td { style: "padding-right: 20px", "{threads}" }
+                td {
+                    div {
+                        style: "font-family:monospace; font-size:12px; max-width: 800px; overflow-x: auto; white-space: nowrap",
+                        "{p.cmd}"
+                    }
+                }
             }
         }
     });
@@ -106,9 +128,12 @@ fn render_processes_table(processes: &[ProcessHttpModel]) -> Element {
     rsx! {
         table { class: "table table-sm", style: "text-align:left",
             tr {
-                th { "PID" }
-                th { "Open files" }
-                th { "Limit" }
+                th { style: "padding-right: 20px", "PID" }
+                th { style: "padding-right: 20px", "Open files" }
+                th { style: "padding-right: 20px", "Limit" }
+                th { style: "padding-right: 20px", title: "Resident memory (VmRSS) — what's actually in RAM", "RSS" }
+                th { style: "padding-right: 20px; color:gray", title: "Virtual memory (VmSize) — full allocated address space", "Virt" }
+                th { style: "padding-right: 20px", "Threads" }
                 th { "Command" }
             }
             {rows}
