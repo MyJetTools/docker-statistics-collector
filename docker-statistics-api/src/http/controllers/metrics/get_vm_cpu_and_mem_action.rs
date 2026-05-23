@@ -78,5 +78,8 @@ async fn handle_request(
         }
     };
 
-    HttpOutput::as_json(response).into_ok_result(false).into()
+    HttpOutput::as_json(response)
+        .with_compression(1024)
+        .into_ok_result(false)
+        .into()
 }

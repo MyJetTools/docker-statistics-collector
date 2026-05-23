@@ -60,7 +60,10 @@ async fn handle_request(
 
     let result = parse_logs_payload(payload);
 
-    HttpOutput::as_json(result).into_ok_result(false).into()
+    HttpOutput::as_json(result)
+        .with_compression(1024)
+        .into_ok_result(false)
+        .into()
 }
 
 fn parse_logs_payload(payload: Vec<u8>) -> Vec<LogLineHttpModel> {

@@ -54,5 +54,8 @@ async fn handle_request(
         .await
         .map_err(|err| HttpFailResult::as_fatal_error(err))?;
 
-    HttpOutput::as_json(result).into_ok_result(false).into()
+    HttpOutput::as_json(result)
+        .with_compression(1024)
+        .into_ok_result(false)
+        .into()
 }

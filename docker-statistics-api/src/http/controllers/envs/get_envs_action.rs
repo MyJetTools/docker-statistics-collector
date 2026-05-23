@@ -45,5 +45,8 @@ async fn handle_request(
         request_pass_key,
     };
 
-    HttpOutput::as_json(response).into_ok_result(false).into()
+    HttpOutput::as_json(response)
+        .with_compression(1024)
+        .into_ok_result(false)
+        .into()
 }
