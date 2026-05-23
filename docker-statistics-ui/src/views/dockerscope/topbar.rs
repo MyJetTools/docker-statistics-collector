@@ -38,6 +38,13 @@ pub fn Topbar() -> Element {
         .find_active_container()
         .and_then(|c| c.container.names.first().cloned())
         .map(|n| n.trim_start_matches('/').to_string());
+    // In /all view we additionally show the VM in the crumb chain so the user
+    // can tell which VM the open container lives on (names aren't unique across VMs).
+    let active_container_vm_in_all = if all_selected {
+        cs_ra.get_active_container_vm().map(|s| s.to_string())
+    } else {
+        None
+    };
 
     let totals = compute_fleet_totals(&cs_ra);
 
@@ -67,6 +74,10 @@ pub fn Topbar() -> Element {
                 if let Some(vm) = single_vm_label.as_ref() {
                     span { class: "sep", "/" }
                     Link { to: AppRoute::VmRoute { vm_name: vm.clone() }, b { "{vm}" } }
+                }
+                if let Some(vm) = active_container_vm_in_all.as_ref() {
+                    span { class: "sep", "/" }
+                    b { "{vm}" }
                 }
                 if let Some(name) = active_container_name.as_ref() {
                     span { class: "sep", "/" }

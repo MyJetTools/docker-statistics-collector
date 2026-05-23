@@ -40,6 +40,11 @@ pub struct MainState {
     filter: String,
     container_filter: ContainerFilter,
     active_container_name: Option<String>,
+    /// VM name of the active container. Required to disambiguate when the same
+    /// container name lives on multiple VMs in `/all` view. In single-VM view
+    /// it's also populated (with the selected VM) — `find_active_container`
+    /// degrades gracefully when row.vm is None.
+    active_container_vm: Option<String>,
 
     pub dialog_is_shown: bool,
     pub prompt_pass_key: bool,
@@ -53,6 +58,7 @@ impl MainState {
             filter: "".to_string(),
             container_filter: ContainerFilter::All,
             active_container_name: None,
+            active_container_vm: None,
             state_no: 0,
             dialog_is_shown: false,
             data_request_no: 0,
@@ -66,6 +72,7 @@ impl MainState {
         self.selected_vm = Some(selected_vm);
         self.containers = None;
         self.active_container_name = None;
+        self.active_container_vm = None;
         self.filter = String::new();
         self.container_filter = ContainerFilter::All;
         self.state_no += 1;
@@ -90,8 +97,13 @@ impl MainState {
         self.active_container_name.as_deref()
     }
 
-    pub fn set_active_container_name(&mut self, id: Option<String>) {
-        self.active_container_name = id;
+    pub fn get_active_container_vm(&self) -> Option<&str> {
+        self.active_container_vm.as_deref()
+    }
+
+    pub fn set_active_container(&mut self, name: Option<String>, vm: Option<String>) {
+        self.active_container_name = name;
+        self.active_container_vm = vm;
     }
 
     pub fn is_single_vm_selected(&self, vm: &str) -> bool {
@@ -149,10 +161,18 @@ impl MainState {
 
     pub fn find_active_container(&self) -> Option<&MetricsByVm> {
         let name = self.active_container_name.as_deref()?;
-        self.containers
-            .as_ref()?
-            .iter()
-            .find(|c| primary_name(&c.container.names).eq_ignore_ascii_case(name))
+        let target_vm = self.active_container_vm.as_deref();
+        self.containers.as_ref()?.iter().find(|c| {
+            if !primary_name(&c.container.names).eq_ignore_ascii_case(name) {
+                return false;
+            }
+            match (target_vm, c.vm.as_deref()) {
+                (Some(tv), Some(rv)) => tv.eq_ignore_ascii_case(rv),
+                // Single-VM view: rows carry vm=None; the selected VM is implicit.
+                (Some(_), None) => true,
+                (None, _) => true,
+            }
+        })
     }
 
     pub fn set_filter(&mut self, value: String) {

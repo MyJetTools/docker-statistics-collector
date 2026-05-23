@@ -33,7 +33,8 @@ pub fn ContainerListPanel() -> Element {
     };
 
     let active_name = cs_ra.get_active_container_name().map(|s| s.to_string());
-    let vm_for_links = if all_selected {
+    let active_vm = cs_ra.get_active_container_vm().map(|s| s.to_string());
+    let single_vm_name = if all_selected {
         None
     } else {
         cs_ra.get_selected_vm_name()
@@ -57,7 +58,8 @@ pub fn ContainerListPanel() -> Element {
                         ContainerRow {
                             row,
                             active_name: active_name.clone(),
-                            single_vm_name: vm_for_links.clone(),
+                            active_vm: active_vm.clone(),
+                            single_vm_name: single_vm_name.clone(),
                         }
                     }
                 }
@@ -70,6 +72,10 @@ pub fn ContainerListPanel() -> Element {
 struct ContainerRowData {
     id: String,
     name: String,
+    /// Source VM — `Some` in `/all` view (carried over from `MetricsByVm.vm`),
+    /// `None` when the container list is scoped to a single VM (the VM is
+    /// implicit and lives in the URL prefix).
+    vm: Option<String>,
     image: String,
     state_class: &'static str,
     is_running: bool,
@@ -100,6 +106,7 @@ impl ContainerRowData {
         Self {
             id: c.id.clone(),
             name,
+            vm: m.vm.clone(),
             image: c.image.clone(),
             state_class: state_class_for(c.state.as_deref()),
             is_running: c.state.as_deref() == Some("running"),
@@ -123,12 +130,17 @@ impl ContainerRowData {
 fn ContainerRow(
     row: ContainerRowData,
     active_name: Option<String>,
+    active_vm: Option<String>,
     single_vm_name: Option<String>,
 ) -> Element {
+    // Effective VM of this row: comes from MetricsByVm.vm in /all view, falls
+    // back to the currently selected VM in single-VM view (where row.vm is None).
+    let row_vm = row.vm.clone().or_else(|| single_vm_name.clone());
     let is_active = active_name
         .as_deref()
         .map(|n| n.eq_ignore_ascii_case(&row.name))
-        .unwrap_or(false);
+        .unwrap_or(false)
+        && active_vm.as_deref() == row_vm.as_deref();
     let pct = row.mem_pct();
     let mem_heat = match pct {
         Some(p) if p >= 95.0 => " crit-mem",
@@ -152,14 +164,17 @@ fn ContainerRow(
     };
     let badge = pct.filter(|p| *p >= 80.0).map(|p| (p, p >= 95.0));
 
-    let target = match single_vm_name {
-        Some(vm) => AppRoute::ContainerRoute {
-            vm_name: vm,
+    let target = match (&single_vm_name, &row.vm) {
+        (Some(vm), _) => AppRoute::ContainerRoute {
+            vm_name: vm.clone(),
             container_name: row.name.clone(),
         },
-        None => AppRoute::AllContainerRoute {
+        (None, Some(rv)) => AppRoute::AllContainerRoute {
+            vm_name: rv.clone(),
             container_name: row.name.clone(),
         },
+        // /all view but no per-row vm (shouldn't happen with current server) — degrade to Home.
+        (None, None) => AppRoute::AllRoute {},
     };
 
     rsx! {
