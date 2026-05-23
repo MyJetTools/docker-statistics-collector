@@ -26,14 +26,13 @@ jobs:
 
       - name: Updating version
         run: |
-          sed -i -e 's/^version = .*/version = "${{ steps.get_version.outputs.VERSION }}"/' ${DIR}/Cargo.toml
-
-      - name: Install Protoc
-        uses: arduino/setup-protoc@v1
+          cd ${DIR}
+          sed -i -e 's/^version = .*/version = "${{ steps.get_version.outputs.VERSION }}"/' Cargo.toml
 
       - run: |
+          cd ${DIR}
           export GIT_HUB_TOKEN="${{ secrets.PUBLISH_TOKEN }}"
-          cargo build --release -p ${DIR}
+          cargo build --release
 
       - name: Docker login
         run: |
@@ -41,5 +40,6 @@ jobs:
 
       - name: Docker Build and Publish
         run: |
+          cd ${DIR}
           docker build -t ${IMAGE_NAME}:${{ steps.get_version.outputs.VERSION }} .
           docker push ${IMAGE_NAME}:${{ steps.get_version.outputs.VERSION }}

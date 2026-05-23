@@ -26,11 +26,12 @@ jobs:
 
       - name: Updating version
         run: |
-          sed -i -e 's/^version = .*/version = "${{ steps.get_version.outputs.VERSION }}"/' ${DIR}/Cargo.toml
+          cd ${DIR}
+          sed -i -e 's/^version = .*/version = "${{ steps.get_version.outputs.VERSION }}"/' Cargo.toml
 
       - run: |
-          export GIT_HUB_TOKEN="${{ secrets.PUBLISH_TOKEN }}"
           cd ${DIR}
+          export GIT_HUB_TOKEN="${{ secrets.PUBLISH_TOKEN }}"
           cargo build --release
 
       - name: Docker login
