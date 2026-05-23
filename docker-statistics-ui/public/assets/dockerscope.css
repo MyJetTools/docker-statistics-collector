@@ -695,7 +695,18 @@ button, input { font-family: inherit; color: inherit; }
   color: var(--text-dim);
 }
 .log-mini-tall { max-height: 360px; }
-.log-mini .log-line { white-space: pre-wrap; word-break: break-word; padding: 1px 0; }
+
+/* Each log entry: small pad + faint dashed separator so wrapped long lines
+   don't visually run into the next entry. Applies both to the inline preview
+   and the full-screen log dialog. */
+.log-line {
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 3px 0 5px;
+  border-bottom: 1px dashed var(--border);
+}
+.log-line:last-child { border-bottom: none; }
+.log-line + .log-line { margin-top: 2px; }
 .log-mini .line { white-space: pre; padding: 1px 0; }
 .log-mini .ts { color: var(--text-muted); }
 .log-mini .lvl-info { color: var(--info); }

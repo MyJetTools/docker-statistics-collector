@@ -202,12 +202,33 @@ fn ContainerRow(
 
 #[component]
 fn MemBar(pct: Option<f64>, running: bool) -> Element {
-    let Some(p) = pct else {
-        return rsx! {};
-    };
     if !running {
         return rsx! {};
     }
+
+    // Sticky last-known pct: backend (collector → cache → wire) occasionally
+    // drops `mem.limit` for a single tick (peer fanout race, stats fetch
+    // glitch, etc), which would otherwise unmount/remount the bar and look
+    // like a "show/hide" flicker every few seconds. We hold the previous
+    // value and only fall back to it when the current pct goes missing.
+    let mut last_pct = use_signal::<Option<f64>>(|| None);
+    let incoming = pct;
+    use_effect(use_reactive!(|incoming| {
+        if let Some(v) = incoming {
+            if v > 0.0 {
+                last_pct.set(Some(v));
+            }
+        }
+    }));
+
+    let effective = pct.or(*last_pct.read());
+    let Some(p) = effective else {
+        return rsx! {};
+    };
+    if p <= 0.0 {
+        return rsx! {};
+    }
+
     let fill_color = if p >= 95.0 {
         "var(--danger)"
     } else if p >= 80.0 {
