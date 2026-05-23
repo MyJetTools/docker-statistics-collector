@@ -6,7 +6,7 @@ use my_http_server::MyHttpServer;
 use crate::app::AppCtx;
 
 pub fn setup_server(app: &Arc<AppCtx>) {
-    let mut http_server = MyHttpServer::new(SocketAddr::from(([0, 0, 0, 0], 9001)));
+    let mut http_server = MyHttpServer::new(SocketAddr::from(([0, 0, 0, 0], 8000)));
 
     let controllers = Arc::new(crate::http::controllers::builder::build(app));
 
