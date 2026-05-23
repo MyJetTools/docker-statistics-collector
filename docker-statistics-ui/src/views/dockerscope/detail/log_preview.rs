@@ -127,9 +127,15 @@ fn spawn_stream(
 ) {
     spawn(async move {
         let ws_url = build_ws_url(env.as_str(), &container_id);
+        dioxus_utils::console_log(&format!(
+            "[logs-ws] opening session={my_session} url={ws_url}"
+        ));
         let ws = match WebSocket::open(&ws_url) {
             Ok(ws) => ws,
             Err(err) => {
+                dioxus_utils::console_log(&format!(
+                    "[logs-ws] open failed session={my_session}: {err:?}"
+                ));
                 if cs.read().session_id == my_session {
                     cs.write().error = Some(format!("open WS failed: {err:?}"));
                 }
@@ -138,14 +144,28 @@ fn spawn_stream(
         };
 
         let (_write, mut read) = ws.split();
+        dioxus_utils::console_log(&format!(
+            "[logs-ws] connected session={my_session}, waiting for first message…"
+        ));
 
+        let mut received = 0u64;
         while let Some(msg) = read.next().await {
             // Another session started — drop everything.
             if cs.read().session_id != my_session {
+                dioxus_utils::console_log(&format!(
+                    "[logs-ws] session={my_session} superseded after {received} msgs — exiting"
+                ));
                 return;
             }
             match msg {
                 Ok(Message::Text(text)) => {
+                    received += 1;
+                    if received <= 3 {
+                        let preview: String = text.chars().take(200).collect();
+                        dioxus_utils::console_log(&format!(
+                            "[logs-ws] session={my_session} msg #{received}: {preview}"
+                        ));
+                    }
                     if let Ok(parsed) = serde_json::from_str::<WsLogPayload>(&text) {
                         let mut w = cs.write();
                         w.lines.push(LogLineHttpModel {
@@ -155,10 +175,17 @@ fn spawn_stream(
                         while w.lines.len() > LINE_BUFFER_CAP {
                             w.lines.remove(0);
                         }
+                    } else {
+                        dioxus_utils::console_log(&format!(
+                            "[logs-ws] session={my_session} non-line payload: {text}"
+                        ));
                     }
                 }
                 Ok(Message::Bytes(_)) => {}
                 Err(err) => {
+                    dioxus_utils::console_log(&format!(
+                        "[logs-ws] session={my_session} error: {err:?}"
+                    ));
                     if cs.read().session_id == my_session {
                         cs.write().error = Some(format!("WS error: {err:?}"));
                     }
@@ -166,6 +193,9 @@ fn spawn_stream(
                 }
             }
         }
+        dioxus_utils::console_log(&format!(
+            "[logs-ws] session={my_session} stream ended after {received} msgs"
+        ));
     });
 }
 

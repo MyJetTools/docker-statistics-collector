@@ -82,10 +82,13 @@ async fn forward_logs(
     tail: Option<u32>,
     ws: Arc<MyWebSocket>,
 ) {
+    println!("[api-ws-logs] client connected env={env} id={container_id} tail={tail:?}");
     let settings = app.settings_reader.get_settings().await;
     let master_url = match settings.envs.get(&env) {
         Some(vm) => vm.url.clone(),
         None => {
+            eprintln!("[api-ws-logs] env '{env}' not in settings — known envs: {:?}",
+                settings.envs.keys().collect::<Vec<_>>());
             send_error(&ws, &format!("env '{env}' not configured")).await;
             ws.disconnect().await;
             return;
@@ -93,9 +96,14 @@ async fn forward_logs(
     };
 
     let upstream_url = build_collector_ws_url(&master_url, &container_id, tail);
+    println!("[api-ws-logs] dialing collector upstream={upstream_url}");
     let upstream = match tokio_tungstenite::connect_async(&upstream_url).await {
-        Ok((stream, _)) => stream,
+        Ok((stream, _)) => {
+            println!("[api-ws-logs] upstream connected env={env} id={container_id}");
+            stream
+        }
         Err(err) => {
+            eprintln!("[api-ws-logs] upstream connect FAILED to {upstream_url}: {err:?}");
             send_error(
                 &ws,
                 &format!("failed to open WS to collector {master_url}: {err:?}"),

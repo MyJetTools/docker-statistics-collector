@@ -58,7 +58,10 @@ impl MyWebSocketCallback for LogsWsCallback {
         let app = self.app.clone();
         let ws_for_task = ws.clone();
         tokio::spawn(async move {
+            println!("[col-ws-logs] connected id={container_id} tail={tail}");
             if is_local(&app, &container_id).await {
+                println!("[col-ws-logs] id={container_id} is LOCAL — streaming from docker {}",
+                    app.settings_model.docker_url);
                 stream_local_logs_to_ws(
                     &app.settings_model.docker_url,
                     &container_id,
@@ -68,6 +71,7 @@ impl MyWebSocketCallback for LogsWsCallback {
                 .await;
                 return;
             }
+            println!("[col-ws-logs] id={container_id} is NOT local — will fan-out to peers");
 
             // Container is not on this docker host — try peers in order. The
             // first peer that owns it streams the lines back through us to the
@@ -123,8 +127,12 @@ async fn stream_local_logs_to_ws(
 ) {
     let stream = docker_sdk::sdk::get_container_logs_stream(docker_url, container_id, tail).await;
     let mut stream = match stream {
-        Ok(s) => s,
+        Ok(s) => {
+            println!("[col-ws-logs] docker stream opened for id={container_id}");
+            s
+        }
         Err(err) => {
+            eprintln!("[col-ws-logs] FAILED to open docker stream for id={container_id}: {err:?}");
             let payload = format!(r#"{{"error":"failed to open docker stream: {err:?}"}}"#);
             let _ = ws
                 .send_message(std::iter::once(WsMessage::Text(payload.into())))
@@ -135,6 +143,8 @@ async fn stream_local_logs_to_ws(
     };
 
     let mut parser = LogFrameParser::new();
+    let mut sent = 0u64;
+    let mut chunks = 0u64;
 
     loop {
         if !ws.is_connected() {
@@ -144,12 +154,20 @@ async fn stream_local_logs_to_ws(
         let chunk = stream.get_next_chunk().await;
         let chunk = match chunk {
             Ok(Some(bytes)) => bytes,
-            Ok(None) => break,
+            Ok(None) => {
+                println!("[col-ws-logs] docker stream ENDED for id={container_id} after {chunks} chunks / {sent} lines");
+                break;
+            }
             Err(err) => {
-                println!("logs ws: docker stream error for {container_id}: {err:?}");
+                eprintln!("[col-ws-logs] docker stream error id={container_id}: {err:?}");
                 break;
             }
         };
+
+        chunks += 1;
+        if chunks <= 3 {
+            println!("[col-ws-logs] id={container_id} chunk #{chunks} ({} bytes)", chunk.len());
+        }
 
         parser.feed(&chunk);
         let lines = parser.take_lines();
@@ -163,9 +181,15 @@ async fn stream_local_logs_to_ws(
             let payload = format!(r#"{{"tp":{tp},"line":{escaped}}}"#);
             ws.send_message(std::iter::once(WsMessage::Text(payload.into())))
                 .await;
+            sent += 1;
+            if sent <= 3 {
+                println!("[col-ws-logs] id={container_id} sent line #{sent}: tp={tp} {:?}",
+                    if line.len() > 120 { &line[..120] } else { &line });
+            }
         }
     }
 
+    println!("[col-ws-logs] disconnecting id={container_id} (sent {sent} lines)");
     ws.disconnect().await;
 }
 
