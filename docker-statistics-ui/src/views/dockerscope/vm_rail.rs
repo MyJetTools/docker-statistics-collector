@@ -38,15 +38,16 @@ pub fn VmRail() -> Element {
                 items: grouped.dev.into_iter().map(|(n, v)| (n.clone(), v.clone())).collect::<Vec<_>>(),
                 active_vm: active_vm.clone(),
             }
-            // All VMs entry — selects SelectedVm::All so containers from every VM merge.
-            Link {
-                to: AppRoute::AllRoute {},
-                class: if all_selected { "vm-card active" } else { "vm-card" },
-                style: "margin-top: 12px;",
-                div { class: "ico", {icon_server()} }
-                div { class: "body",
-                    div { class: "name", "All VMs" }
-                    div { class: "meta", span { class: "item", "aggregate" } }
+            // All VMs entry — synthetic aggregate over the whole fleet,
+            // rendered through the same VmCard layout for visual parity.
+            if !cs_ra.vms_state.is_empty() {
+                div { style: "margin-top: 12px;",
+                    VmCard {
+                        name: "All VMs".to_string(),
+                        vm: aggregate_all_vms(&cs_ra.vms_state),
+                        active: all_selected,
+                        is_all: true,
+                    }
                 }
             }
         }
@@ -76,13 +77,21 @@ fn VmGroupSection(
 }
 
 #[component]
-fn VmCard(name: String, vm: crate::models::VmModel, active: bool) -> Element {
+fn VmCard(
+    name: String,
+    vm: crate::models::VmModel,
+    active: bool,
+    #[props(default = false)]
+    is_all: bool,
+) -> Element {
     let status = vm_status(&vm);
     let heart_class = format!("heart {}", if status == "ok" { "" } else { status });
     let cpu_pct = vm.cpu.round() as i32;
     let card_class = if active { "vm-card active" } else { "vm-card" };
-    let target = AppRoute::VmRoute {
-        vm_name: name.clone(),
+    let target = if is_all {
+        AppRoute::AllRoute {}
+    } else {
+        AppRoute::VmRoute { vm_name: name.clone() }
     };
 
     let used_short = fmt_mem_short(vm.mem);

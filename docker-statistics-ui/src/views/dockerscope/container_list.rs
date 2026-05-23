@@ -46,7 +46,13 @@ pub fn ContainerListPanel() -> Element {
                 } else {
                     for row in rows.into_iter() {
                         ContainerRow {
-                            row,
+                            // Stable key per container — without it Dioxus may
+                            // remount the row on every tick (when the polling
+                            // loop replaces the Vec), wiping `use_signal` state
+                            // in MemBar and making the bar flicker when pct
+                            // momentarily goes None.
+                            key: "{row.id}",
+                            row: row.clone(),
                             active_name: active_name.clone(),
                             active_vm: active_vm.clone(),
                             single_vm_name: single_vm_name.clone(),

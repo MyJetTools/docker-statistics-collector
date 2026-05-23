@@ -143,3 +143,51 @@ pub fn shorten_id(id: &str, n: usize) -> &str {
         &id[..n]
     }
 }
+
+/// Synthesize a single VmModel from the fleet so the "All VMs" rail card can
+/// reuse the regular VmCard layout. Sums numeric fields; host_* totals sum
+/// only across VMs that report them.
+pub fn aggregate_all_vms(vms: &BTreeMap<String, VmModel>) -> VmModel {
+    let mut cpu = 0.0_f64;
+    let mut mem = 0_i64;
+    let mut mem_limit = 0_i64;
+    let mut containers_amount = 0_usize;
+    let mut open_files = 0_i64;
+    let mut host_mem_total: Option<i64> = None;
+    let mut host_mem_available: Option<i64> = None;
+    let mut host_mem_used: Option<i64> = None;
+    let mut host_cpu_count: Option<u32> = None;
+
+    for vm in vms.values() {
+        cpu += vm.cpu;
+        mem += vm.mem;
+        mem_limit += vm.mem_limit;
+        containers_amount += vm.containers_amount;
+        open_files += vm.open_files;
+        if let Some(t) = vm.host_mem_total {
+            host_mem_total = Some(host_mem_total.unwrap_or(0) + t);
+        }
+        if let Some(a) = vm.host_mem_available {
+            host_mem_available = Some(host_mem_available.unwrap_or(0) + a);
+        }
+        if let Some(u) = vm.host_mem_used {
+            host_mem_used = Some(host_mem_used.unwrap_or(0) + u);
+        }
+        if let Some(c) = vm.host_cpu_count {
+            host_cpu_count = Some(host_cpu_count.unwrap_or(0) + c);
+        }
+    }
+
+    VmModel {
+        api_url: String::new(),
+        cpu,
+        mem,
+        mem_limit,
+        containers_amount,
+        open_files,
+        host_mem_total,
+        host_mem_available,
+        host_mem_used,
+        host_cpu_count,
+    }
+}
