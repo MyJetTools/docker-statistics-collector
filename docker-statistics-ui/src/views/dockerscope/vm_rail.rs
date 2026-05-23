@@ -137,22 +137,28 @@ fn VmCard(name: String, vm: crate::models::VmModel, active: bool) -> Element {
             to: target,
             class: "{card_class}",
             title: "{vm.api_url}",
-            div { class: "head",
-                div { class: "name", "{name}" }
-                div { class: "count", "{vm.containers_amount}" }
-            }
-            div { class: "meta",
-                span { class: "item cpu", "{cpu_pct}% cpu" }
-                if let Some(c) = vm.host_cpu_count {
-                    span { class: "item", title: "host cores", "{c}c" }
+            div { class: "top",
+                div { class: "ico",
+                    {icon_server()}
+                    span { class: "{heart_class}" }
                 }
-            }
-            div { class: "vm-mem-text",
-                span { class: "used", "{used_short}" }
-                span { class: "denom", " / {denom_label}" }
-                span { class: "sep", " · " }
-                span { class: "res-lbl", "res " }
-                span { style: "color: {reserved_color};", "{reserved_short}" }
+                div { class: "info",
+                    div { class: "name", "{name}" }
+                    div { class: "meta",
+                        span { class: "item cpu", "{cpu_pct}% cpu" }
+                        if let Some(c) = vm.host_cpu_count {
+                            span { class: "item", title: "host cores", "{c}c" }
+                        }
+                    }
+                    div { class: "vm-mem-text",
+                        span { class: "used", "{used_short}" }
+                        span { class: "denom", " / {denom_label}" }
+                        span { class: "sep", " · " }
+                        span { class: "res-lbl", "res " }
+                        span { style: "color: {reserved_color};", "{reserved_short}" }
+                    }
+                }
+                div { class: "count", "{vm.containers_amount}" }
             }
             div { class: "vm-mem-bar", title: "{mem_title}",
                 div {
@@ -164,10 +170,6 @@ fn VmCard(name: String, vm: crate::models::VmModel, active: bool) -> Element {
                     style: "width: {used_pct:.1}%; background: {used_color};",
                 }
                 div { class: "vm-mem-bar-tick" }
-            }
-            div { class: "ico",
-                {icon_server()}
-                span { class: "{heart_class}" }
             }
         }
     }
