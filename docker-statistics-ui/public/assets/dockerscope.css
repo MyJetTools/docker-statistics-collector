@@ -196,7 +196,12 @@ button, input { font-family: inherit; color: inherit; }
   border-radius: var(--r-md);
   cursor: pointer;
   transition: background .12s, border-color .12s;
+  /* Dioxus Router's <Link> renders as <a>; strip the default underline so
+     names/metrics inside the card don't look like hyperlinks. */
+  text-decoration: none;
+  color: inherit;
 }
+.vm-card:hover, .vm-card:focus, .vm-card:visited { text-decoration: none; }
 .vm-card .top {
   display: flex;
   align-items: flex-start;
@@ -488,7 +493,11 @@ button, input { font-family: inherit; color: inherit; }
   border-radius: var(--r-md);
   cursor: pointer;
   margin-bottom: 2px;
+  /* Dioxus Router's <Link> renders as <a>; strip the default underline. */
+  text-decoration: none;
+  color: inherit;
 }
+.cont-row:hover, .cont-row:focus, .cont-row:visited { text-decoration: none; }
 .cont-row:hover { background: var(--surface-1); }
 .cont-row.active { background: var(--surface-2); border-color: var(--border-strong); }
 .cont-row .state {
