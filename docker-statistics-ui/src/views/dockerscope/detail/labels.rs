@@ -40,9 +40,11 @@ pub fn LabelsPanel(container: ContainerModel) -> Element {
                 h3 { "Metadata" }
                 span { class: "count-pill", "{count} keys" }
             }
-            div { class: "kv-list",
-                for (k, v) in rows.iter() {
-                    LabelRow { k: k.clone(), v: v.clone() }
+            table { class: "kv-table",
+                tbody {
+                    for (k, v) in rows.iter() {
+                        LabelRow { k: k.clone(), v: v.clone() }
+                    }
                 }
             }
         }
@@ -54,9 +56,9 @@ fn LabelRow(k: String, v: String) -> Element {
     let dim = v.len() > 60;
     let v_class = if dim { "v dim" } else { "v" };
     rsx! {
-        div { class: "row",
-            span { class: "k", "{k}" }
-            span { class: "{v_class}", "{v}" }
+        tr {
+            td { class: "k", "{k}" }
+            td { class: "{v_class}", "{v}" }
         }
     }
 }

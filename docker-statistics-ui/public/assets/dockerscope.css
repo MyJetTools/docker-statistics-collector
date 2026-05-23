@@ -604,21 +604,32 @@ button, input { font-family: inherit; color: inherit; }
 }
 .mount-row .rwo { float: right; font-size: 10px; color: var(--text-muted); }
 
-/* labels / metadata */
-.kv-list {
-  display: flex; flex-direction: column;
-  font-family: var(--mono); font-size: 11.5px;
+/* labels / metadata — real <table> so the key column grows to fit and never
+   collides with the value column. Long values wrap; long keys stay on one line. */
+.kv-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  table-layout: auto;
 }
-.kv-list .row {
-  display: grid;
-  grid-template-columns: 140px 1fr;
-  column-gap: 12px;
+.kv-table td {
   padding: 7px 4px;
+  vertical-align: top;
 }
-.kv-list .row + .row { border-top: 1px dashed var(--border); }
-.kv-list .row .k { color: var(--text-muted); }
-.kv-list .row .v { color: var(--text); word-break: break-all; }
-.kv-list .row .v.dim { color: var(--text-dim); }
+.kv-table tr + tr td { border-top: 1px dashed var(--border); }
+.kv-table td.k {
+  color: var(--text-muted);
+  white-space: nowrap;
+  padding-right: 16px;
+  width: 1%; /* shrink-wrap to longest key */
+}
+.kv-table td.v {
+  color: var(--text);
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+.kv-table td.v.dim { color: var(--text-dim); }
 
 /* Log preview */
 .log-mini {
