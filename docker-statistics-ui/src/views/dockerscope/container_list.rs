@@ -139,21 +139,6 @@ fn ContainerRow(
         && active_vm.as_deref() == row_vm.as_deref();
     let pct = row.mem_pct();
 
-    // DEBUG: trace anyone in the hot zone or any kafka — until flicker root cause is fixed.
-    if row.name.to_ascii_lowercase().contains("kafka")
-        || pct.map(|p| p >= 80.0).unwrap_or(false)
-    {
-        dioxus_utils::console_log(&format!(
-            "[hot-debug] name={} running={} mem_bytes={} effective_limit={:?} declared={} pct={:?}",
-            row.name,
-            row.is_running,
-            row.mem_bytes,
-            row.effective_mem_limit,
-            row.mem_limit_is_declared,
-            pct,
-        ));
-    }
-
     let mem_heat = match pct {
         Some(p) if p >= 90.0 => " mem-danger",
         Some(p) if p >= 80.0 => " mem-warn",
@@ -199,14 +184,7 @@ fn ContainerRow(
                     }
                 }
                 div { class: "image", "{row.image}" }
-                MemBar {
-                    pct,
-                    running: row.is_running,
-                    debug_name: if row.name.to_ascii_lowercase().contains("kafka")
-                        || pct.map(|p| p >= 80.0).unwrap_or(false) {
-                            Some(row.name.clone())
-                        } else { None },
-                }
+                MemBar { pct, running: row.is_running }
             }
             div { class: "metrics",
                 span { class: "cpu", "{cpu_str}" }
@@ -222,15 +200,16 @@ fn ContainerRow(
 }
 
 #[component]
-fn MemBar(pct: Option<f64>, running: bool, debug_name: Option<String>) -> Element {
+fn MemBar(pct: Option<f64>, running: bool) -> Element {
     if !running {
         return rsx! {};
     }
 
     // Sticky last-known pct: backend occasionally drops `mem.limit` for a
-    // single tick (peer fanout race), which would otherwise unmount/remount
-    // the bar and flicker every few seconds. We hold the previous value and
-    // only fall back to it when the current pct goes missing.
+    // single tick (peer fanout race) or reports mem.usage=0 on the hottest
+    // containers (kafka, loggers). Hold the previous value and only fall back
+    // to it when the current pct is None or 0 — otherwise the bar disappears
+    // every few seconds exactly on the busiest rows.
     let mut last_pct = use_signal::<Option<f64>>(|| None);
     let incoming = pct;
     use_effect(use_reactive!(|incoming| {
@@ -241,20 +220,7 @@ fn MemBar(pct: Option<f64>, running: bool, debug_name: Option<String>) -> Elemen
         }
     }));
 
-    // Fall back to the sticky value not only on None but on Some(0.0) too:
-    // backend sometimes reports mem.usage=0 for a single tick on hot containers
-    // (kafka, loggers). Without this filter the bar disappears every few ticks
-    // exactly for the busiest containers.
-    let last_seen = *last_pct.read();
-    let effective = pct.filter(|p| *p > 0.0).or(last_seen);
-
-    if let Some(name) = debug_name.as_ref() {
-        dioxus_utils::console_log(&format!(
-            "[membar] {} pct={:?} last_pct={:?} effective={:?}",
-            name, pct, last_seen, effective
-        ));
-    }
-
+    let effective = pct.filter(|p| *p > 0.0).or(*last_pct.read());
     let Some(p) = effective else {
         return rsx! {};
     };
@@ -274,12 +240,16 @@ fn MemBar(pct: Option<f64>, running: bool, debug_name: Option<String>) -> Elemen
     } else {
         "none".to_string()
     };
-    let width = p.min(100.0);
+    // Round to one decimal so the inline `width:` string stays the same between
+    // ticks where pct only drifts in the noise digits (e.g. 94.37618 → 94.37789).
+    // Otherwise Dioxus rewrites the style attribute every tick and the browser
+    // re-paints the fill div, producing a visible flicker on the busiest rows.
+    let width = (p.min(100.0) * 10.0).round() / 10.0;
     rsx! {
         div {
             style: "height: 3px; margin-top: 4px; width: 100%; background: {bg}; border-radius: 2px; overflow: hidden; position: relative;",
             div {
-                style: "position: absolute; left: 0; top: 0; bottom: 0; width: {width}%; background: {fg}; box-shadow: {glow};"
+                style: "position: absolute; left: 0; top: 0; bottom: 0; width: {width:.1}%; background: {fg}; box-shadow: {glow};"
             }
             div {
                 style: "position: absolute; left: 80%; top: 0; bottom: 0; width: 1px; background: color-mix(in srgb, var(--text-muted) 60%, transparent);"
