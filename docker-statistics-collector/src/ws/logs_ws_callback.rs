@@ -146,12 +146,24 @@ async fn stream_local_logs_to_ws(
     let mut sent = 0u64;
     let mut chunks = 0u64;
 
+    // Heartbeat — without it the WS middleware closes idle connections on a
+    // quiet container. 5s is well under any reasonable idle timeout.
+    let mut ping_tick = tokio::time::interval(std::time::Duration::from_secs(5));
+    ping_tick.tick().await; // skip immediate first tick
+
     loop {
         if !ws.is_connected() {
             break;
         }
 
-        let chunk = stream.get_next_chunk().await;
+        let chunk = tokio::select! {
+            _ = ping_tick.tick() => {
+                ws.send_message(std::iter::once(WsMessage::Ping(Vec::new().into())))
+                    .await;
+                continue;
+            }
+            c = stream.get_next_chunk() => c,
+        };
         let chunk = match chunk {
             Ok(Some(bytes)) => bytes,
             Ok(None) => {

@@ -116,11 +116,15 @@ async fn forward_logs(
 
     let (_write_upstream, mut read_upstream) = upstream.split();
 
-    // Periodic tick so we notice a client disconnect even if the upstream
-    // collector is silent for a long stretch — otherwise we'd leak the
-    // upstream connection until docker pushes the next log line.
+    // Two timers:
+    //  - alive_check (2s): cheap heartbeat into our own loop so a silent
+    //    upstream doesn't keep an already-dead downstream connection open.
+    //  - ping_tick (5s): WS Ping frame downstream so the browser doesn't
+    //    auto-close the connection during quiet periods on the container.
     let mut alive_check = tokio::time::interval(std::time::Duration::from_secs(2));
-    alive_check.tick().await; // skip the immediate first tick
+    alive_check.tick().await;
+    let mut ping_tick = tokio::time::interval(std::time::Duration::from_secs(5));
+    ping_tick.tick().await;
 
     loop {
         if !ws.is_connected() {
@@ -131,6 +135,10 @@ async fn forward_logs(
             _ = alive_check.tick() => {
                 continue;
             }
+            _ = ping_tick.tick() => {
+                ws.send_message(std::iter::once(WsMessage::Ping(Vec::new().into())))
+                    .await;
+            }
             msg = read_upstream.next() => {
                 match msg {
                     Some(Ok(Message::Text(text))) => {
@@ -140,6 +148,9 @@ async fn forward_logs(
                     Some(Ok(Message::Binary(bytes))) => {
                         ws.send_message(std::iter::once(WsMessage::Binary(bytes.to_vec().into())))
                             .await;
+                    }
+                    Some(Ok(Message::Ping(_))) | Some(Ok(Message::Pong(_))) => {
+                        // tokio-tungstenite auto-responds to Ping; nothing to forward.
                     }
                     Some(Ok(Message::Close(_))) | None => break,
                     Some(Ok(_)) => {}

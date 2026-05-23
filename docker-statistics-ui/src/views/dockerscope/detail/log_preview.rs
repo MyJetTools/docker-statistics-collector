@@ -11,6 +11,10 @@ use crate::states::{DialogState, DialogType, MainState};
 /// Soft cap on how many log lines the preview retains in memory — keeps the
 /// virtual DOM from ballooning on chatty containers.
 const LINE_BUFFER_CAP: usize = 500;
+/// Pseudo-frame `tp` value used for the synthetic disconnect/reconnect markers
+/// we inject into the buffer so the user sees the stream timeline rather than
+/// silently losing connection.
+const MARKER_TP: u8 = 200;
 
 #[derive(Deserialize)]
 struct WsLogPayload {
@@ -30,44 +34,63 @@ pub fn LogPreview(container_id: String, vm_url: String, is_running: bool) -> Ele
         .map(|e| e.clone())
         .unwrap_or_else(|| Rc::new(String::new()));
 
-    // Buffer of received lines + any terminal error. Owned by a signal so the
-    // streaming task can keep pushing without us re-rendering anything else.
     let cs = use_signal(LogPreviewState::default);
+    // Bumping this re-triggers the use_resource below, even when container_id
+    // hasn't changed — that's how the Reconnect button works.
+    let reconnect_n = use_signal(|| 0u64);
 
-    // `use_resource` keeps a single async task alive for as long as deps stay
-    // the same. When container_id (or env) actually changes, the previous
-    // future is dropped — which drops our `WebSocket` and closes the upstream
-    // cleanly — and a fresh task starts. Re-renders that don't change deps do
-    // NOT restart the task.
     let env_for_res = env.clone();
     let container_for_res = container_id.clone();
-    let _stream_task = use_resource(use_reactive!(|container_for_res| {
+    let reconnect_dep = *reconnect_n.read();
+    let _stream_task = use_resource(use_reactive!(|container_for_res, reconnect_dep| {
         let env = env_for_res.clone();
         let mut cs = cs.to_owned();
         async move {
-            // Clear stale buffer when we swap container.
+            // Buffer is only cleared when the user switched to a different
+            // container — on a reconnect for the same container we keep the
+            // old lines and append a "reconnected" marker so context isn't lost.
             {
                 let mut w = cs.write();
-                w.lines.clear();
+                let same_container = w.current_id.as_deref() == Some(container_for_res.as_str());
+                if !same_container {
+                    w.lines.clear();
+                    w.current_id = Some(container_for_res.clone());
+                } else if reconnect_dep > 0 {
+                    push_marker(&mut w.lines, "── reconnected ──");
+                }
+                w.live = true;
                 w.error = None;
             }
             run_stream(cs, env, container_for_res).await;
         }
     }));
 
-    let status = if is_running { "● live" } else { "○ paused" };
-    let status_color = if is_running {
-        "var(--accent)"
+    let cs_ra = cs.read();
+    let status = if cs_ra.live && is_running {
+        "● live"
+    } else if cs_ra.live {
+        "○ paused"
     } else {
-        "var(--text-muted)"
+        "⨯ disconnected"
     };
+    let status_color = if cs_ra.live && is_running {
+        "var(--accent)"
+    } else if cs_ra.live {
+        "var(--text-muted)"
+    } else {
+        "var(--danger)"
+    };
+    let disconnected = !cs_ra.live;
 
-    let body = render_body(&cs.read());
+    let body = render_body(&cs_ra);
+    drop(cs_ra);
 
     let cid_for_modal = container_id.clone();
     let url_for_modal = vm_url.clone();
     let env_for_modal = env.clone();
     let dialog_handle = consume_context::<Signal<DialogState>>();
+
+    let mut reconnect_signal = reconnect_n.to_owned();
 
     rsx! {
         div { class: "panel log-panel",
@@ -75,6 +98,15 @@ pub fn LogPreview(container_id: String, vm_url: String, is_running: bool) -> Ele
                 h3 { "Log tail · live · last {LINE_BUFFER_CAP} lines" }
                 div { style: "display:flex; gap:8px; align-items:center;",
                     span { class: "count-pill", style: "color: {status_color};", "{status}" }
+                    if disconnected {
+                        button {
+                            class: "btn btn-sm",
+                            onclick: move |_| {
+                                *reconnect_signal.write() += 1;
+                            },
+                            "reconnect"
+                        }
+                    }
                     button {
                         class: "btn btn-sm",
                         onclick: move |_| {
@@ -97,10 +129,7 @@ pub fn LogPreview(container_id: String, vm_url: String, is_running: bool) -> Ele
 }
 
 fn render_body(cs: &LogPreviewState) -> Element {
-    if let Some(err) = cs.error.as_deref() {
-        return rsx! { div { class: "ds-error", "log stream error: {err}" } };
-    }
-    if cs.lines.is_empty() {
+    if cs.lines.is_empty() && cs.error.is_none() {
         return rsx! {
             div { style: "padding:6px 0; color:var(--text-muted);", "waiting for log lines…" }
         };
@@ -109,18 +138,32 @@ fn render_body(cs: &LogPreviewState) -> Element {
         for line in cs.lines.iter() {
             LogLine { tp: line.tp as i32, text: line.line.clone() }
         }
+        if let Some(err) = cs.error.as_deref() {
+            div { class: "ds-error", "log stream error: {err}" }
+        }
     }
 }
 
 #[component]
 fn LogLine(tp: i32, text: String) -> Element {
     let cls = match tp {
+        t if t == MARKER_TP as i32 => "log-line lvl-marker",
         0 => "log-line lvl-warn",
         1 => "log-line lvl-info",
         2 => "log-line lvl-err",
         _ => "log-line",
     };
     rsx! { div { class: "{cls}", "{text}" } }
+}
+
+fn push_marker(lines: &mut Vec<LogLineHttpModel>, label: &str) {
+    lines.push(LogLineHttpModel {
+        tp: MARKER_TP,
+        line: label.to_string(),
+    });
+    while lines.len() > LINE_BUFFER_CAP {
+        lines.remove(0);
+    }
 }
 
 async fn run_stream(mut cs: Signal<LogPreviewState>, env: Rc<String>, container_id: String) {
@@ -131,7 +174,9 @@ async fn run_stream(mut cs: Signal<LogPreviewState>, env: Rc<String>, container_
         Ok(ws) => ws,
         Err(err) => {
             dioxus_utils::console_log(&format!("[logs-ws] open failed: {err:?}"));
-            cs.write().error = Some(format!("open WS failed: {err:?}"));
+            let mut w = cs.write();
+            w.live = false;
+            push_marker(&mut w.lines, &format!("── disconnected (open failed: {err:?}) ──"));
             return;
         }
     };
@@ -144,10 +189,6 @@ async fn run_stream(mut cs: Signal<LogPreviewState>, env: Rc<String>, container_
         match msg {
             Ok(Message::Text(text)) => {
                 received += 1;
-                if received <= 3 {
-                    let preview: String = text.chars().take(200).collect();
-                    dioxus_utils::console_log(&format!("[logs-ws] msg #{received}: {preview}"));
-                }
                 if let Ok(parsed) = serde_json::from_str::<WsLogPayload>(&text) {
                     let mut w = cs.write();
                     w.lines.push(LogLineHttpModel {
@@ -164,12 +205,17 @@ async fn run_stream(mut cs: Signal<LogPreviewState>, env: Rc<String>, container_
             Ok(Message::Bytes(_)) => {}
             Err(err) => {
                 dioxus_utils::console_log(&format!("[logs-ws] error: {err:?}"));
-                cs.write().error = Some(format!("WS error: {err:?}"));
+                let mut w = cs.write();
+                w.live = false;
+                push_marker(&mut w.lines, &format!("── disconnected ({err:?}) ──"));
                 return;
             }
         }
     }
     dioxus_utils::console_log(&format!("[logs-ws] stream ended after {received} msgs"));
+    let mut w = cs.write();
+    w.live = false;
+    push_marker(&mut w.lines, "── disconnected ──");
 }
 
 fn build_ws_url(env: &str, container_id: &str) -> String {
@@ -189,5 +235,10 @@ fn build_ws_url(env: &str, container_id: &str) -> String {
 #[derive(Default)]
 struct LogPreviewState {
     lines: Vec<LogLineHttpModel>,
+    /// id of the container the buffer currently belongs to; used to decide
+    /// whether to keep or clear the buffer when the resource future restarts.
+    current_id: Option<String>,
+    /// true while the WS task is alive and consuming messages.
+    live: bool,
     error: Option<String>,
 }
