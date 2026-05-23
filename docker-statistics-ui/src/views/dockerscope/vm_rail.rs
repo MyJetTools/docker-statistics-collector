@@ -10,15 +10,7 @@ pub fn VmRail() -> Element {
     let main_state = consume_context::<Signal<MainState>>();
     let cs_ra = main_state.read();
 
-    let Some(vms) = cs_ra.vms_state.as_ref() else {
-        return rsx! {
-            aside { class: "vm-rail",
-                div { class: "ds-loading", "loading vms…" }
-            }
-        };
-    };
-
-    let grouped = group_vms(vms);
+    let grouped = group_vms(&cs_ra.vms_state);
     let active_vm = cs_ra.get_selected_vm_name();
     let all_selected = cs_ra.is_all_vms_selected();
 
@@ -145,38 +137,38 @@ fn VmCard(name: String, vm: crate::models::VmModel, active: bool) -> Element {
             to: target,
             class: "{card_class}",
             title: "{vm.api_url}",
+            div { class: "head",
+                div { class: "name", "{name}" }
+                div { class: "count", "{vm.containers_amount}" }
+            }
+            div { class: "meta",
+                span { class: "item cpu", "{cpu_pct}% cpu" }
+                if let Some(c) = vm.host_cpu_count {
+                    span { class: "item", title: "host cores", "{c}c" }
+                }
+            }
+            div { class: "vm-mem-text",
+                span { class: "used", "{used_short}" }
+                span { class: "denom", " / {denom_label}" }
+                span { class: "sep", " · " }
+                span { class: "res-lbl", "res " }
+                span { style: "color: {reserved_color};", "{reserved_short}" }
+            }
+            div { class: "vm-mem-bar", title: "{mem_title}",
+                div {
+                    class: "vm-mem-bar-reserved",
+                    style: "width: {reserved_pct:.1}%; background: {reserved_overlay};",
+                }
+                div {
+                    class: "vm-mem-bar-used",
+                    style: "width: {used_pct:.1}%; background: {used_color};",
+                }
+                div { class: "vm-mem-bar-tick" }
+            }
             div { class: "ico",
                 {icon_server()}
                 span { class: "{heart_class}" }
             }
-            div { class: "body",
-                div { class: "name", "{name}" }
-                div { class: "meta",
-                    span { class: "item cpu", "{cpu_pct}% cpu" }
-                    if let Some(c) = vm.host_cpu_count {
-                        span { class: "item", title: "host cores", "{c}c" }
-                    }
-                }
-                div { class: "vm-mem-bar", title: "{mem_title}",
-                    div {
-                        class: "vm-mem-bar-reserved",
-                        style: "width: {reserved_pct:.1}%; background: {reserved_overlay};",
-                    }
-                    div {
-                        class: "vm-mem-bar-used",
-                        style: "width: {used_pct:.1}%; background: {used_color};",
-                    }
-                    div { class: "vm-mem-bar-tick" }
-                }
-                div { class: "vm-mem-text",
-                    span { class: "used", "{used_short}" }
-                    span { class: "denom", " / {denom_label}" }
-                    span { class: "sep", " · " }
-                    span { class: "res-lbl", "res " }
-                    span { style: "color: {reserved_color};", "{reserved_short}" }
-                }
-            }
-            div { class: "count", "{vm.containers_amount}" }
         }
     }
 }

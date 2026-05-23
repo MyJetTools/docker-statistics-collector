@@ -144,33 +144,31 @@ struct FleetTotals {
 }
 
 fn compute_fleet_totals(cs_ra: &MainState) -> FleetTotals {
-    let vms = cs_ra.vms_state.as_ref().map(|m| m.len()).unwrap_or(0);
-    let mut containers = 0usize;
+    let vms = cs_ra.vms_state.len();
     let mut running = 0usize;
     let mut issues = 0usize;
-    if let Some(all) = cs_ra.get_all_containers() {
-        containers = all.len();
-        for c in all {
-            let st = c.container.state.as_deref().unwrap_or("").to_ascii_lowercase();
-            if st == "running" {
-                running += 1;
+    let all = cs_ra.get_all_containers();
+    let containers = all.len();
+    for c in all {
+        let st = c.container.state.as_deref().unwrap_or("").to_ascii_lowercase();
+        if st == "running" {
+            running += 1;
+        }
+        let bad_state = st == "restarting" || st.contains("unhealthy");
+        // Effective limit: declared > 0 wins, otherwise the host RAM total
+        // (an unlimited container can claim the whole VM).
+        let effective_limit = match c.container.mem.limit {
+            Some(v) if v > 0 => Some(v),
+            _ => c.host_mem_total,
+        };
+        let hot_mem = match (c.container.mem.usage, effective_limit) {
+            (Some(used), Some(limit)) if limit > 0 => {
+                (used as f64 / limit as f64) * 100.0 >= 80.0
             }
-            let bad_state = st == "restarting" || st.contains("unhealthy");
-            // Effective limit: declared > 0 wins, otherwise the host RAM total
-            // (an unlimited container can claim the whole VM).
-            let effective_limit = match c.container.mem.limit {
-                Some(v) if v > 0 => Some(v),
-                _ => c.host_mem_total,
-            };
-            let hot_mem = match (c.container.mem.usage, effective_limit) {
-                (Some(used), Some(limit)) if limit > 0 => {
-                    (used as f64 / limit as f64) * 100.0 >= 80.0
-                }
-                _ => false,
-            };
-            if bad_state || hot_mem {
-                issues += 1;
-            }
+            _ => false,
+        };
+        if bad_state || hot_mem {
+            issues += 1;
         }
     }
     FleetTotals { vms, containers, running, issues }

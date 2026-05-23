@@ -19,18 +19,8 @@ pub fn ContainerListPanel() -> Element {
             .unwrap_or_else(|| "no vm".to_string())
     };
 
-    let total_count = cs_ra.get_all_containers().map(|c| c.len()).unwrap_or(0);
-
-    let Some(rows_src) = cs_ra.get_containers() else {
-        return rsx! {
-            section { class: "list-col",
-                ListHead { title, total: total_count }
-                div { class: "list-body",
-                    div { class: "ds-loading", "no vm selected" }
-                }
-            }
-        };
-    };
+    let total_count = cs_ra.get_all_containers().len();
+    let rows_src = cs_ra.get_containers();
 
     let active_name = cs_ra.get_active_container_name().map(|s| s.to_string());
     let active_vm = cs_ra.get_active_container_vm().map(|s| s.to_string());
@@ -265,24 +255,22 @@ fn ListHead(title: String, total: usize) -> Element {
     let mut exited = 0;
     let mut restarting = 0;
     let mut unhealthy = 0;
-    if let Some(items) = cs_ra.get_all_containers() {
-        for itm in items {
-            all += 1;
-            let s = itm
-                .container
-                .state
-                .as_deref()
-                .unwrap_or("")
-                .to_ascii_lowercase();
-            if s == "running" {
-                running += 1;
-            } else if s == "restarting" {
-                restarting += 1;
-            } else if s.contains("unhealthy") {
-                unhealthy += 1;
-            } else {
-                exited += 1;
-            }
+    for itm in cs_ra.get_all_containers() {
+        all += 1;
+        let s = itm
+            .container
+            .state
+            .as_deref()
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        if s == "running" {
+            running += 1;
+        } else if s == "restarting" {
+            restarting += 1;
+        } else if s.contains("unhealthy") {
+            unhealthy += 1;
+        } else {
+            exited += 1;
         }
     }
     drop(cs_ra);

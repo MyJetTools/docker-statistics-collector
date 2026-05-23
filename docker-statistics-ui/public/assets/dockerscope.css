@@ -182,15 +182,21 @@ button, input { font-family: inherit; color: inherit; }
 
 .vm-card {
   position: relative;
-  display: grid;
-  grid-template-columns: 32px 1fr auto;
-  column-gap: 10px;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   padding: 10px 10px;
   border: 1px solid transparent;
   border-radius: var(--r-md);
   cursor: pointer;
   transition: background .12s, border-color .12s;
+}
+.vm-card .head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
 }
 .vm-card:hover { background: var(--surface-1); }
 .vm-card.active { background: var(--surface-2); border-color: var(--border-strong); }
@@ -206,6 +212,8 @@ button, input { font-family: inherit; color: inherit; }
   display: grid; place-items: center;
   color: var(--text-dim);
   position: relative;
+  margin-top: 4px;
+  align-self: flex-start;
 }
 .vm-card.active .ico { color: var(--accent); border-color: rgba(74,222,128,.45); background: var(--accent-soft); }
 .vm-card .ico .heart {
@@ -245,6 +253,7 @@ button, input { font-family: inherit; color: inherit; }
    (turns red when reserved > host RAM = over-commit). Tick at 80% mark. */
 .vm-card .vm-mem-bar {
   position: relative;
+  width: 100%;
   height: 4px;
   background: var(--surface-2);
   border-radius: 99px;

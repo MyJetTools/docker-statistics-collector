@@ -134,9 +134,11 @@ pub fn read_loop(mut main_state: Signal<MainState>) {
             match result {
                 Ok(result) => {
                     let mut write_state = main_state.write();
-                    write_state.vms_state = Some(result.vms);
+                    write_state.vms_state = result.vms;
                     if let Some(metrics) = result.metrics {
                         write_state.set_containers(metrics);
+                    } else {
+                        write_state.set_containers(Vec::new());
                     }
                 }
                 Err(err) => {

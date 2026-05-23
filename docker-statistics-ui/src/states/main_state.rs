@@ -32,11 +32,11 @@ impl ContainerFilter {
 
 pub struct MainState {
     pub envs: EnvListState,
-    pub vms_state: Option<BTreeMap<String, VmModel>>,
+    pub vms_state: BTreeMap<String, VmModel>,
     pub state_no: usize,
     pub data_request_no: i32,
     selected_vm: Option<SelectedVm>,
-    containers: Option<Vec<MetricsByVm>>,
+    containers: Vec<MetricsByVm>,
     filter: String,
     container_filter: ContainerFilter,
     active_container_name: Option<String>,
@@ -54,7 +54,7 @@ impl MainState {
     pub fn new() -> Self {
         Self {
             selected_vm: None,
-            containers: None,
+            containers: Vec::new(),
             filter: "".to_string(),
             container_filter: ContainerFilter::All,
             active_container_name: None,
@@ -62,7 +62,7 @@ impl MainState {
             state_no: 0,
             dialog_is_shown: false,
             data_request_no: 0,
-            vms_state: None,
+            vms_state: BTreeMap::new(),
             prompt_pass_key: false,
             envs: EnvListState::new(),
         }
@@ -70,7 +70,7 @@ impl MainState {
 
     pub fn set_selected_vm(&mut self, selected_vm: SelectedVm) {
         self.selected_vm = Some(selected_vm);
-        self.containers = None;
+        self.containers = Vec::new();
         self.active_container_name = None;
         self.active_container_vm = None;
         self.filter = String::new();
@@ -129,11 +129,9 @@ impl MainState {
         (selected_env, self.selected_vm.clone())
     }
 
-    pub fn get_containers(&self) -> Option<Vec<&MetricsByVm>> {
-        let items = self.containers.as_ref()?;
-
-        let mut result = Vec::with_capacity(items.len());
-        for itm in items.iter() {
+    pub fn get_containers(&self) -> Vec<&MetricsByVm> {
+        let mut result = Vec::with_capacity(self.containers.len());
+        for itm in self.containers.iter() {
             if !itm.container.filter_me(&self.filter) {
                 continue;
             }
@@ -145,24 +143,24 @@ impl MainState {
 
         result.sort_by(|a, b| a.container.image.cmp(&b.container.image));
 
-        Some(result)
+        result
     }
 
-    pub fn get_all_containers(&self) -> Option<&Vec<MetricsByVm>> {
-        self.containers.as_ref()
+    pub fn get_all_containers(&self) -> &Vec<MetricsByVm> {
+        &self.containers
     }
 
     pub fn set_containers(&mut self, containers: Vec<MetricsByVm>) {
         // Don't auto-drop the active selection when it's not in the new list —
         // the router is the source of truth; data may simply not have arrived
         // yet for that VM/env. Detail panel just renders the empty state.
-        self.containers = Some(containers);
+        self.containers = containers;
     }
 
     pub fn find_active_container(&self) -> Option<&MetricsByVm> {
         let name = self.active_container_name.as_deref()?;
         let target_vm = self.active_container_vm.as_deref();
-        self.containers.as_ref()?.iter().find(|c| {
+        self.containers.iter().find(|c| {
             if !primary_name(&c.container.names).eq_ignore_ascii_case(name) {
                 return false;
             }

@@ -44,9 +44,10 @@ impl MyTimerTick for UpdateMetricsCacheTimer {
 
                 if by_instance.is_empty() {
                     println!(
-                        "env {} master {} returned 0 containers — clearing cache for this env",
+                        "env {} master {} returned 0 containers — keeping previous cache (likely master timed out)",
                         env, master_url
                     );
+                    return;
                 }
 
                 {
