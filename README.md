@@ -40,6 +40,8 @@ The HTTP server listens on port `8000` and exposes a Swagger UI. See
   and the `nofile` limit).
 - `GET /containers/running` — only running containers.
 - `GET /containers/logs` — container logs.
+- `GET /containers/processes` — every process inside one container with its
+  open file descriptors and `nofile` limit (federation-aware, like logs).
 - `GET /metrics` — aggregated Prometheus metrics from all scraped services.
 - `GET /metrics/services` — list of services that have collected metrics.
 - `GET /metrics/service` — metrics for a single service.
@@ -142,6 +144,12 @@ green / orange / red as it approaches the limit — and an open-files **history
 graph** next to the CPU/memory graphs: a steadily climbing line is a
 file-descriptor leak. The values are also in the `files` block of
 `GET /containers`.
+
+The container's **Processes** button opens a dialog listing every process
+inside the container with its own open file descriptors and `nofile` limit
+(busiest process first) — useful for pinning down which process leaks. It is
+backed by `GET /containers/processes` and computed on demand from
+`docker top` + the host `/proc`.
 
 File descriptors are a *per-process* kernel resource — the Docker Engine API
 does not expose them. The collector obtains them by reading the host `/proc`:

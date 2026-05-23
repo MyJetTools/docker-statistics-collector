@@ -161,6 +161,22 @@ pub struct PortHttpModel {
 }
 
 #[derive(Serialize, Deserialize, MyHttpObjectStructure)]
+pub struct ContainerProcessesHttpResponse {
+    pub container_id: String,
+    pub processes: Vec<ProcessHttpModel>,
+}
+
+// One process inside a container.
+// `open_files` / `fd_limit` are None when the host `/proc` is not reachable.
+#[derive(Serialize, Deserialize, MyHttpObjectStructure, Clone)]
+pub struct ProcessHttpModel {
+    pub pid: u32,
+    pub cmd: String,
+    pub open_files: Option<i64>,
+    pub fd_limit: Option<i64>,
+}
+
+#[derive(Serialize, Deserialize, MyHttpObjectStructure)]
 pub struct VolumeHttpModel {
     #[serde(rename = "mountType")]
     pub mount_type: Option<String>,

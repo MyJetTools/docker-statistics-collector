@@ -7,5 +7,7 @@ pub use get_local_action::*;
 pub mod contracts;
 mod get_logs;
 pub use get_logs::*;
+mod get_processes;
+pub use get_processes::*;
 mod route_logs;
 pub use route_logs::{route_logs, RouteLogsResult};

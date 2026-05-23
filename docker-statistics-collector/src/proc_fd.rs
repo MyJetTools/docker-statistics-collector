@@ -1,4 +1,5 @@
 use docker_sdk::container_inspect::get_container_main_pid;
+use docker_sdk::container_top::get_container_processes;
 
 /// Collects file-descriptor usage for a container's **main process** — the
 /// process started by the image `ENTRYPOINT`/`CMD` (PID 1 inside the
@@ -33,6 +34,48 @@ fn read_fd_usage(proc_base: &str, pid: u32) -> (Option<i64>, Option<i64>) {
     let open = count_open_fds(proc_base, pid).map(|count| count as i64);
     let limit = read_nofile_soft_limit(proc_base, pid);
     (open, limit)
+}
+
+/// File-descriptor usage of a single process inside a container.
+pub struct ProcessFdInfo {
+    pub pid: u32,
+    pub cmd: String,
+    pub open_files: Option<i64>,
+    pub fd_limit: Option<i64>,
+}
+
+/// Lists every process inside a container with its open file descriptors and
+/// `nofile` soft limit — the data behind the per-process "Processes" dialog.
+/// Returns an empty list when the process list or the host `/proc` is
+/// unavailable.
+pub async fn collect_process_fd_list(
+    docker_url: &str,
+    proc_base: &str,
+    container_id: &str,
+) -> Vec<ProcessFdInfo> {
+    let processes =
+        match get_container_processes(docker_url.to_string(), container_id.to_string()).await {
+            Some(processes) => processes,
+            None => return Vec::new(),
+        };
+
+    let proc_base = proc_base.to_string();
+
+    // /proc reads are blocking std::fs calls — keep them off the async runtime.
+    let result = tokio::task::spawn_blocking(move || {
+        processes
+            .into_iter()
+            .map(|process| ProcessFdInfo {
+                pid: process.pid,
+                cmd: process.cmd,
+                open_files: count_open_fds(&proc_base, process.pid).map(|count| count as i64),
+                fd_limit: read_nofile_soft_limit(&proc_base, process.pid),
+            })
+            .collect()
+    })
+    .await;
+
+    result.unwrap_or_default()
 }
 
 /// Counts the entries in `<proc_base>/<pid>/fd` — the file descriptors the

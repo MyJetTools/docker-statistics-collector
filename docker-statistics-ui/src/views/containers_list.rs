@@ -218,6 +218,9 @@ pub fn containers_list(env: Rc<String>) -> Element {
 
                     let url_show_logs = itm.url.clone();
 
+                    let id_for_processes = itm.container.id.clone();
+                    let url_for_processes = itm.url.clone();
+
                     let vm_name = if let Some(vm_name) = &itm.vm {
                         rsx! {
                             div {
@@ -294,7 +297,9 @@ pub fn containers_list(env: Rc<String>) -> Element {
                     };
 
                     let image_cloned = itm.container.image.clone();
+                    let image_for_processes = itm.container.image.clone();
                     let env = env.clone();
+                    let env_for_processes = env.clone();
                     rsx! {
                         tr { style: "border-top: 1px solid lightgray; color: {color}",
                             td {
@@ -321,6 +326,23 @@ pub fn containers_list(env: Rc<String>) -> Element {
                                                 );
                                         },
                                         "Show logs"
+                                    }
+                                    button {
+                                        class: "btn btn-sm btn-outline-primary",
+                                        style: "margin-left:4px",
+                                        onclick: move |_| {
+                                            dialog_sate
+                                                .write()
+                                                .show_dialog(
+                                                    format!("Processes of {}", image_for_processes),
+                                                    DialogType::ShowProcesses {
+                                                        env: env_for_processes.clone(),
+                                                        container_id: id_for_processes.clone(),
+                                                        url: url_for_processes.clone(),
+                                                    },
+                                                );
+                                        },
+                                        "Processes"
                                     }
                                 }
                                 {ports_to_render.into_iter()}

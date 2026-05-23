@@ -3,7 +3,9 @@ use std::time::Duration;
 use flurl::FlUrl;
 
 use crate::app::{AppContext, ServiceInfo};
-use crate::http::controllers::containers_controller::contracts::ContainersHttpResponse;
+use crate::http::controllers::containers_controller::contracts::{
+    ContainerProcessesHttpResponse, ContainersHttpResponse, ProcessHttpModel,
+};
 use crate::http::controllers::containers_controller::RouteLogsResult;
 
 /// Result of fanning out `/api/containers/local` to every configured peer.
@@ -126,6 +128,103 @@ async fn container_owned_locally(app: &AppContext, container_id: &str) -> bool {
         .await
         .iter()
         .any(|c| c.id == container_id)
+}
+
+/// Outcome of routing a per-process file-descriptor request.
+pub enum RouteProcessesResult {
+    Ok(Vec<ProcessHttpModel>),
+    NotFound,
+    PeerError(String),
+}
+
+/// Real-time process routing: serve from the local Docker host if the
+/// container is owned here, otherwise fan out to peers in parallel and return
+/// the first hit. Mirrors `fanout_logs`.
+pub async fn fanout_processes(app: &AppContext, container_id: &str) -> RouteProcessesResult {
+    if container_owned_locally(app, container_id).await {
+        let processes = crate::proc_fd::collect_process_fd_list(
+            app.settings_model.docker_url.as_str(),
+            app.settings_model.host_proc_path(),
+            container_id,
+        )
+        .await
+        .into_iter()
+        .map(|p| ProcessHttpModel {
+            pid: p.pid,
+            cmd: p.cmd,
+            open_files: p.open_files,
+            fd_limit: p.fd_limit,
+        })
+        .collect();
+
+        return RouteProcessesResult::Ok(processes);
+    }
+
+    let peers = app.settings_model.peers_or_empty();
+    if peers.is_empty() {
+        return RouteProcessesResult::NotFound;
+    }
+
+    let timeout = app.settings_model.peers_request_timeout();
+    let mut tasks = Vec::with_capacity(peers.len());
+
+    for peer in peers {
+        let peer_url = peer.clone();
+        let id = container_id.to_string();
+        tasks.push(tokio::spawn(async move {
+            fetch_processes_from_peer(peer_url, id, timeout).await
+        }));
+    }
+
+    let mut last_err: Option<String> = None;
+    for task in tasks {
+        match task.await {
+            Ok(Ok(Some(processes))) => return RouteProcessesResult::Ok(processes),
+            Ok(Ok(None)) => {}
+            Ok(Err(err)) => last_err = Some(err),
+            Err(err) => last_err = Some(format!("join error: {:?}", err)),
+        }
+    }
+
+    match last_err {
+        Some(err) => RouteProcessesResult::PeerError(err),
+        None => RouteProcessesResult::NotFound,
+    }
+}
+
+async fn fetch_processes_from_peer(
+    peer_url: String,
+    container_id: String,
+    timeout: Duration,
+) -> Result<Option<Vec<ProcessHttpModel>>, String> {
+    let mut response = FlUrl::new(peer_url.as_str())
+        .append_path_segment("api")
+        .append_path_segment("containers")
+        .append_path_segment("processes")
+        .append_query_param("id", Some(container_id.as_str()))
+        .set_timeout(timeout)
+        .do_not_reuse_connection()
+        .get()
+        .await
+        .map_err(|err| format!("peer {}: request failed: {:?}", peer_url, err))?;
+
+    let status = response.get_status_code();
+    if status == 404 {
+        return Ok(None);
+    }
+    if status != 200 {
+        return Err(format!("peer {}: status {}", peer_url, status));
+    }
+
+    let body = response
+        .get_body_as_slice()
+        .await
+        .map_err(|err| format!("peer {}: body read failed: {:?}", peer_url, err))?;
+
+    let parsed: ContainerProcessesHttpResponse = serde_json::from_slice(body)
+        .map_err(|err| format!("peer {}: parse failed: {}", peer_url, err))?;
+
+    Ok(Some(parsed.processes))
 }
 
 async fn fetch_logs_from_peer(

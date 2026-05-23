@@ -30,6 +30,19 @@ pub fn render_dialog() -> Element {
                             container_id: container_id.clone(),
                         }
                     }
+                }
+                DialogType::ShowProcesses {
+                    env,
+                    url,
+                    container_id,
+                } => {
+                    rsx! {
+                        show_processes {
+                            env: env.clone(),
+                            url: url.clone(),
+                            container_id: container_id.clone(),
+                        }
+                    }
                 } /*
                   DialogType::EditSecret(secret) => {
                       dialog_class = "modal-dialog-narrow";
