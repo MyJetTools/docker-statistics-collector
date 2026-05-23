@@ -1,32 +1,46 @@
-use docker_sdk::container_inspect::get_container_main_pid;
+use docker_sdk::container_inspect::get_container_state;
 use docker_sdk::container_top::get_container_processes;
 
-/// Collects file-descriptor usage for a container's **main process** — the
-/// process started by the image `ENTRYPOINT`/`CMD` (PID 1 inside the
-/// container). `RLIMIT_NOFILE` is enforced per process, so this is the process
-/// whose `open / limit` ratio matters and whose growth over time reveals a
-/// file-descriptor leak.
-///
-/// Returns `(open, limit)`: file descriptors currently open, and the `nofile`
-/// soft limit. Both are `None` when the data cannot be obtained — the host
-/// `/proc` is not mounted into the collector container, the Docker daemon is
-/// remote, or the platform has no `/proc` (macOS). Callers treat that as "N/A".
-pub async fn collect_fd_usage(
+/// Result of one inspect+proc cycle per container.
+pub struct ContainerProbe {
+    pub open_files: Option<i64>,
+    pub fd_limit: Option<i64>,
+    pub started_at_unix_seconds: Option<i64>,
+}
+
+/// Single inspect call per tick: returns started_at + FD usage. Saves a daemon
+/// round trip vs. calling [`collect_fd_usage`] and [`get_container_state`]
+/// separately during sync.
+pub async fn probe_container(
     docker_url: &str,
     proc_base: &str,
     container_id: &str,
-) -> (Option<i64>, Option<i64>) {
-    let pid = match get_container_main_pid(docker_url.to_string(), container_id.to_string()).await {
-        Some(pid) => pid,
-        None => return (None, None),
+) -> ContainerProbe {
+    let state = match get_container_state(docker_url.to_string(), container_id.to_string()).await {
+        Some(s) => s,
+        None => {
+            return ContainerProbe {
+                open_files: None,
+                fd_limit: None,
+                started_at_unix_seconds: None,
+            };
+        }
     };
 
-    let proc_base = proc_base.to_string();
+    let (open, limit) = match state.pid {
+        Some(pid) => {
+            let proc_base = proc_base.to_string();
+            tokio::task::spawn_blocking(move || read_fd_usage(&proc_base, pid))
+                .await
+                .unwrap_or((None, None))
+        }
+        None => (None, None),
+    };
 
-    // /proc reads are blocking std::fs calls — keep them off the async runtime.
-    match tokio::task::spawn_blocking(move || read_fd_usage(&proc_base, pid)).await {
-        Ok(value) => value,
-        Err(_) => (None, None),
+    ContainerProbe {
+        open_files: open,
+        fd_limit: limit,
+        started_at_unix_seconds: state.started_at_unix_seconds,
     }
 }
 

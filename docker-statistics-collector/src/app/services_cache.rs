@@ -18,6 +18,10 @@ pub struct ServiceInfo {
     pub mem_usage: Option<i64>,
     pub cpu_usage: Option<f64>,
 
+    /// Unix epoch seconds of the last container start (from
+    /// `State.StartedAt`). `None` when never started or not inspected yet.
+    pub started_at: Option<i64>,
+
     /// File descriptors currently open by the container's main process.
     /// `None` when the host `/proc` is not reachable.
     pub open_files: Option<i64>,
@@ -85,6 +89,7 @@ impl ServicesCache {
                         mem_limit: None,
                         open_files: None,
                         fd_limit: None,
+                        started_at: None,
                         state: info.state.clone(),
                         status: info.status.clone(),
                         ports: match info.ports.as_ref() {
@@ -151,6 +156,13 @@ impl ServicesCache {
         }
     }
 
+    pub async fn update_started_at(&self, id: &str, started_at: Option<i64>) {
+        let mut write_access = self.data.write().await;
+        if let Some(container) = write_access.get_mut(id) {
+            container.started_at = started_at;
+        }
+    }
+
     pub async fn reset_usage(&self, id: &str) {
         let mut write_access = self.data.write().await;
         if let Some(container) = write_access.get_mut(id) {
@@ -162,6 +174,10 @@ impl ServicesCache {
 
             container.open_files = None;
             container.fd_limit = None;
+
+            // Keep started_at intact across reset — it's a property of the
+            // last running session, not the live stats. Stops it from flicking
+            // to None whenever a stats fetch glitches.
         }
     }
 

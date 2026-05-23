@@ -34,6 +34,10 @@ pub struct ContainerModel {
     pub labels: Option<BTreeMap<String, String>>,
     pub enabled: bool,
     pub created: Option<i64>,
+    /// Unix epoch seconds of the last container start. `None` when never
+    /// started or the collector couldn't inspect it.
+    #[serde(default)]
+    pub started_at: Option<i64>,
     pub status: Option<String>,
     pub state: Option<String>,
     #[serde(default)]
@@ -97,6 +101,11 @@ impl ContainerModel {
         self.enabled = src.enabled;
         self.image = src.image;
         self.instance = src.instance;
+        // Adopt new started_at only when it's known; keep the previous value
+        // across transient inspect glitches (same pattern as collector cache).
+        if src.started_at.is_some() {
+            self.started_at = src.started_at;
+        }
     }
 }
 
@@ -108,6 +117,8 @@ pub struct ContainerJsonModel {
     pub labels: Option<BTreeMap<String, String>>,
     pub enabled: bool,
     pub created: Option<i64>,
+    #[serde(default)]
+    pub started_at: Option<i64>,
     pub state: Option<String>,
     pub status: Option<String>,
     #[serde(default)]

@@ -38,10 +38,11 @@ impl MyTimerTick for SyncContainersInfoTimer {
                         docker_sdk::sdk::get_container_stats(url.clone(), container_id.clone())
                             .await;
 
-                    let fd_usage =
-                        crate::proc_fd::collect_fd_usage(&url, &proc_base, &container_id).await;
+                    // Combined inspect → started_at + FD usage in one daemon RTT.
+                    let probe =
+                        crate::proc_fd::probe_container(&url, &proc_base, &container_id).await;
 
-                    (container_id, usage, fd_usage)
+                    (container_id, usage, probe)
                 });
 
                 usages_result.push(statistics_task);
@@ -57,7 +58,7 @@ impl MyTimerTick for SyncContainersInfoTimer {
                 continue;
             }
 
-            let (container_id, usage_result, fd_usage) = usage_result.unwrap();
+            let (container_id, usage_result, probe) = usage_result.unwrap();
 
             if let Some(usage) = usage_result {
                 self.app
@@ -78,7 +79,11 @@ impl MyTimerTick for SyncContainersInfoTimer {
             // so writing fd usage last keeps it intact even when stats failed.
             self.app
                 .cache
-                .update_fd_usage(&container_id, fd_usage.0, fd_usage.1)
+                .update_fd_usage(&container_id, probe.open_files, probe.fd_limit)
+                .await;
+            self.app
+                .cache
+                .update_started_at(&container_id, probe.started_at_unix_seconds)
                 .await;
         }
 

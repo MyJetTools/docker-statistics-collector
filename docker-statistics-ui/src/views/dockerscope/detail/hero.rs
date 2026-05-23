@@ -1,6 +1,36 @@
 use dioxus::prelude::*;
 use rust_extensions::date_time::DateTimeAsMicroseconds;
 
+/// Format a unix-microseconds-or-seconds timestamp coming from `container.created`
+/// (which is stored as seconds in the Docker world; rust-extensions' `from`
+/// treats it as seconds via the `i64 -> DateTime` impl).
+fn format_ts(c: i64) -> String {
+    let t = DateTimeAsMicroseconds::from(c).to_rfc3339();
+    t[..19].to_string()
+}
+
+/// Same but for unix-seconds (what the collector emits for `started_at`).
+fn format_ts_unix_seconds(s: i64) -> String {
+    let mut dt = DateTimeAsMicroseconds::new(0);
+    dt.unix_microseconds = s * 1_000_000;
+    let t = dt.to_rfc3339();
+    t[..19].to_string()
+}
+
+fn unix_us_to_hours_ago(c: i64) -> f64 {
+    let then_us = DateTimeAsMicroseconds::from(c).unix_microseconds;
+    let now_us = dioxus_utils::now_date_time().unix_microseconds;
+    (now_us - then_us) as f64 / 1_000_000.0 / 3600.0
+}
+
+/// `<24h ago` → red bold; anything else → default style.
+fn fresh_style(hours_ago: Option<f64>) -> &'static str {
+    match hours_ago {
+        Some(h) if h >= 0.0 && h < 24.0 => "color: var(--danger); font-weight: 600;",
+        _ => "",
+    }
+}
+
 use crate::models::ContainerModel;
 use crate::states::{DialogState, DialogType, MainState};
 use crate::views::dockerscope::helpers::shorten_id;
@@ -76,30 +106,26 @@ pub fn Hero(container: ContainerModel, vm_url: String) -> Element {
         .cloned()
         .unwrap_or_else(|| "—".to_string());
 
+    // "created" — when the container record was created (docker create).
+    // "started" — when the main process was last started (changes on restart).
+    // Each gets independent <24h-red treatment so a recent restart shows up
+    // even when the container itself is old, and a fresh deploy shows up even
+    // when it hasn't been restarted yet.
     let created_str = container
         .created
-        .map(|c| {
-            let t = DateTimeAsMicroseconds::from(c).to_rfc3339();
-            t[..19].to_string()
-        })
+        .map(format_ts)
+        .unwrap_or_else(|| "—".to_string());
+    let started_str = container
+        .started_at
+        .map(format_ts_unix_seconds)
         .unwrap_or_else(|| "—".to_string());
 
-    // Containers created less than 64h ago are flagged in red — they're recent
-    // restarts/redeploys worth eyeballing.
-    let created_fresh = container
-        .created
-        .map(|c| {
-            let then_us = DateTimeAsMicroseconds::from(c).unix_microseconds;
-            let now_us = dioxus_utils::now_date_time().unix_microseconds;
-            let hours = (now_us - then_us) as f64 / 1_000_000.0 / 3600.0;
-            hours >= 0.0 && hours < 64.0
-        })
-        .unwrap_or(false);
-    let created_style = if created_fresh {
-        "color: var(--danger); font-weight: 600;"
-    } else {
-        ""
-    };
+    let created_style = fresh_style(container.created.map(unix_us_to_hours_ago));
+    let started_style = fresh_style(
+        container
+            .started_at
+            .map(|s| (dioxus_utils::now_date_time().unix_microseconds / 1_000_000 - s) as f64 / 3600.0),
+    );
 
     rsx! {
         div { class: "hero",
@@ -166,6 +192,12 @@ pub fn Hero(container: ContainerModel, vm_url: String) -> Element {
                     span { class: "k", "created" }
                     " "
                     span { style: "{created_style}", "{created_str}" }
+                }
+                span { class: "sep", "·" }
+                span {
+                    span { class: "k", "started" }
+                    " "
+                    span { style: "{started_style}", "{started_str}" }
                 }
             }
         }

@@ -47,6 +47,10 @@ pub struct ContainerJsonModel {
     pub labels: Option<HashMap<String, String>>,
     pub enabled: bool,
     pub created: i64,
+    // Unix-seconds of the last container start. 0 when never started or
+    // not yet inspected. `i64` instead of Option<i64> for MyHttpObjectStructure
+    // compatibility (same trick as cpu_count on HostMemEntryHttpModel).
+    pub started_at: i64,
     pub state: String,
     pub status: String,
     pub instance: String,
@@ -80,6 +84,7 @@ impl ContainerJsonModel {
             names: itm.names,
             labels: itm.labels,
             created: itm.created,
+            started_at: itm.started_at.unwrap_or(0),
 
             state: itm.state,
             status: itm.status,
@@ -121,6 +126,7 @@ impl ContainerJsonModel {
             labels: self.labels,
             running: self.enabled,
             created: self.created,
+            started_at: if self.started_at > 0 { Some(self.started_at) } else { None },
             state: self.state,
             status: self.status,
             mem_available: self.mem.available,
