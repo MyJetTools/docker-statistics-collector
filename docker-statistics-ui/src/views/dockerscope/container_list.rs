@@ -133,8 +133,8 @@ fn ContainerRow(
         && active_vm.as_deref() == row_vm.as_deref();
     let pct = row.mem_pct();
     let mem_heat = match pct {
-        Some(p) if p >= 95.0 => " crit-mem",
-        Some(p) if p >= 80.0 => " hot-mem",
+        Some(p) if p >= 90.0 => " mem-danger",
+        Some(p) if p >= 80.0 => " mem-warn",
         _ => "",
     };
     let active_cls = if is_active { " active" } else { "" };
@@ -143,16 +143,13 @@ fn ContainerRow(
     let cpu_str = format!("{:.2}%", row.cpu);
 
     let used_str = fmt_mem_short(row.mem_bytes);
-    let mem_str = match row.effective_mem_limit {
-        Some(limit) => format!("{} / {}", used_str, fmt_mem_short(limit)),
-        None => used_str.clone(),
-    };
+    let limit_str = row.effective_mem_limit.map(fmt_mem_short);
     let mem_title = match (pct, row.mem_limit_is_declared) {
         (Some(p), true) => format!("{:.0}% of declared mem limit", p),
         (Some(p), false) => format!("{:.0}% of host RAM (no container limit)", p),
         (None, _) => "no mem limit known".to_string(),
     };
-    let badge = pct.filter(|p| *p >= 80.0).map(|p| (p, p >= 95.0));
+    let badge = pct.filter(|p| *p >= 80.0).map(|p| (p, p >= 90.0));
 
     let target = match (&single_vm_name, &row.vm) {
         (Some(vm), _) => AppRoute::ContainerRoute {
@@ -173,8 +170,8 @@ fn ContainerRow(
             class: "{row_class}",
             span { class: "{state_cls}" }
             div { class: "info",
-                div { class: "name-row",
-                    span { class: "name", "{row.name}" }
+                div { class: "name",
+                    "{row.name}"
                     if let Some((p, crit)) = badge {
                         MemBadge { pct: p, danger: crit }
                     }
@@ -184,7 +181,12 @@ fn ContainerRow(
             }
             div { class: "metrics",
                 span { class: "cpu", "{cpu_str}" }
-                span { class: "mem", title: "{mem_title}", "{mem_str}" }
+                span { class: "mem", title: "{mem_title}",
+                    "{used_str}"
+                    if let Some(lim) = limit_str.as_ref() {
+                        span { style: "color: var(--text-muted);", " / {lim}" }
+                    }
+                }
             }
         }
     }
@@ -196,11 +198,10 @@ fn MemBar(pct: Option<f64>, running: bool) -> Element {
         return rsx! {};
     }
 
-    // Sticky last-known pct: backend (collector → cache → wire) occasionally
-    // drops `mem.limit` for a single tick (peer fanout race, stats fetch
-    // glitch, etc), which would otherwise unmount/remount the bar and look
-    // like a "show/hide" flicker every few seconds. We hold the previous
-    // value and only fall back to it when the current pct goes missing.
+    // Sticky last-known pct: backend occasionally drops `mem.limit` for a
+    // single tick (peer fanout race), which would otherwise unmount/remount
+    // the bar and flicker every few seconds. We hold the previous value and
+    // only fall back to it when the current pct goes missing.
     let mut last_pct = use_signal::<Option<f64>>(|| None);
     let incoming = pct;
     use_effect(use_reactive!(|incoming| {
@@ -219,18 +220,28 @@ fn MemBar(pct: Option<f64>, running: bool) -> Element {
         return rsx! {};
     }
 
-    let fill_color = if p >= 95.0 {
-        "var(--danger)"
+    let (fg, bg) = if p >= 90.0 {
+        ("var(--danger)", "var(--danger-soft)")
     } else if p >= 80.0 {
-        "var(--warn)"
+        ("var(--warn)", "var(--warn-soft)")
     } else {
-        "var(--mem)"
+        ("var(--mem)", "var(--mem-soft)")
+    };
+    let glow = if p >= 80.0 {
+        format!("0 0 6px {fg}")
+    } else {
+        "none".to_string()
     };
     let width = p.min(100.0);
     rsx! {
-        div { class: "mem-bar",
-            div { class: "mem-bar-fill", style: "width: {width}%; background: {fill_color};" }
-            div { class: "mem-bar-tick" }
+        div {
+            style: "height: 3px; margin-top: 4px; width: 100%; background: {bg}; border-radius: 2px; overflow: hidden; position: relative;",
+            div {
+                style: "position: absolute; left: 0; top: 0; bottom: 0; width: {width}%; background: {fg}; box-shadow: {glow}; transition: width .25s ease;"
+            }
+            div {
+                style: "position: absolute; left: 80%; top: 0; bottom: 0; width: 1px; background: color-mix(in srgb, var(--text-muted) 60%, transparent);"
+            }
         }
     }
 }

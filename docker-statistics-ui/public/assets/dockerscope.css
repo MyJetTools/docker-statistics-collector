@@ -15,9 +15,12 @@
   --accent-soft: rgba(74,222,128,.12);
   --cpu: #4ade80;
   --mem: #60a5fa;
+  --mem-soft: rgba(96,165,250,.14);
   --net: #f59e0b;
   --danger: #ef4444;
+  --danger-soft: rgba(239,68,68,.10);
   --warn: #f59e0b;
+  --warn-soft: rgba(245,158,11,.12);
   --info: #60a5fa;
   --purple: #a78bfa;
 
@@ -56,9 +59,12 @@
   --accent-soft: rgba(21,128,61,.14);
   --cpu: #15803d;
   --mem: #2563eb;
+  --mem-soft: rgba(37,99,235,.14);
   --net: #d97706;
   --danger: #dc2626;
+  --danger-soft: rgba(220,38,38,.12);
   --warn: #d97706;
+  --warn-soft: rgba(217,119,6,.14);
   --info: #2563eb;
   --purple: #7c3aed;
 
@@ -205,7 +211,15 @@ button, input { font-family: inherit; color: inherit; }
   gap: 3px;
 }
 .vm-card:hover { background: var(--surface-1); }
-.vm-card.active { background: var(--surface-2); border-color: var(--border-strong); }
+/* IMPORTANT: keep both background-color AND background-image. Chrome has a
+   quirk where `background-color: var(--*)` does not re-resolve correctly when
+   the cascade comes through an attribute selector like [data-theme="light"].
+   The redundant linear-gradient forces resolution. */
+.vm-card.active {
+  background-color: var(--surface-1);
+  background-image: linear-gradient(var(--surface-1), var(--surface-1));
+  border-color: var(--border);
+}
 .vm-card.active::before {
   content: ""; position: absolute; left: -10px; top: 12px; bottom: 12px; width: 2px;
   background: var(--accent); border-radius: 2px;
@@ -220,7 +234,11 @@ button, input { font-family: inherit; color: inherit; }
   position: relative;
   flex-shrink: 0;
 }
-.vm-card.active .ico { color: var(--accent); border-color: rgba(74,222,128,.45); background: var(--accent-soft); }
+.vm-card.active .ico {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: var(--accent-soft);
+}
 .vm-card .ico .heart {
   position: absolute; bottom: -2px; right: -2px;
   width: 9px; height: 9px; border-radius: 50%;
@@ -245,7 +263,11 @@ button, input { font-family: inherit; color: inherit; }
   padding: 3px 7px; border-radius: 99px;
   min-width: 34px; text-align: center;
 }
-.vm-card.active .count { color: var(--accent); border-color: rgba(74,222,128,.35); background: var(--accent-soft); }
+.vm-card.active .count {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  background: var(--accent-soft);
+}
 
 .vm-card .sparkline {
   grid-column: 1 / -1;
@@ -299,42 +321,40 @@ button, input { font-family: inherit; color: inherit; }
 .vm-card .vm-mem-text .sep { color: var(--text-muted); opacity: .6; }
 .vm-card .vm-mem-text .res-lbl { color: var(--text-muted); letter-spacing: .04em; }
 
-/* Container row — memory pressure highlight (>=80% of limit) */
-.cont-row.hot-mem { background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.25); }
-.cont-row.hot-mem:hover { background: rgba(245,158,11,.12); }
-.cont-row.hot-mem .metrics .mem { color: var(--warn); }
-.cont-row.crit-mem { background: rgba(239,68,68,.10); border-color: rgba(239,68,68,.35); }
-.cont-row.crit-mem:hover { background: rgba(239,68,68,.14); }
-.cont-row.crit-mem .metrics .mem { color: var(--danger); }
+/* Container row — memory pressure highlight.
+   Horizontal gradient bleed (warn/danger soft → transparent at 60%) gives
+   the row a "heat" feel instead of a flat alarm banner. Do NOT collapse
+   into a flat background-color. */
+.cont-row.mem-warn   { background: linear-gradient(90deg, var(--warn-soft),   transparent 60%); }
+.cont-row.mem-danger { background: linear-gradient(90deg, var(--danger-soft), transparent 60%); }
 
-/* Name + warn badge inline */
-.cont-row .name-row {
-  display: flex; align-items: center; gap: 6px; min-width: 0;
+.cont-row.mem-warn   .metrics .mem { color: var(--warn); }
+.cont-row.mem-danger .metrics .mem { color: var(--danger); font-weight: 600; }
+
+/* Status dot keeps its accent glow AND picks up a red halo on .mem-danger.
+   Two box-shadows stacked, comma-separated. */
+.cont-row.mem-danger .state {
+  box-shadow: 0 0 8px var(--accent), 0 0 0 3px var(--danger-soft);
 }
-.cont-row .name-row .name {
-  font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: var(--text);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.cont-row.active .name-row .name { color: var(--accent); }
+
+/* Name + warn badge inline; rendered as a single inline-flex line so the
+   badge sits next to the name and the row clamps with ellipsis. */
+
 
 .mem-badge {
-  display: inline-block;
-  padding: 0 6px;
-  border-radius: 99px;
-  font-family: var(--mono);
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: .06em;
-  background: rgba(245,158,11,.15);
+  display: inline-flex; align-items: center; gap: 3px;
+  font-family: var(--mono); font-size: 9.5px;
+  padding: 1px 5px; border-radius: 3px;
+  background: var(--warn-soft);
   color: var(--warn);
-  border: 1px solid rgba(245,158,11,.35);
+  border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent);
+  letter-spacing: .06em; text-transform: uppercase;
   white-space: nowrap;
 }
 .mem-badge.danger {
-  background: rgba(239,68,68,.15);
+  background: var(--danger-soft);
   color: var(--danger);
-  border-color: rgba(239,68,68,.4);
-  animation: pulse 1.4s ease-in-out infinite;
+  border-color: color-mix(in srgb, var(--danger) 35%, transparent);
 }
 
 /* Thin progress bar with a tick at the 80% mark */
@@ -441,15 +461,19 @@ button, input { font-family: inherit; color: inherit; }
 .cont-row .state.restarting { background: var(--warn); animation: pulse 1s infinite; }
 .cont-row .state.unhealthy { background: var(--danger); animation: pulse 1s infinite; }
 .cont-row .info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.cont-row .name { font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cont-row .name {
+  font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: var(--text);
+  display: inline-flex; align-items: center; gap: 6px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .cont-row.active .name { color: var(--accent); }
 .cont-row .image { font-family: var(--mono); font-size: 10.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cont-row .metrics {
   display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
   font-family: var(--mono); font-size: 10.5px; color: var(--text-dim);
 }
-.cont-row .metrics .cpu { color: #74c98a; }
-.cont-row .metrics .mem { color: #87b3f0; }
+.cont-row .metrics .cpu { color: var(--cpu); }
+.cont-row .metrics .mem { color: var(--mem); }
 
 /* ─── Detail panel (right column) ─── */
 .detail {
@@ -667,18 +691,17 @@ button, input { font-family: inherit; color: inherit; }
 .mount-row {
   padding: 10px 8px;
   font-family: var(--mono); font-size: 11.5px;
-  display: grid;
-  grid-template-columns: 64px 1fr;
-  column-gap: 12px;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   border-radius: var(--r-sm);
 }
 .mount-row + .mount-row { border-top: 1px dashed var(--border); }
 .mount-row:hover { background: var(--surface-1); }
 .mount-row .type {
-  font-family: var(--mono); font-size: 9.5px;
-  text-align: center;
-  padding: 2px 6px; border-radius: 3px;
+  align-self: flex-start;
+  font-family: var(--mono); font-size: 9px;
+  padding: 1px 5px; border-radius: 3px;
   letter-spacing: .08em; text-transform: uppercase;
   background: rgba(96,165,250,.12);
   color: var(--info);
