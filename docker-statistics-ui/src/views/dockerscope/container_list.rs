@@ -10,9 +10,14 @@ pub fn ContainerListPanel() -> Element {
     let main_state = consume_context::<Signal<MainState>>();
     let cs_ra = main_state.read();
 
-    let title = cs_ra
-        .get_selected_vm_name()
-        .unwrap_or_else(|| "no vm".to_string());
+    let all_selected = cs_ra.is_all_vms_selected();
+    let title = if all_selected {
+        "All VMs".to_string()
+    } else {
+        cs_ra
+            .get_selected_vm_name()
+            .unwrap_or_else(|| "no vm".to_string())
+    };
 
     let total_count = cs_ra.get_all_containers().map(|c| c.len()).unwrap_or(0);
 
@@ -28,9 +33,11 @@ pub fn ContainerListPanel() -> Element {
     };
 
     let active_name = cs_ra.get_active_container_name().map(|s| s.to_string());
-    let vm_for_links = cs_ra
-        .get_selected_vm_name()
-        .unwrap_or_else(|| "".to_string());
+    let vm_for_links = if all_selected {
+        None
+    } else {
+        cs_ra.get_selected_vm_name()
+    };
     let rows: Vec<_> = rows_src
         .iter()
         .map(|m| ContainerRowData::from(*m))
@@ -47,7 +54,11 @@ pub fn ContainerListPanel() -> Element {
                     }
                 } else {
                     for row in rows.into_iter() {
-                        ContainerRow { row, active_name: active_name.clone(), vm_name: vm_for_links.clone() }
+                        ContainerRow {
+                            row,
+                            active_name: active_name.clone(),
+                            single_vm_name: vm_for_links.clone(),
+                        }
                     }
                 }
             }
@@ -98,7 +109,11 @@ impl ContainerRowData {
 }
 
 #[component]
-fn ContainerRow(row: ContainerRowData, active_name: Option<String>, vm_name: String) -> Element {
+fn ContainerRow(
+    row: ContainerRowData,
+    active_name: Option<String>,
+    single_vm_name: Option<String>,
+) -> Element {
     let is_active = active_name
         .as_deref()
         .map(|n| n.eq_ignore_ascii_case(&row.name))
@@ -121,9 +136,14 @@ fn ContainerRow(row: ContainerRowData, active_name: Option<String>, vm_name: Str
         None => "no mem limit declared".to_string(),
     };
 
-    let target = AppRoute::ContainerRoute {
-        vm_name: vm_name.clone(),
-        container_name: row.name.clone(),
+    let target = match single_vm_name {
+        Some(vm) => AppRoute::ContainerRoute {
+            vm_name: vm,
+            container_name: row.name.clone(),
+        },
+        None => AppRoute::AllContainerRoute {
+            container_name: row.name.clone(),
+        },
     };
 
     rsx! {

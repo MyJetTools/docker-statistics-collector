@@ -498,11 +498,17 @@ button, input { font-family: inherit; color: inherit; }
 .stat .v .u { font-size: 11px; color: var(--text-muted); margin-left: 3px; font-weight: 400; }
 .stat .v.green { color: var(--accent); }
 
-/* Two-column bottom */
-.detail-grid {
-  display: grid;
-  grid-template-columns: 1.4fr 1fr;
+/* Bottom of the detail view: ports+mounts side-by-side, then logs, then metadata, all full-width. */
+.detail-bottom {
+  display: flex;
+  flex-direction: column;
   gap: 16px;
+}
+.ports-mounts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
 }
 
 .panel {
@@ -624,6 +630,8 @@ button, input { font-family: inherit; color: inherit; }
   max-height: 220px; overflow: auto;
   color: var(--text-dim);
 }
+.log-mini-tall { max-height: 360px; }
+.log-mini .log-line { white-space: pre-wrap; word-break: break-word; padding: 1px 0; }
 .log-mini .line { white-space: pre; padding: 1px 0; }
 .log-mini .ts { color: var(--text-muted); }
 .log-mini .lvl-info { color: var(--info); }

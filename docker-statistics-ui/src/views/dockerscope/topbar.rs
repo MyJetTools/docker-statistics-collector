@@ -28,7 +28,12 @@ pub fn Topbar() -> Element {
         None => Vec::new(),
     };
 
-    let selected_vm_label = cs_ra.get_selected_vm_name();
+    let all_selected = cs_ra.is_all_vms_selected();
+    let single_vm_label = if all_selected {
+        None
+    } else {
+        cs_ra.get_selected_vm_name()
+    };
     let active_container_name = cs_ra
         .find_active_container()
         .and_then(|c| c.container.names.first().cloned())
@@ -55,7 +60,11 @@ pub fn Topbar() -> Element {
             }
             div { class: "crumbs",
                 Link { to: AppRoute::Home {}, "fleet" }
-                if let Some(vm) = selected_vm_label.as_ref() {
+                if all_selected {
+                    span { class: "sep", "/" }
+                    Link { to: AppRoute::AllRoute {}, b { "all" } }
+                }
+                if let Some(vm) = single_vm_label.as_ref() {
                     span { class: "sep", "/" }
                     Link { to: AppRoute::VmRoute { vm_name: vm.clone() }, b { "{vm}" } }
                 }
@@ -78,7 +87,9 @@ pub fn Topbar() -> Element {
                         span { class: "swatch", style: "background: var(--accent);" }
                         "running" b { "{totals.running}" }
                     }
-                    span { class: "kv",
+                    span {
+                        class: "kv",
+                        title: "containers in restarting / unhealthy state OR using ≥80% of their effective memory limit",
                         span { class: "swatch", style: "background: var(--danger);" }
                         "issues" b { "{totals.issues}" }
                     }
@@ -133,7 +144,20 @@ fn compute_fleet_totals(cs_ra: &MainState) -> FleetTotals {
             if st == "running" {
                 running += 1;
             }
-            if st == "restarting" || st.contains("unhealthy") {
+            let bad_state = st == "restarting" || st.contains("unhealthy");
+            // Effective limit: declared > 0 wins, otherwise the host RAM total
+            // (an unlimited container can claim the whole VM).
+            let effective_limit = match c.container.mem.limit {
+                Some(v) if v > 0 => Some(v),
+                _ => c.host_mem_total,
+            };
+            let hot_mem = match (c.container.mem.usage, effective_limit) {
+                (Some(used), Some(limit)) if limit > 0 => {
+                    (used as f64 / limit as f64) * 100.0 >= 80.0
+                }
+                _ => false,
+            };
+            if bad_state || hot_mem {
                 issues += 1;
             }
         }

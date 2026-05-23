@@ -7,7 +7,14 @@ use crate::views::dockerscope::icons::icon_arrow_down;
 pub fn MountsPanel(volumes: Option<Vec<VolumeHttpModel>>) -> Element {
     let vols = volumes.unwrap_or_default();
     if vols.is_empty() {
-        return rsx! { /* no mounts — skip rendering the panel entirely (matches prototype) */ };
+        return rsx! {
+            div { class: "panel",
+                div { class: "panel-head", h3 { "Mounts" } }
+                div { style: "padding:20px 4px; color:var(--text-muted); font-family:var(--mono); font-size:11.5px;",
+                    "no mounts"
+                }
+            }
+        };
     }
 
     let count = vols.len();

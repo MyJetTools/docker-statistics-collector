@@ -46,9 +46,9 @@ pub fn VmRail() -> Element {
                 items: grouped.dev.into_iter().map(|(n, v)| (n.clone(), v.clone())).collect::<Vec<_>>(),
                 active_vm: active_vm.clone(),
             }
-            // All VMs entry — links to root path, which clears single-vm selection.
+            // All VMs entry — selects SelectedVm::All so containers from every VM merge.
             Link {
-                to: AppRoute::Home {},
+                to: AppRoute::AllRoute {},
                 class: if all_selected { "vm-card active" } else { "vm-card" },
                 style: "margin-top: 12px;",
                 div { class: "ico", {icon_server()} }

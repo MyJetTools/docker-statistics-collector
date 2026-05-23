@@ -81,15 +81,17 @@ pub fn DetailPanel(env: Rc<String>) -> Element {
 
             StatLine { container: container.clone() }
 
-            div { class: "detail-grid",
-                div {
+            div { class: "detail-bottom",
+                div { class: "ports-mounts-row",
                     PortsPanel { ports: container.ports.clone() }
                     MountsPanel { volumes: container.volumes.clone() }
                 }
-                div {
-                    LogPreview { container_id: container.id.clone(), vm_url: vm_url.clone(), is_running: container.state.as_deref() == Some("running") }
-                    LabelsPanel { container: container.clone() }
+                LogPreview {
+                    container_id: container.id.clone(),
+                    vm_url: vm_url.clone(),
+                    is_running: container.state.as_deref() == Some("running"),
                 }
+                LabelsPanel { container: container.clone() }
             }
         }
     }
