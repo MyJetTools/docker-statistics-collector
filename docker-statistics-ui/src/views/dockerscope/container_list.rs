@@ -139,11 +139,12 @@ fn ContainerRow(
         && active_vm.as_deref() == row_vm.as_deref();
     let pct = row.mem_pct();
 
-    // DEBUG: trace mem-bar inputs for any container whose name contains "kafka".
-    // Remove once the flicker investigation is done.
-    if row.name.to_ascii_lowercase().contains("kafka") {
+    // DEBUG: trace anyone in the hot zone or any kafka — until flicker root cause is fixed.
+    if row.name.to_ascii_lowercase().contains("kafka")
+        || pct.map(|p| p >= 80.0).unwrap_or(false)
+    {
         dioxus_utils::console_log(&format!(
-            "[kafka-debug] name={} running={} mem_bytes={} effective_limit={:?} declared={} pct={:?}",
+            "[hot-debug] name={} running={} mem_bytes={} effective_limit={:?} declared={} pct={:?}",
             row.name,
             row.is_running,
             row.mem_bytes,
@@ -198,7 +199,14 @@ fn ContainerRow(
                     }
                 }
                 div { class: "image", "{row.image}" }
-                MemBar { pct, running: row.is_running }
+                MemBar {
+                    pct,
+                    running: row.is_running,
+                    debug_name: if row.name.to_ascii_lowercase().contains("kafka")
+                        || pct.map(|p| p >= 80.0).unwrap_or(false) {
+                            Some(row.name.clone())
+                        } else { None },
+                }
             }
             div { class: "metrics",
                 span { class: "cpu", "{cpu_str}" }
@@ -214,7 +222,7 @@ fn ContainerRow(
 }
 
 #[component]
-fn MemBar(pct: Option<f64>, running: bool) -> Element {
+fn MemBar(pct: Option<f64>, running: bool, debug_name: Option<String>) -> Element {
     if !running {
         return rsx! {};
     }
@@ -237,7 +245,16 @@ fn MemBar(pct: Option<f64>, running: bool) -> Element {
     // backend sometimes reports mem.usage=0 for a single tick on hot containers
     // (kafka, loggers). Without this filter the bar disappears every few ticks
     // exactly for the busiest containers.
-    let effective = pct.filter(|p| *p > 0.0).or(*last_pct.read());
+    let last_seen = *last_pct.read();
+    let effective = pct.filter(|p| *p > 0.0).or(last_seen);
+
+    if let Some(name) = debug_name.as_ref() {
+        dioxus_utils::console_log(&format!(
+            "[membar] {} pct={:?} last_pct={:?} effective={:?}",
+            name, pct, last_seen, effective
+        ));
+    }
+
     let Some(p) = effective else {
         return rsx! {};
     };
@@ -262,7 +279,7 @@ fn MemBar(pct: Option<f64>, running: bool) -> Element {
         div {
             style: "height: 3px; margin-top: 4px; width: 100%; background: {bg}; border-radius: 2px; overflow: hidden; position: relative;",
             div {
-                style: "position: absolute; left: 0; top: 0; bottom: 0; width: {width}%; background: {fg}; box-shadow: {glow}; transition: width .25s ease;"
+                style: "position: absolute; left: 0; top: 0; bottom: 0; width: {width}%; background: {fg}; box-shadow: {glow};"
             }
             div {
                 style: "position: absolute; left: 80%; top: 0; bottom: 0; width: 1px; background: color-mix(in srgb, var(--text-muted) 60%, transparent);"
