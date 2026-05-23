@@ -7,6 +7,29 @@ use crate::{
     selected_vm::SelectedVm,
 };
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum ContainerFilter {
+    #[default]
+    All,
+    Running,
+    Unhealthy,
+    Restarting,
+    Exited,
+}
+
+impl ContainerFilter {
+    pub fn matches(&self, state: Option<&str>) -> bool {
+        let s = state.map(|s| s.to_ascii_lowercase()).unwrap_or_default();
+        match self {
+            ContainerFilter::All => true,
+            ContainerFilter::Running => s == "running",
+            ContainerFilter::Unhealthy => s.contains("unhealthy"),
+            ContainerFilter::Restarting => s == "restarting",
+            ContainerFilter::Exited => s == "exited" || s == "dead" || s == "created",
+        }
+    }
+}
+
 pub struct MainState {
     pub envs: EnvListState,
     pub vms_state: Option<BTreeMap<String, VmModel>>,
@@ -15,6 +38,8 @@ pub struct MainState {
     selected_vm: Option<SelectedVm>,
     containers: Option<Vec<MetricsByVm>>,
     filter: String,
+    container_filter: ContainerFilter,
+    active_container_id: Option<String>,
 
     pub dialog_is_shown: bool,
     pub prompt_pass_key: bool,
@@ -26,6 +51,8 @@ impl MainState {
             selected_vm: None,
             containers: None,
             filter: "".to_string(),
+            container_filter: ContainerFilter::All,
+            active_container_id: None,
             state_no: 0,
             dialog_is_shown: false,
             data_request_no: 0,
@@ -38,7 +65,33 @@ impl MainState {
     pub fn set_selected_vm(&mut self, selected_vm: SelectedVm) {
         self.selected_vm = Some(selected_vm);
         self.containers = None;
+        self.active_container_id = None;
+        self.filter = String::new();
+        self.container_filter = ContainerFilter::All;
         self.state_no += 1;
+    }
+
+    pub fn get_selected_vm_name(&self) -> Option<String> {
+        match self.selected_vm.as_ref()? {
+            SelectedVm::All => Some("***All***".to_string()),
+            SelectedVm::SingleVm(v) => Some(v.clone()),
+        }
+    }
+
+    pub fn get_container_filter(&self) -> ContainerFilter {
+        self.container_filter
+    }
+
+    pub fn set_container_filter(&mut self, f: ContainerFilter) {
+        self.container_filter = f;
+    }
+
+    pub fn get_active_container_id(&self) -> Option<&str> {
+        self.active_container_id.as_deref()
+    }
+
+    pub fn set_active_container_id(&mut self, id: Option<String>) {
+        self.active_container_id = id;
     }
 
     pub fn is_single_vm_selected(&self, vm: &str) -> bool {
@@ -69,9 +122,13 @@ impl MainState {
 
         let mut result = Vec::with_capacity(items.len());
         for itm in items.iter() {
-            if itm.container.filter_me(&self.filter) {
-                result.push(itm)
+            if !itm.container.filter_me(&self.filter) {
+                continue;
             }
+            if !self.container_filter.matches(itm.container.state.as_deref()) {
+                continue;
+            }
+            result.push(itm)
         }
 
         result.sort_by(|a, b| a.container.image.cmp(&b.container.image));
@@ -79,8 +136,23 @@ impl MainState {
         Some(result)
     }
 
+    pub fn get_all_containers(&self) -> Option<&Vec<MetricsByVm>> {
+        self.containers.as_ref()
+    }
+
     pub fn set_containers(&mut self, containers: Vec<MetricsByVm>) {
+        if let Some(ref active) = self.active_container_id {
+            let still_exists = containers.iter().any(|c| &c.container.id == active);
+            if !still_exists {
+                self.active_container_id = None;
+            }
+        }
         self.containers = Some(containers);
+    }
+
+    pub fn find_active_container(&self) -> Option<&MetricsByVm> {
+        let id = self.active_container_id.as_deref()?;
+        self.containers.as_ref()?.iter().find(|c| c.container.id == id)
     }
 
     pub fn set_filter(&mut self, value: String) {

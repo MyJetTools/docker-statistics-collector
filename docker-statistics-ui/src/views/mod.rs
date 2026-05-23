@@ -1,14 +1,6 @@
-mod left_panel;
-pub use left_panel::*;
-mod containers_list;
-mod icons;
-pub use containers_list::*;
-mod render_mem_graph;
-pub use render_mem_graph::*;
-mod render_cpu_graph;
-pub use render_cpu_graph::*;
-mod render_files_graph;
-pub use render_files_graph::*;
+pub mod dockerscope;
+pub use dockerscope::*;
+
 pub mod dialog;
 mod prompt_ssh_pass_key;
 pub use prompt_ssh_pass_key::*;

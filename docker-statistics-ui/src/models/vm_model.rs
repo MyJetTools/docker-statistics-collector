@@ -1,6 +1,6 @@
 use serde::*;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct VmModel {
     pub api_url: String,
     pub cpu: f64,

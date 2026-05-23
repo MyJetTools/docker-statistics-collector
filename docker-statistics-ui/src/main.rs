@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 
+use std::rc::Rc;
 use std::time::Duration;
 
 #[cfg(feature = "server")]
@@ -36,8 +37,17 @@ fn main() {
         )))
         .launch(|| {
             rsx! {
-
                 document::Link { rel: "icon", href: "/assets/favicon.ico" }
+                document::Link { rel: "preconnect", href: "https://fonts.googleapis.com" }
+                document::Link {
+                    rel: "preconnect",
+                    href: "https://fonts.gstatic.com",
+                    crossorigin: "anonymous",
+                }
+                document::Link {
+                    rel: "stylesheet",
+                    href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap",
+                }
                 App {}
             }
         })
@@ -49,47 +59,40 @@ fn App() -> Element {
     use_context_provider(|| Signal::new(DialogState::Hidden));
 
     let mut main_state = consume_context::<Signal<MainState>>();
+    let main_state_ra = main_state.read();
 
-    let main_state_read_access = main_state.read();
-
-    match main_state_read_access.envs.items.as_ref() {
+    match main_state_ra.envs.items.as_ref() {
         RenderState::None => {
             spawn(async move {
                 let envs = get_envs().await;
                 match envs {
                     Ok(envs) => {
-                        let mut main_state_write_access = main_state.write();
-                        main_state_write_access.envs.set_items(envs.envs);
-                        main_state_write_access.prompt_pass_key = envs.request_pass_key;
+                        let mut w = main_state.write();
+                        w.envs.set_items(envs.envs);
+                        w.prompt_pass_key = envs.request_pass_key;
                     }
                     Err(err) => {
                         main_state.write().envs.set_error(err.to_string());
                     }
                 }
             });
-            return rsx! { "Loading environments..." };
+            return rsx! { div { class: "ds-loading", "Loading environments…" } };
         }
         RenderState::Loading => {
-            return rsx! { "Loading environments..." };
+            return rsx! { div { class: "ds-loading", "Loading environments…" } };
         }
         RenderState::Loaded(_) => {}
         RenderState::Error(err) => {
-            let err = format!("Error loading environments. Err: {}", err);
-            return rsx! {
-                {err}
-            };
+            let msg = format!("Error loading environments. Err: {}", err);
+            return rsx! { div { class: "ds-error", "{msg}" } };
         }
     }
 
-    if main_state_read_access.prompt_pass_key {
-        return rsx! {
-            PromptSshPassKey {}
-        };
+    if main_state_ra.prompt_pass_key {
+        return rsx! { PromptSshPassKey {} };
     }
 
-    rsx! {
-        ActiveApp {}
-    }
+    rsx! { ActiveApp {} }
 }
 
 #[component]
@@ -98,12 +101,9 @@ fn ActiveApp() -> Element {
     let mut started = use_signal(|| false);
 
     let env = { main_state.read().envs.get_selected_env() };
-
-    if env.is_none() {
-        return rsx! { "No env selected" };
-    }
-
-    let env = env.unwrap();
+    let Some(env) = env else {
+        return rsx! { div { class: "ds-loading", "no env selected" } };
+    };
 
     use_effect(move || {
         started.set(true);
@@ -111,12 +111,11 @@ fn ActiveApp() -> Element {
     });
 
     rsx! {
-
-        div { id: "layout",
-            div { id: "left-panel", left_panel {} }
-            div { id: "right-panel",
-                containers_list { env }
-            }
+        div { class: "app density-cozy", "data-accent": "green",
+            Topbar {}
+            VmRail {}
+            ContainerListPanel {}
+            DetailPanel { env: env.clone() }
             dialog::render_dialog {}
         }
     }
@@ -144,10 +143,15 @@ pub fn read_loop(mut main_state: Signal<MainState>) {
                     }
                 }
                 Err(err) => {
-                    println!("Error on get_vm_cpu_and_mem: {:?}", err);
+                    dioxus_utils::console_log(&format!(
+                        "Error on get_vm_cpu_and_mem: {:?}",
+                        err
+                    ));
                 }
             }
         }
     });
 }
 
+#[allow(dead_code)]
+fn _suppress_unused(_r: Rc<String>) {}

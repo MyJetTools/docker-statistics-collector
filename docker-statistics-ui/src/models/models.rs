@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use serde::*;
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct PortHttpModel {
     pub ip: Option<String>,
     #[serde(rename = "privatePort")]
@@ -13,7 +13,7 @@ pub struct PortHttpModel {
     pub port_type: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct VolumeHttpModel {
     #[serde(rename = "mountType")]
     pub mount_type: Option<String>,
@@ -26,7 +26,7 @@ pub struct VolumeHttpModel {
     pub propagation: Option<String>,
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub struct ContainerModel {
     pub id: String,
     pub image: String,
@@ -127,19 +127,19 @@ pub struct StatisticsContract {
     pub containers: Vec<ContainerJsonModel>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct CpuUsageJsonMode {
     pub usage: Option<f64>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct MemUsageJsonMode {
     pub usage: Option<i64>,
     pub available: Option<i64>,
     pub limit: Option<i64>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 pub struct FilesUsageJsonMode {
     /// File descriptors currently open by the container's main process.
     pub open: Option<i64>,
