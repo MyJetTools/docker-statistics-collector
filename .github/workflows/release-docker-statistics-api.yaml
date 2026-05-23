@@ -2,11 +2,11 @@ name: Release App
 on:
   push:
     tags:
-      - "docker-statistics-ui-api-*"
+      - "docker-statistics-api-*"
 
 env:
-  IMAGE_NAME: ghcr.io/myjettools/docker-statistics-ui-api
-  DIR: docker-statistics-ui-api
+  IMAGE_NAME: ghcr.io/myjettools/docker-statistics-api
+  DIR: docker-statistics-api
 
 jobs:
   build:

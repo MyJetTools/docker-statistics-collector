@@ -12,7 +12,7 @@ pub fn setup_server(app: &Arc<AppCtx>) {
 
     let swagger_middleware = SwaggerMiddleware::new(
         controllers.clone(),
-        "docker-statistics-ui-api".to_string(),
+        "docker-statistics-api".to_string(),
         env!("CARGO_PKG_VERSION").to_string(),
     );
 

@@ -1,10 +1,10 @@
-# docker-statistics-ui-api
+# docker-statistics-api
 
 Backend REST service for the `docker-statistics-ui` client-side WASM frontend.
 
 ## What it does
 
-- Reads its `envs` config from `~/.docker-statistics-ui-api`
+- Reads its `envs` config from `~/.docker-statistics-api`
 - Polls each env's master `docker-statistics-collector` every 3 seconds via `GET /api/containers`
 - Keeps a per-env in-memory cache of container metrics + history
 - Exposes REST endpoints consumed by the WASM UI:
@@ -18,7 +18,7 @@ Listens on `0.0.0.0:9001`.
 
 ## Settings
 
-`~/.docker-statistics-ui-api` (YAML):
+`~/.docker-statistics-api` (YAML):
 
 ```yaml
 envs:
