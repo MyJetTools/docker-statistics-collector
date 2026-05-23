@@ -9,6 +9,7 @@ mod http_client;
 mod models;
 mod selected_vm;
 mod settings_reader;
+mod ws;
 
 lazy_static::lazy_static! {
     pub static ref APP_CTX: Arc<AppCtx> = Arc::new(AppCtx::new());

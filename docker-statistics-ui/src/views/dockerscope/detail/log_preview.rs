@@ -1,16 +1,28 @@
 use std::rc::Rc;
 
 use dioxus::prelude::*;
-use dioxus_utils::*;
+use futures::StreamExt;
+use reqwasm::websocket::{futures::WebSocket, Message};
+use serde::Deserialize;
 
-use crate::api::{get_logs, LogLineHttpModel};
+use crate::api::{get_base_url, LogLineHttpModel};
 use crate::states::{DialogState, DialogType, MainState};
 
-const TAIL_LINES: u32 = 200;
+/// Soft cap on how many log lines the preview retains in memory — keeps the
+/// virtual DOM from ballooning on chatty containers.
+const LINE_BUFFER_CAP: usize = 500;
+/// Initial backfill (tail=N) requested from the collector on every reconnect.
+const INITIAL_TAIL: u32 = 200;
 
-/// Inline log tail — fetches once on container change (no polling), renders
-/// colored lines, plus a "reload" button and an "open full viewer" shortcut
-/// to the existing modal.
+#[derive(Deserialize)]
+struct WsLogPayload {
+    tp: u8,
+    line: String,
+}
+
+/// Inline log tail — opens a WebSocket to `/ws/logs?env&id` on the api when
+/// the active container changes and renders new lines as they arrive. The
+/// stream stays live for as long as this component is mounted.
 #[component]
 pub fn LogPreview(container_id: String, vm_url: String, is_running: bool) -> Element {
     let env = consume_context::<Signal<MainState>>()
@@ -22,17 +34,21 @@ pub fn LogPreview(container_id: String, vm_url: String, is_running: bool) -> Ele
 
     let cs = use_signal(LogPreviewState::default);
 
-    // Re-fetch whenever container_id changes (new selection => fresh tail).
+    // Bump session_id whenever container_id changes — the live WS task watches
+    // this and exits as soon as a new session starts, so we never have two
+    // streams writing into the same buffer.
     let cid_for_effect = container_id.clone();
     let env_for_effect = env.clone();
-    let url_for_effect = vm_url.clone();
     use_effect(use_reactive!(|cid_for_effect| {
-        spawn_fetch(
-            cs.to_owned(),
-            env_for_effect.clone(),
-            url_for_effect.clone(),
-            cid_for_effect.clone(),
-        );
+        let mut cs = cs.to_owned();
+        {
+            let mut w = cs.write();
+            w.session_id += 1;
+            w.lines.clear();
+            w.error = None;
+        }
+        let my_session = cs.read().session_id;
+        spawn_stream(cs, env_for_effect.clone(), cid_for_effect.clone(), my_session);
     }));
 
     let status = if is_running { "● live" } else { "○ paused" };
@@ -44,10 +60,6 @@ pub fn LogPreview(container_id: String, vm_url: String, is_running: bool) -> Ele
 
     let body = render_body(&cs.read());
 
-    let cid_for_reload = container_id.clone();
-    let env_for_reload = env.clone();
-    let url_for_reload = vm_url.clone();
-
     let cid_for_modal = container_id.clone();
     let url_for_modal = vm_url.clone();
     let env_for_modal = env.clone();
@@ -56,21 +68,9 @@ pub fn LogPreview(container_id: String, vm_url: String, is_running: bool) -> Ele
     rsx! {
         div { class: "panel log-panel",
             div { class: "panel-head",
-                h3 { "Log tail · stdout · last {TAIL_LINES} lines" }
+                h3 { "Log tail · live · last {LINE_BUFFER_CAP} lines" }
                 div { style: "display:flex; gap:8px; align-items:center;",
                     span { class: "count-pill", style: "color: {status_color};", "{status}" }
-                    button {
-                        class: "btn btn-sm",
-                        onclick: move |_| {
-                            spawn_fetch(
-                                cs.to_owned(),
-                                env_for_reload.clone(),
-                                url_for_reload.clone(),
-                                cid_for_reload.clone(),
-                            );
-                        },
-                        "reload"
-                    }
                     button {
                         class: "btn btn-sm",
                         onclick: move |_| {
@@ -93,21 +93,17 @@ pub fn LogPreview(container_id: String, vm_url: String, is_running: bool) -> Ele
 }
 
 fn render_body(cs: &LogPreviewState) -> Element {
-    match cs.data.as_ref() {
-        RenderState::None | RenderState::Loading => rsx! {
-            div { style: "padding:6px 0; color:var(--text-muted);", "loading logs…" }
-        },
-        RenderState::Loaded(items) if items.is_empty() => rsx! {
-            div { style: "padding:6px 0; color:var(--text-muted);", "no log output" }
-        },
-        RenderState::Loaded(items) => rsx! {
-            for line in items.iter() {
-                LogLine { tp: line.tp as i32, text: line.line.clone() }
-            }
-        },
-        RenderState::Error(err) => {
-            let msg = format!("error loading logs: {}", err);
-            rsx! { div { class: "ds-error", "{msg}" } }
+    if let Some(err) = cs.error.as_deref() {
+        return rsx! { div { class: "ds-error", "log stream error: {err}" } };
+    }
+    if cs.lines.is_empty() {
+        return rsx! {
+            div { style: "padding:6px 0; color:var(--text-muted);", "waiting for log lines…" }
+        };
+    }
+    rsx! {
+        for line in cs.lines.iter() {
+            LogLine { tp: line.tp as i32, text: line.line.clone() }
         }
     }
 }
@@ -123,23 +119,73 @@ fn LogLine(tp: i32, text: String) -> Element {
     rsx! { div { class: "{cls}", "{text}" } }
 }
 
-fn spawn_fetch(
+fn spawn_stream(
     mut cs: Signal<LogPreviewState>,
     env: Rc<String>,
-    url: String,
     container_id: String,
+    my_session: u64,
 ) {
     spawn(async move {
-        cs.write().data.set_loading();
-        let env_str = env.as_str().to_string();
-        match get_logs(env_str, url, container_id, TAIL_LINES).await {
-            Ok(items) => cs.write().data.set_loaded(items),
-            Err(err) => cs.write().data.set_error(err.to_string()),
+        let ws_url = build_ws_url(env.as_str(), &container_id);
+        let ws = match WebSocket::open(&ws_url) {
+            Ok(ws) => ws,
+            Err(err) => {
+                if cs.read().session_id == my_session {
+                    cs.write().error = Some(format!("open WS failed: {err:?}"));
+                }
+                return;
+            }
+        };
+
+        let (_write, mut read) = ws.split();
+
+        while let Some(msg) = read.next().await {
+            // Another session started — drop everything.
+            if cs.read().session_id != my_session {
+                return;
+            }
+            match msg {
+                Ok(Message::Text(text)) => {
+                    if let Ok(parsed) = serde_json::from_str::<WsLogPayload>(&text) {
+                        let mut w = cs.write();
+                        w.lines.push(LogLineHttpModel {
+                            tp: parsed.tp,
+                            line: parsed.line,
+                        });
+                        while w.lines.len() > LINE_BUFFER_CAP {
+                            w.lines.remove(0);
+                        }
+                    }
+                }
+                Ok(Message::Bytes(_)) => {}
+                Err(err) => {
+                    if cs.read().session_id == my_session {
+                        cs.write().error = Some(format!("WS error: {err:?}"));
+                    }
+                    return;
+                }
+            }
         }
     });
 }
 
+fn build_ws_url(env: &str, container_id: &str) -> String {
+    let origin = get_base_url();
+    let scheme = if origin.starts_with("https://") {
+        "wss"
+    } else {
+        "ws"
+    };
+    let host = origin
+        .trim_start_matches("https://")
+        .trim_start_matches("http://")
+        .trim_end_matches('/');
+    format!("{scheme}://{host}/ws/logs?env={env}&id={container_id}")
+}
+
 #[derive(Default)]
 struct LogPreviewState {
-    data: DataState<Vec<LogLineHttpModel>>,
+    lines: Vec<LogLineHttpModel>,
+    session_id: u64,
+    error: Option<String>,
 }

@@ -150,3 +150,35 @@ pub async fn get_container_logs(url: &str, container_id: &str, last_lines_number
 
     body
 }
+
+/// Open a streaming connection to `docker logs --follow` for one container.
+/// Caller drives it with `get_next_chunk().await` and is responsible for
+/// dropping the stream to tear down the docker side. The stream yields raw
+/// bytes in the docker multiplexed log frame format
+/// (`[stream_type, 0, 0, 0, size_be4, payload...]`) — same as
+/// `get_container_logs`, just continuous.
+///
+/// `tail` controls the initial backfill (number of lines from the past sent
+/// before the follow stream starts).
+pub async fn get_container_logs_stream(
+    url: &str,
+    container_id: &str,
+    tail: u32,
+) -> Result<flurl::FlResponseAsStream, flurl::FlUrlError> {
+    let response = url
+        .append_path_segment("containers")
+        .append_path_segment(container_id)
+        .append_path_segment("logs")
+        .append_query_param("stdout", Some("1"))
+        .append_query_param("stderr", Some("1"))
+        .append_query_param("timestamps", Some("1"))
+        .append_query_param("follow", Some("1"))
+        .append_query_param("tail", Some(tail.to_string()))
+        .with_header(HOST.as_str(), "docker")
+        // Hold the connection open for the whole follow lifetime.
+        .with_header(CONNECTION.as_str(), "keep-alive")
+        .get()
+        .await?;
+
+    Ok(response.get_body_as_stream())
+}

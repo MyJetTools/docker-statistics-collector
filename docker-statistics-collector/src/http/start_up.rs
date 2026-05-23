@@ -1,13 +1,16 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use mcp_server_middleware::McpMiddleware;
-use my_http_server::{controllers::swagger::SwaggerMiddleware, MyHttpServer};
+use my_http_server::{
+    controllers::swagger::SwaggerMiddleware, web_sockets::MyWebsocketMiddleware, MyHttpServer,
+};
 
 use crate::app::AppContext;
 use crate::mcp::{
     FindApplicationHandler, FindContainersHandler, GetContainerLogsHandler,
     HowToUseItPromptHandler, ListServersAndServicesHandler,
 };
+use crate::ws::LogsWsCallback;
 
 /// Sent to MCP clients on `initialize` as ServerInfo.instructions. Loaded at
 /// compile time from MCP_INSTRUCTION.md so the document can be edited as
@@ -35,6 +38,12 @@ pub async fn start_http_server(app: &Arc<AppContext>) {
     mcp.register_prompt(Arc::new(HowToUseItPromptHandler));
 
     http_server.add_middleware(Arc::new(mcp));
+
+    http_server.add_middleware(Arc::new(MyWebsocketMiddleware::new(
+        "/ws/logs",
+        Arc::new(LogsWsCallback::new(app.clone())),
+        my_logger::LOGGER.clone(),
+    )));
 
     http_server.add_middleware(Arc::new(SwaggerMiddleware::new(
         controllers.clone(),

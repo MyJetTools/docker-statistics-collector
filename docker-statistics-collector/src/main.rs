@@ -12,6 +12,7 @@ mod peers_client;
 mod proc_fd;
 mod settings;
 mod timers;
+mod ws;
 #[tokio::main]
 async fn main() {
     match std::env::var("ENV_INFO") {
