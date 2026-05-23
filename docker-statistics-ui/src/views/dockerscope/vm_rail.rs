@@ -117,6 +117,29 @@ fn VmCard(name: String, vm: crate::models::VmModel, active: bool) -> Element {
         MemSeverity::Ok => ("var(--text-dim)", String::new()),
     };
 
+    // Progress bar geometry: denominator = host RAM if known, else reserved
+    // (sum of declared limits). Reserved overlay is rendered translucent behind
+    // the used fill; if reserved > host_total it stays clamped to 100% but
+    // switches color to danger so over-commit is visible at a glance.
+    let bar_denom = vm.host_mem_total.unwrap_or(vm.mem_limit).max(1);
+    let used_pct = ((vm.mem as f64 / bar_denom as f64) * 100.0).clamp(0.0, 100.0);
+    let reserved_pct = ((vm.mem_limit as f64 / bar_denom as f64) * 100.0).clamp(0.0, 100.0);
+    let over_commit = vm
+        .host_mem_total
+        .map(|t| vm.mem_limit > t)
+        .unwrap_or(false);
+    let used_color = match severity {
+        MemSeverity::Danger => "var(--danger)",
+        MemSeverity::Warn => "var(--warn)",
+        MemSeverity::Ok => "var(--mem)",
+    };
+    let reserved_overlay = if over_commit {
+        "rgba(239,68,68,.22)"
+    } else {
+        "rgba(96,165,250,.18)"
+    };
+    let denom_label = host_total_short.clone().unwrap_or_else(|| reserved_short.clone());
+
     rsx! {
         Link {
             to: target,
@@ -134,21 +157,23 @@ fn VmCard(name: String, vm: crate::models::VmModel, active: bool) -> Element {
                         span { class: "item", title: "host cores", "{c}c" }
                     }
                 }
-                div { class: "vm-mem", title: "{mem_title}",
-                    span { class: "tag",
-                        span { class: "lbl", "use" }
-                        span { class: "val", "{used_short}" }
+                div { class: "vm-mem-bar", title: "{mem_title}",
+                    div {
+                        class: "vm-mem-bar-reserved",
+                        style: "width: {reserved_pct:.1}%; background: {reserved_overlay};",
                     }
-                    span { class: "tag",
-                        span { class: "lbl", "res" }
-                        span { class: "val", style: "color: {reserved_color};", "{reserved_short}" }
+                    div {
+                        class: "vm-mem-bar-used",
+                        style: "width: {used_pct:.1}%; background: {used_color};",
                     }
-                    if let Some(total) = host_total_short.as_ref() {
-                        span { class: "tag",
-                            span { class: "lbl", "host" }
-                            span { class: "val", "{total}" }
-                        }
-                    }
+                    div { class: "vm-mem-bar-tick" }
+                }
+                div { class: "vm-mem-text",
+                    span { class: "used", "{used_short}" }
+                    span { class: "denom", " / {denom_label}" }
+                    span { class: "sep", " · " }
+                    span { class: "res-lbl", "res " }
+                    span { style: "color: {reserved_color};", "{reserved_short}" }
                 }
             }
             div { class: "count", "{vm.containers_amount}" }

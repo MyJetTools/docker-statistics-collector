@@ -241,20 +241,49 @@ button, input { font-family: inherit; color: inherit; }
   width: 100%;
 }
 
-.vm-card .vm-mem {
-  display: flex; gap: 6px; flex-wrap: wrap;
+/* VM card memory progress bar: solid fill = used, translucent overlay = reserved
+   (turns red when reserved > host RAM = over-commit). Tick at 80% mark. */
+.vm-card .vm-mem-bar {
+  position: relative;
+  height: 4px;
+  background: var(--surface-2);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+.vm-card .vm-mem-bar-reserved {
+  position: absolute;
+  top: 0; bottom: 0; left: 0;
+  border-radius: 99px;
+  transition: width .25s ease, background .25s ease;
+}
+.vm-card .vm-mem-bar-used {
+  position: absolute;
+  top: 0; bottom: 0; left: 0;
+  border-radius: 99px;
+  transition: width .25s ease, background .25s ease;
+}
+.vm-card .vm-mem-bar-tick {
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 80%;
+  width: 1px;
+  background: var(--border-strong);
+  opacity: .85;
+}
+
+.vm-card .vm-mem-text {
   margin-top: 3px;
   font-family: var(--mono); font-size: 10.5px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.vm-card .vm-mem .tag {
-  display: inline-flex; align-items: baseline; gap: 4px;
-  padding: 1px 6px;
-  border-radius: 99px;
-  background: var(--surface-1);
-  border: 1px solid var(--border);
-}
-.vm-card .vm-mem .tag .lbl { color: var(--text-muted); letter-spacing: .08em; text-transform: uppercase; font-size: 9px; }
-.vm-card .vm-mem .tag .val { color: var(--text-dim); }
+.vm-card .vm-mem-text .used { color: var(--text); }
+.vm-card .vm-mem-text .denom { color: var(--text-muted); }
+.vm-card .vm-mem-text .sep { color: var(--text-muted); opacity: .6; }
+.vm-card .vm-mem-text .res-lbl { color: var(--text-muted); letter-spacing: .04em; }
 
 /* Container row — memory pressure highlight (>=80% of limit) */
 .cont-row.hot-mem { background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.25); }

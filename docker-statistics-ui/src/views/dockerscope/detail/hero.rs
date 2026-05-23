@@ -84,6 +84,23 @@ pub fn Hero(container: ContainerModel, vm_url: String) -> Element {
         })
         .unwrap_or_else(|| "—".to_string());
 
+    // Containers created less than 64h ago are flagged in red — they're recent
+    // restarts/redeploys worth eyeballing.
+    let created_fresh = container
+        .created
+        .map(|c| {
+            let then_us = DateTimeAsMicroseconds::from(c).unix_microseconds;
+            let now_us = dioxus_utils::now_date_time().unix_microseconds;
+            let hours = (now_us - then_us) as f64 / 1_000_000.0 / 3600.0;
+            hours >= 0.0 && hours < 64.0
+        })
+        .unwrap_or(false);
+    let created_style = if created_fresh {
+        "color: var(--danger); font-weight: 600;"
+    } else {
+        ""
+    };
+
     rsx! {
         div { class: "hero",
             div { class: "top-row",
@@ -145,7 +162,11 @@ pub fn Hero(container: ContainerModel, vm_url: String) -> Element {
                 span { class: "sep", "·" }
                 span { span { class: "k", "vm" } " {vm_url}" }
                 span { class: "sep", "·" }
-                span { span { class: "k", "created" } " {created_str}" }
+                span {
+                    span { class: "k", "created" }
+                    " "
+                    span { style: "{created_style}", "{created_str}" }
+                }
             }
         }
     }
