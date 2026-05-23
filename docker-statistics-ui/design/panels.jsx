@@ -1,6 +1,16 @@
 // panels.jsx — VM rail + container list components
 const { useState: useStateP, useEffect: useEffectP, useMemo: useMemoP } = React;
 
+function memPressure(c) {
+  if (!c.memLimit || c.state !== "running") return 0;
+  return (c.mem / c.memLimit) * 100;
+}
+function memClass(pct) {
+  if (pct >= 90) return "mem-danger";
+  if (pct >= 80) return "mem-warn";
+  return "";
+}
+
 function VmRail({ fleet, activeVmId, onSelect, showSparklines = true }) {
   const totalsByGroup = useMemoP(() => {
     const groups = { production: [], staging: [], dev: [] };
@@ -10,6 +20,14 @@ function VmRail({ fleet, activeVmId, onSelect, showSparklines = true }) {
       else groups.dev.push(vm);
     }
     return groups;
+  }, [fleet]);
+
+  const memWarnsByVm = useMemoP(() => {
+    const map = {};
+    for (const vm of fleet) {
+      map[vm.id] = vm.containerList.filter(c => memPressure(c) >= 80).length;
+    }
+    return map;
   }, [fleet]);
 
   function statusKind(vm) { return vm.status; }
@@ -37,6 +55,11 @@ function VmRail({ fleet, activeVmId, onSelect, showSparklines = true }) {
                 <span className="item">{vm.region}</span>
                 <span className="item cpu">{vm.cpu}%</span>
                 <span className="item mem">{vm.mem}%</span>
+                {memWarnsByVm[vm.id] > 0 && (
+                  <span className="item warn-icon" title={`${memWarnsByVm[vm.id]} containers over 80% memory`}>
+                    ⚠ {memWarnsByVm[vm.id]}
+                  </span>
+                )}
               </div>
             </div>
             <div className="count">{vm.containers}</div>
@@ -70,13 +93,17 @@ function ContainerList({ vm, query, setQuery, filter, setFilter, activeId, onPic
         c.image.toLowerCase().includes(q) ||
         c.id.includes(q));
     }
-    if (filter !== "all") l = l.filter(c => c.state === filter);
+    if (filter === "memHot") l = l.filter(c => memPressure(c) >= 80);
+    else if (filter !== "all") l = l.filter(c => c.state === filter);
     return l;
   }, [vm, query, filter]);
 
   const counts = useMemoP(() => {
-    const c = { all: vm.containerList.length, running: 0, exited: 0, restarting: 0, unhealthy: 0 };
-    vm.containerList.forEach(x => { c[x.state] = (c[x.state] || 0) + 1; });
+    const c = { all: vm.containerList.length, running: 0, exited: 0, restarting: 0, unhealthy: 0, memHot: 0 };
+    vm.containerList.forEach(x => {
+      c[x.state] = (c[x.state] || 0) + 1;
+      if (memPressure(x) >= 80) c.memHot += 1;
+    });
     return c;
   }, [vm]);
 
@@ -103,10 +130,11 @@ function ContainerList({ vm, query, setQuery, filter, setFilter, activeId, onPic
             ["unhealthy", "unhealthy"],
             ["restarting", "restarting"],
             ["exited", "exited"],
+            ["memHot", "mem >80%"],
           ].map(([k, lbl]) => (
             <button
               key={k}
-              className={"chip" + (filter === k ? " active" : "")}
+              className={"chip" + (k === "memHot" ? " warn-chip" : "") + (filter === k ? " active" : "")}
               onClick={() => setFilter(k)}
             >
               <span className="dot" style={{
@@ -114,6 +142,7 @@ function ContainerList({ vm, query, setQuery, filter, setFilter, activeId, onPic
                           : k === "exited" ? "var(--text-muted)"
                           : k === "restarting" ? "var(--warn)"
                           : k === "unhealthy" ? "var(--danger)"
+                          : k === "memHot" ? "var(--warn)"
                           : "var(--text-dim)"
               }} />
               {lbl} <span style={{ color: "var(--text-muted)", marginLeft: 2 }}>{counts[k] ?? 0}</span>
@@ -122,23 +151,34 @@ function ContainerList({ vm, query, setQuery, filter, setFilter, activeId, onPic
         </div>
       </div>
       <div className="list-body">
-        {list.map(c => (
-          <div
-            key={c.id}
-            className={"cont-row" + (c.id === activeId ? " active" : "")}
-            onClick={() => onPick(c.id)}
-          >
-            <span className={"state " + (c.state === "running" ? "" : c.state)}></span>
-            <div className="info">
-              <div className="name">{c.name}</div>
-              <div className="image">{c.image}</div>
+        {list.map(c => {
+          const pct = memPressure(c);
+          const cls = memClass(pct);
+          const memUsed = c.mem >= 1024 ? (c.mem/1024).toFixed(2)+"G" : c.mem+"M";
+          const memLim  = c.memLimit >= 1024 ? (c.memLimit/1024).toFixed(0)+"G" : c.memLimit+"M";
+          return (
+            <div
+              key={c.id}
+              className={"cont-row " + cls + (c.id === activeId ? " active" : "")}
+              onClick={() => onPick(c.id)}
+            >
+              <span className={"state " + (c.state === "running" ? "" : c.state)}></span>
+              <div className="info">
+                <div className="name">
+                  {c.name}
+                  {pct >= 90 && <span className="mem-badge danger">⚠ mem {pct.toFixed(0)}%</span>}
+                  {pct >= 80 && pct < 90 && <span className="mem-badge">⚠ mem {pct.toFixed(0)}%</span>}
+                </div>
+                <div className="image">{c.image}</div>
+                <MemBar used={c.mem} limit={c.memLimit} pct={pct} state={c.state} />
+              </div>
+              <div className="metrics">
+                <span className="cpu">{c.cpu.toFixed(1)}%</span>
+                <span className="mem">{memUsed} <span style={{color:"var(--text-muted)"}}>/ {memLim}</span></span>
+              </div>
             </div>
-            <div className="metrics">
-              <span className="cpu">{c.cpu.toFixed(1)}%</span>
-              <span className="mem">{c.mem >= 1024 ? (c.mem/1024).toFixed(1)+"G" : c.mem+"M"}</span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
         {list.length === 0 && (
           <div style={{
             padding: "40px 12px", textAlign: "center",
@@ -152,4 +192,30 @@ function ContainerList({ vm, query, setQuery, filter, setFilter, activeId, onPic
   );
 }
 
-Object.assign(window, { VmRail, ContainerList });
+Object.assign(window, { VmRail, ContainerList, memPressure, memClass });
+
+function MemBar({ used, limit, pct, state }) {
+  if (state !== "running" || !limit) return null;
+  const color = pct >= 90 ? "var(--danger)" : pct >= 80 ? "var(--warn)" : "var(--mem)";
+  const bg = pct >= 90 ? "var(--danger-soft)" : pct >= 80 ? "var(--warn-soft)" : "var(--mem-soft)";
+  return (
+    <div style={{
+      height: 3, marginTop: 4, width: "100%",
+      background: bg, borderRadius: 2, overflow: "hidden", position: "relative"
+    }}>
+      <div style={{
+        position: "absolute", left: 0, top: 0, bottom: 0,
+        width: Math.min(100, pct) + "%",
+        background: color,
+        boxShadow: pct >= 80 ? `0 0 6px ${color}` : "none",
+        transition: "width .25s ease",
+      }} />
+      {/* 80% mark */}
+      <div style={{
+        position: "absolute", left: "80%", top: 0, bottom: 0, width: 1,
+        background: "color-mix(in srgb, var(--text-muted) 60%, transparent)",
+      }} />
+    </div>
+  );
+}
+window.MemBar = MemBar;

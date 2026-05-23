@@ -35,7 +35,7 @@ function Sparkline({ data, color = "#4ade80", height = 22 }) {
   );
 }
 
-function AreaChart({ data, color = "#4ade80", height = 92, showGrid = true, unit = "%" }) {
+function AreaChart({ data, color = "#4ade80", height = 92, showGrid = true, unit = "%", limit = null }) {
   const wrapRef = useRef(null);
   const [w, setW] = useState(420);
   useEffect(() => {
@@ -51,7 +51,21 @@ function AreaChart({ data, color = "#4ade80", height = 92, showGrid = true, unit
   const h = height;
   const { line, area } = useMemo(() => buildPath(data, w, h, 4), [data, w, h]);
   const gradId = useMemo(() => "ag" + Math.random().toString(36).slice(2, 8), []);
-  const max = Math.max(...data, 1);
+  // when a limit is supplied, scale so that the chart top represents the limit;
+  // otherwise scale to data max (default behavior).
+  const yMax = limit && limit > 0 ? limit : Math.max(...data, 1);
+  const max = yMax;
+  // 80% threshold line position
+  const threshY = limit ? h - 4 - (limit * 0.8 / max) * (h - 8) : null;
+  // rebuild paths with explicit yMax
+  const sx = (i) => (i / (data.length - 1)) * (w - 8) + 4;
+  const sy = (v) => h - 4 - (v / max) * (h - 8);
+  let line2 = "";
+  data.forEach((v, i) => {
+    const x = sx(i), y = sy(v);
+    line2 += i === 0 ? `M${x.toFixed(2)},${y.toFixed(2)}` : ` L${x.toFixed(2)},${y.toFixed(2)}`;
+  });
+  const area2 = `${line2} L${sx(data.length - 1).toFixed(2)},${h} L${sx(0).toFixed(2)},${h} Z`;
   const lastV = data[data.length - 1] || 0;
   const lastX = ((data.length - 1) / (data.length - 1)) * (w - 8) + 4;
   const lastY = h - 4 - (lastV / (max || 1)) * (h - 8);
@@ -86,9 +100,16 @@ function AreaChart({ data, color = "#4ade80", height = 92, showGrid = true, unit
             ))}
           </g>
         )}
-        <path d={area} fill={`url(#${gradId})`} />
-        <path d={line} fill="none" stroke={color} strokeWidth="1.4" strokeLinejoin="round" strokeLinecap="round" />
-        <circle cx={lastX} cy={lastY} r="3" fill={color} stroke="#0a0b0d" strokeWidth="2" />
+        <path d={area2} fill={`url(#${gradId})`} />
+        <path d={line2} fill="none" stroke={color} strokeWidth="1.4" strokeLinejoin="round" strokeLinecap="round" />
+        {limit && threshY != null && (
+          <g>
+            <rect x="0" y="0" width={w} height={threshY} fill="var(--warn-soft)" opacity="0.25" />
+            <line x1="0" x2={w} y1={threshY} y2={threshY}
+              stroke="var(--warn)" strokeDasharray="3 4" strokeWidth="1" opacity="0.7" />
+          </g>
+        )}
+        <circle cx={lastX} cy={lastY} r="3" fill={color} stroke="var(--bg)" strokeWidth="2" />
         {hover && (
           <g>
             <line x1={hover.x} x2={hover.x} y1="0" y2={h} stroke="#2f3540" strokeWidth="1" />

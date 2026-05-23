@@ -249,6 +249,7 @@ function DetailPanel({ container, accent }) {
   const cpuPrev = hist.cpu[hist.cpu.length - 6] || cpuNow;
   const cpuDelta = cpuNow - cpuPrev;
   const memPct = (memNow / container.memLimit) * 100;
+  const memClassName = memPct >= 90 ? "mem-danger" : memPct >= 80 ? "mem-warn" : "";
   const m = fmtMem(Math.round(memNow));
   const lim = fmtMem(container.memLimit);
 
@@ -270,6 +271,11 @@ function DetailPanel({ container, accent }) {
             {container.state}
           </span>
           <span className="uptime">up {container.uptime}{container.restarts > 0 && ` · ${container.restarts} restarts`}</span>
+          {memClassName && (
+            <span className={"mem-warn-banner " + (memPct >= 90 ? "danger" : "")} title="memory pressure">
+              ⚠ memory {memPct.toFixed(0)}% · {m.v}{m.u} of {lim.v}{lim.u}
+            </span>
+          )}
           <div className="actions">
             <button className="btn"><Icon.terminal /> shell</button>
             <button className="btn"><Icon.logs /> logs</button>
@@ -309,30 +315,36 @@ function DetailPanel({ container, accent }) {
           </div>
           <AreaChart data={hist.cpu} color="var(--cpu)" />
         </div>
-        <div className="chart-card">
+        <div className={"chart-card " + memClassName}>
           <div className="head">
             <span className="label">
-              <span className="sw" style={{ background: "var(--mem)" }} />
+              <span className="sw" style={{ background: memPct >= 90 ? "var(--danger)" : memPct >= 80 ? "var(--warn)" : "var(--mem)" }} />
               Memory
             </span>
             <span className="sub">limit {lim.v} {lim.u} · {memPct.toFixed(0)}% used</span>
           </div>
           <div className="value-row">
-            <span className="big">{m.v}<span className="unit">{m.u}</span></span>
-            <span className="delta">of {lim.v} {lim.u}</span>
+            <span className="big" style={memPct >= 90 ? {color: "var(--danger)"} : memPct >= 80 ? {color: "var(--warn)"} : null}>
+              {m.v}<span className="unit">{m.u}</span>
+            </span>
+            <span className={"delta " + (memPct >= 90 ? "danger" : memPct >= 80 ? "warn" : "")}>
+              {memPct.toFixed(0)}% of {lim.v} {lim.u}
+            </span>
           </div>
-          <AreaChart data={hist.mem} color="var(--mem)" unit=" MiB" />
+          <AreaChart data={hist.mem} color={memPct >= 90 ? "var(--danger)" : memPct >= 80 ? "var(--warn)" : "var(--mem)"} unit=" MiB" limit={container.memLimit} />
         </div>
       </div>
 
       <div className="statline">
         <div className="stat">
-          <div className="k">Network ▾ rx</div>
-          <div className="v">{(Math.random()*12+1).toFixed(1)}<span className="u">MB/s</span></div>
+          <div className="k">Memory</div>
+          <div className={"v " + (memPct >= 90 ? "danger" : memPct >= 80 ? "warn" : "")}>
+            {m.v}<span className="u">{m.u} / {lim.v}{lim.u} · {memPct.toFixed(0)}%</span>
+          </div>
         </div>
         <div className="stat">
-          <div className="k">Network ▴ tx</div>
-          <div className="v">{(Math.random()*6+.5).toFixed(1)}<span className="u">MB/s</span></div>
+          <div className="k">Network ▾ rx</div>
+          <div className="v">{(Math.random()*12+1).toFixed(1)}<span className="u">MB/s</span></div>
         </div>
         <div className="stat">
           <div className="k">Block I/O</div>

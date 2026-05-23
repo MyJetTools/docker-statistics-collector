@@ -54,8 +54,12 @@
     const state = pick(states);
     const cpu = state === "running" ? +(Math.random() * 45 + 0.2).toFixed(1) : 0;
     const cpuLimit = pick([0, 0, 1, 2, 4]);
-    const memMB = state === "running" ? Math.floor(Math.random() * 1800 + 60) : 0;
     const memLimitMB = pick([512, 1024, 2048, 4096, 8192]);
+    // ~25% of running containers run hot on memory so the feature is visible
+    let memMB = state === "running" ? Math.floor(Math.random() * 1800 + 60) : 0;
+    if (state === "running" && Math.random() < 0.25) {
+      memMB = Math.floor(memLimitMB * (0.8 + Math.random() * 0.18));
+    }
     const mounts = [];
     const mountCount = rand(4) + 1;
     for (let i = 0; i < mountCount; i++) mounts.push(pick(MOUNT_PRESETS));

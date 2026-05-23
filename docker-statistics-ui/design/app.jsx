@@ -4,7 +4,8 @@ const { useState, useEffect, useMemo } = React;
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "accent": "green",
   "density": "cozy",
-  "showSparklines": true
+  "showSparklines": true,
+  "theme": "dark"
 }/*EDITMODE-END*/;
 
 function App() {
@@ -52,7 +53,7 @@ function App() {
   }, [fleet]);
 
   return (
-    <div className={"app density-" + tweaks.density} data-accent={tweaks.accent}>
+    <div className={"app density-" + tweaks.density} data-accent={tweaks.accent} data-theme={tweaks.theme}>
       <header className="topbar">
         <div className="brand">
           <div className="logo">⌬</div>
@@ -82,6 +83,13 @@ function App() {
             <span className="kv"><span className="swatch" style={{ background: "var(--accent)" }} />running<b>{totals.running}</b></span>
             <span className="kv"><span className="swatch" style={{ background: "var(--danger)" }} />issues<b>{totals.unhealthy}</b></span>
           </div>
+          <button
+            className="icon-btn"
+            title={tweaks.theme === "dark" ? "switch to light" : "switch to dark"}
+            onClick={() => setTweak("theme", tweaks.theme === "dark" ? "light" : "dark")}
+          >
+            {tweaks.theme === "dark" ? "☾" : "☀"}
+          </button>
           <button className="icon-btn" title="refresh"><Icon.refresh /></button>
           <button className="icon-btn" title="notifications"><Icon.bell /></button>
         </div>
@@ -103,6 +111,17 @@ function App() {
       <DetailPanel container={container} />
 
       <TweaksPanel title="Tweaks">
+        <TweakSection label="Theme">
+          <TweakRadio
+            label="mode"
+            value={tweaks.theme}
+            onChange={v => setTweak("theme", v)}
+            options={[
+              { value: "dark",  label: "dark" },
+              { value: "light", label: "light" },
+            ]}
+          />
+        </TweakSection>
         <TweakSection label="Accent">
           <TweakColor
             label="color"

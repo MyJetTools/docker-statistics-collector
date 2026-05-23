@@ -72,10 +72,16 @@ struct ContainerRowData {
     name: String,
     image: String,
     state_class: &'static str,
+    is_running: bool,
     cpu: f64,
     mem_bytes: i64,
-    /// Percentage of `mem.limit` actually used. None when no limit declared.
-    mem_pct_of_limit: Option<i32>,
+    /// Effective memory limit in bytes: declared limit if set, otherwise host
+    /// total RAM (an unlimited container can claim the whole VM). `None` when
+    /// neither is known.
+    effective_mem_limit: Option<i64>,
+    /// Whether `effective_mem_limit` came from `mem.limit` (true) or fell back
+    /// to host RAM (false). Drives the tooltip wording.
+    mem_limit_is_declared: bool,
 }
 
 impl ContainerRowData {
@@ -87,24 +93,29 @@ impl ContainerRowData {
             primary_name(&c.names).to_string()
         };
         let mem_used = c.mem.usage.unwrap_or(0);
-        // Effective limit: declared > 0  →  declared; otherwise host RAM (unlimited container).
-        // When neither is known, percentage is hidden.
-        let effective_limit = match c.mem.limit {
-            Some(v) if v > 0 => Some(v),
-            _ => m.host_mem_total,
+        let (effective_mem_limit, mem_limit_is_declared) = match c.mem.limit {
+            Some(v) if v > 0 => (Some(v), true),
+            _ => (m.host_mem_total, false),
         };
-        let mem_pct_of_limit = effective_limit
-            .filter(|l| *l > 0)
-            .map(|l| pct(mem_used, l) as i32);
         Self {
             id: c.id.clone(),
             name,
             image: c.image.clone(),
             state_class: state_class_for(c.state.as_deref()),
+            is_running: c.state.as_deref() == Some("running"),
             cpu: c.cpu.usage.unwrap_or(0.0),
             mem_bytes: mem_used,
-            mem_pct_of_limit,
+            effective_mem_limit,
+            mem_limit_is_declared,
         }
+    }
+
+    fn mem_pct(&self) -> Option<f64> {
+        let limit = self.effective_mem_limit?;
+        if limit <= 0 {
+            return None;
+        }
+        Some((self.mem_bytes as f64 / limit as f64) * 100.0)
     }
 }
 
@@ -118,23 +129,28 @@ fn ContainerRow(
         .as_deref()
         .map(|n| n.eq_ignore_ascii_case(&row.name))
         .unwrap_or(false);
-    let mem_heat = match row.mem_pct_of_limit {
-        Some(p) if p >= 95 => " crit-mem",
-        Some(p) if p >= 80 => " hot-mem",
+    let pct = row.mem_pct();
+    let mem_heat = match pct {
+        Some(p) if p >= 95.0 => " crit-mem",
+        Some(p) if p >= 80.0 => " hot-mem",
         _ => "",
     };
     let active_cls = if is_active { " active" } else { "" };
     let row_class = format!("cont-row{}{}", active_cls, mem_heat);
     let state_cls = format!("state {}", row.state_class);
     let cpu_str = format!("{:.2}%", row.cpu);
-    let mem_str = match row.mem_pct_of_limit {
-        Some(p) => format!("{} · {}%", fmt_mem_short(row.mem_bytes), p),
-        None => fmt_mem_short(row.mem_bytes),
+
+    let used_str = fmt_mem_short(row.mem_bytes);
+    let mem_str = match row.effective_mem_limit {
+        Some(limit) => format!("{} / {}", used_str, fmt_mem_short(limit)),
+        None => used_str.clone(),
     };
-    let mem_title = match row.mem_pct_of_limit {
-        Some(p) => format!("{}% of declared mem limit", p),
-        None => "no mem limit declared".to_string(),
+    let mem_title = match (pct, row.mem_limit_is_declared) {
+        (Some(p), true) => format!("{:.0}% of declared mem limit", p),
+        (Some(p), false) => format!("{:.0}% of host RAM (no container limit)", p),
+        (None, _) => "no mem limit known".to_string(),
     };
+    let badge = pct.filter(|p| *p >= 80.0).map(|p| (p, p >= 95.0));
 
     let target = match single_vm_name {
         Some(vm) => AppRoute::ContainerRoute {
@@ -152,8 +168,14 @@ fn ContainerRow(
             class: "{row_class}",
             span { class: "{state_cls}" }
             div { class: "info",
-                div { class: "name", "{row.name}" }
+                div { class: "name-row",
+                    span { class: "name", "{row.name}" }
+                    if let Some((p, crit)) = badge {
+                        MemBadge { pct: p, danger: crit }
+                    }
+                }
                 div { class: "image", "{row.image}" }
+                MemBar { pct, running: row.is_running }
             }
             div { class: "metrics",
                 span { class: "cpu", "{cpu_str}" }
@@ -161,6 +183,37 @@ fn ContainerRow(
             }
         }
     }
+}
+
+#[component]
+fn MemBar(pct: Option<f64>, running: bool) -> Element {
+    let Some(p) = pct else {
+        return rsx! {};
+    };
+    if !running {
+        return rsx! {};
+    }
+    let fill_color = if p >= 95.0 {
+        "var(--danger)"
+    } else if p >= 80.0 {
+        "var(--warn)"
+    } else {
+        "var(--mem)"
+    };
+    let width = p.min(100.0);
+    rsx! {
+        div { class: "mem-bar",
+            div { class: "mem-bar-fill", style: "width: {width}%; background: {fill_color};" }
+            div { class: "mem-bar-tick" }
+        }
+    }
+}
+
+#[component]
+fn MemBadge(pct: f64, danger: bool) -> Element {
+    let cls = if danger { "mem-badge danger" } else { "mem-badge" };
+    let label = format!("⚠ MEM {:.0}%", pct);
+    rsx! { span { class: "{cls}", "{label}" } }
 }
 
 #[component]
