@@ -11,8 +11,6 @@ use crate::states::{DialogState, DialogType, MainState};
 /// Soft cap on how many log lines the preview retains in memory — keeps the
 /// virtual DOM from ballooning on chatty containers.
 const LINE_BUFFER_CAP: usize = 500;
-/// Initial backfill (tail=N) requested from the collector on every reconnect.
-const INITIAL_TAIL: u32 = 200;
 
 #[derive(Deserialize)]
 struct WsLogPayload {
@@ -32,23 +30,29 @@ pub fn LogPreview(container_id: String, vm_url: String, is_running: bool) -> Ele
         .map(|e| e.clone())
         .unwrap_or_else(|| Rc::new(String::new()));
 
+    // Buffer of received lines + any terminal error. Owned by a signal so the
+    // streaming task can keep pushing without us re-rendering anything else.
     let cs = use_signal(LogPreviewState::default);
 
-    // Bump session_id whenever container_id changes — the live WS task watches
-    // this and exits as soon as a new session starts, so we never have two
-    // streams writing into the same buffer.
-    let cid_for_effect = container_id.clone();
-    let env_for_effect = env.clone();
-    use_effect(use_reactive!(|cid_for_effect| {
+    // `use_resource` keeps a single async task alive for as long as deps stay
+    // the same. When container_id (or env) actually changes, the previous
+    // future is dropped — which drops our `WebSocket` and closes the upstream
+    // cleanly — and a fresh task starts. Re-renders that don't change deps do
+    // NOT restart the task.
+    let env_for_res = env.clone();
+    let container_for_res = container_id.clone();
+    let _stream_task = use_resource(use_reactive!(|container_for_res| {
+        let env = env_for_res.clone();
         let mut cs = cs.to_owned();
-        {
-            let mut w = cs.write();
-            w.session_id += 1;
-            w.lines.clear();
-            w.error = None;
+        async move {
+            // Clear stale buffer when we swap container.
+            {
+                let mut w = cs.write();
+                w.lines.clear();
+                w.error = None;
+            }
+            run_stream(cs, env, container_for_res).await;
         }
-        let my_session = cs.read().session_id;
-        spawn_stream(cs, env_for_effect.clone(), cid_for_effect.clone(), my_session);
     }));
 
     let status = if is_running { "● live" } else { "○ paused" };
@@ -119,84 +123,53 @@ fn LogLine(tp: i32, text: String) -> Element {
     rsx! { div { class: "{cls}", "{text}" } }
 }
 
-fn spawn_stream(
-    mut cs: Signal<LogPreviewState>,
-    env: Rc<String>,
-    container_id: String,
-    my_session: u64,
-) {
-    spawn(async move {
-        let ws_url = build_ws_url(env.as_str(), &container_id);
-        dioxus_utils::console_log(&format!(
-            "[logs-ws] opening session={my_session} url={ws_url}"
-        ));
-        let ws = match WebSocket::open(&ws_url) {
-            Ok(ws) => ws,
+async fn run_stream(mut cs: Signal<LogPreviewState>, env: Rc<String>, container_id: String) {
+    let ws_url = build_ws_url(env.as_str(), &container_id);
+    dioxus_utils::console_log(&format!("[logs-ws] opening url={ws_url}"));
+
+    let ws = match WebSocket::open(&ws_url) {
+        Ok(ws) => ws,
+        Err(err) => {
+            dioxus_utils::console_log(&format!("[logs-ws] open failed: {err:?}"));
+            cs.write().error = Some(format!("open WS failed: {err:?}"));
+            return;
+        }
+    };
+
+    let (_write, mut read) = ws.split();
+    dioxus_utils::console_log("[logs-ws] connected, waiting for messages…");
+
+    let mut received = 0u64;
+    while let Some(msg) = read.next().await {
+        match msg {
+            Ok(Message::Text(text)) => {
+                received += 1;
+                if received <= 3 {
+                    let preview: String = text.chars().take(200).collect();
+                    dioxus_utils::console_log(&format!("[logs-ws] msg #{received}: {preview}"));
+                }
+                if let Ok(parsed) = serde_json::from_str::<WsLogPayload>(&text) {
+                    let mut w = cs.write();
+                    w.lines.push(LogLineHttpModel {
+                        tp: parsed.tp,
+                        line: parsed.line,
+                    });
+                    while w.lines.len() > LINE_BUFFER_CAP {
+                        w.lines.remove(0);
+                    }
+                } else {
+                    dioxus_utils::console_log(&format!("[logs-ws] non-line payload: {text}"));
+                }
+            }
+            Ok(Message::Bytes(_)) => {}
             Err(err) => {
-                dioxus_utils::console_log(&format!(
-                    "[logs-ws] open failed session={my_session}: {err:?}"
-                ));
-                if cs.read().session_id == my_session {
-                    cs.write().error = Some(format!("open WS failed: {err:?}"));
-                }
+                dioxus_utils::console_log(&format!("[logs-ws] error: {err:?}"));
+                cs.write().error = Some(format!("WS error: {err:?}"));
                 return;
-            }
-        };
-
-        let (_write, mut read) = ws.split();
-        dioxus_utils::console_log(&format!(
-            "[logs-ws] connected session={my_session}, waiting for first message…"
-        ));
-
-        let mut received = 0u64;
-        while let Some(msg) = read.next().await {
-            // Another session started — drop everything.
-            if cs.read().session_id != my_session {
-                dioxus_utils::console_log(&format!(
-                    "[logs-ws] session={my_session} superseded after {received} msgs — exiting"
-                ));
-                return;
-            }
-            match msg {
-                Ok(Message::Text(text)) => {
-                    received += 1;
-                    if received <= 3 {
-                        let preview: String = text.chars().take(200).collect();
-                        dioxus_utils::console_log(&format!(
-                            "[logs-ws] session={my_session} msg #{received}: {preview}"
-                        ));
-                    }
-                    if let Ok(parsed) = serde_json::from_str::<WsLogPayload>(&text) {
-                        let mut w = cs.write();
-                        w.lines.push(LogLineHttpModel {
-                            tp: parsed.tp,
-                            line: parsed.line,
-                        });
-                        while w.lines.len() > LINE_BUFFER_CAP {
-                            w.lines.remove(0);
-                        }
-                    } else {
-                        dioxus_utils::console_log(&format!(
-                            "[logs-ws] session={my_session} non-line payload: {text}"
-                        ));
-                    }
-                }
-                Ok(Message::Bytes(_)) => {}
-                Err(err) => {
-                    dioxus_utils::console_log(&format!(
-                        "[logs-ws] session={my_session} error: {err:?}"
-                    ));
-                    if cs.read().session_id == my_session {
-                        cs.write().error = Some(format!("WS error: {err:?}"));
-                    }
-                    return;
-                }
             }
         }
-        dioxus_utils::console_log(&format!(
-            "[logs-ws] session={my_session} stream ended after {received} msgs"
-        ));
-    });
+    }
+    dioxus_utils::console_log(&format!("[logs-ws] stream ended after {received} msgs"));
 }
 
 fn build_ws_url(env: &str, container_id: &str) -> String {
@@ -216,6 +189,5 @@ fn build_ws_url(env: &str, container_id: &str) -> String {
 #[derive(Default)]
 struct LogPreviewState {
     lines: Vec<LogLineHttpModel>,
-    session_id: u64,
     error: Option<String>,
 }

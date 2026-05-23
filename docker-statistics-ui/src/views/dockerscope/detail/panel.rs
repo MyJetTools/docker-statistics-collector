@@ -87,6 +87,11 @@ pub fn DetailPanel(env: Rc<String>) -> Element {
                     MountsPanel { volumes: container.volumes.clone() }
                 }
                 LogPreview {
+                    // Stable key per container — without it Dioxus may remount
+                    // the component on every tick the polling loop updates
+                    // MainState, which would tear down the WebSocket and
+                    // reopen it. Keying by container.id pins identity.
+                    key: "{container.id}",
                     container_id: container.id.clone(),
                     vm_url: vm_url.clone(),
                     is_running: container.state.as_deref() == Some("running"),
