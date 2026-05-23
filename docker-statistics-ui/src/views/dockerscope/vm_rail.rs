@@ -129,16 +129,14 @@ fn VmCard(
         .host_mem_total
         .map(|t| vm.mem_limit > t)
         .unwrap_or(false);
-    let used_color = match severity {
-        MemSeverity::Danger => "var(--danger)",
-        MemSeverity::Warn => "var(--warn)",
-        MemSeverity::Ok => "var(--mem)",
+    // Colour comes from a CSS modifier class (not inline) so the inline
+    // `style` only carries `width:` — see dockerscope.css for the rules.
+    let used_color_cls = match severity {
+        MemSeverity::Danger => "col-danger",
+        MemSeverity::Warn => "col-warn",
+        MemSeverity::Ok => "",
     };
-    let reserved_overlay = if over_commit {
-        "rgba(239,68,68,.22)"
-    } else {
-        "rgba(96,165,250,.18)"
-    };
+    let reserved_cls = if over_commit { "over-commit" } else { "" };
     let denom_label = host_total_short.clone().unwrap_or_else(|| reserved_short.clone());
 
     rsx! {
@@ -171,12 +169,12 @@ fn VmCard(
             }
             div { class: "vm-mem-bar", title: "{mem_title}",
                 div {
-                    class: "vm-mem-bar-reserved",
-                    style: "width: {reserved_pct:.1}%; background: {reserved_overlay};",
+                    class: "vm-mem-bar-reserved {reserved_cls}",
+                    style: "width: {reserved_pct:.1}%;",
                 }
                 div {
-                    class: "vm-mem-bar-used",
-                    style: "width: {used_pct:.1}%; background: {used_color};",
+                    class: "vm-mem-bar-used {used_color_cls}",
+                    style: "width: {used_pct:.1}%;",
                 }
                 div { class: "vm-mem-bar-tick" }
             }

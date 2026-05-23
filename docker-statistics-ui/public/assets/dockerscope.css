@@ -291,13 +291,52 @@ button, input { font-family: inherit; color: inherit; }
   position: absolute;
   top: 0; bottom: 0; left: 0;
   border-radius: 99px;
-  transition: width .25s ease, background .25s ease;
+  background: rgba(96,165,250,.18);
 }
+.vm-card .vm-mem-bar-reserved.over-commit {
+  background: rgba(239,68,68,.22);
+}
+/* Used-fill colour is set by a modifier class (not inline) so the inline
+   style attribute only carries `width:` and never loses background during
+   a Dioxus style diff. */
 .vm-card .vm-mem-bar-used {
   position: absolute;
   top: 0; bottom: 0; left: 0;
   border-radius: 99px;
-  transition: width .25s ease, background .25s ease;
+  background: var(--mem);
+}
+.vm-card .vm-mem-bar-used.col-warn   { background: var(--warn); }
+.vm-card .vm-mem-bar-used.col-danger { background: var(--danger); }
+
+/* Container-row MemBar (under the image line). Colour + glow come from a
+   modifier class so the inline `style` only carries `width:` and never
+   loses background/glow during a Dioxus style diff. */
+.mb-outer {
+  height: 3px;
+  margin-top: 4px;
+  width: 100%;
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+  background: var(--mem-soft);
+}
+.mb-outer.mb-warn   { background: var(--warn-soft); }
+.mb-outer.mb-danger { background: var(--danger-soft); }
+
+.mb-fill {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  background: var(--mem);
+}
+.mb-outer.mb-warn   .mb-fill { background: var(--warn);   box-shadow: 0 0 6px var(--warn); }
+.mb-outer.mb-danger .mb-fill { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+
+.mb-tick {
+  position: absolute;
+  left: 80%;
+  top: 0; bottom: 0;
+  width: 1px;
+  background: color-mix(in srgb, var(--text-muted) 60%, transparent);
 }
 .vm-card .vm-mem-bar-tick {
   position: absolute;

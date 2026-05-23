@@ -228,32 +228,22 @@ fn MemBar(pct: Option<f64>, running: bool) -> Element {
         return rsx! {};
     }
 
-    let (fg, bg) = if p >= 90.0 {
-        ("var(--danger)", "var(--danger-soft)")
+    // Colour + glow live in CSS classes (.mb-mem/.mb-warn/.mb-danger), not in
+    // the inline style. Inline style only carries width — see dockerscope.css.
+    // Round width to 1 decimal so the inline string stays stable when pct
+    // wobbles in the noise digits between polling ticks.
+    let mode = if p >= 90.0 {
+        "mb-danger"
     } else if p >= 80.0 {
-        ("var(--warn)", "var(--warn-soft)")
+        "mb-warn"
     } else {
-        ("var(--mem)", "var(--mem-soft)")
+        ""
     };
-    let glow = if p >= 80.0 {
-        format!("0 0 6px {fg}")
-    } else {
-        "none".to_string()
-    };
-    // Round to one decimal so the inline `width:` string stays the same between
-    // ticks where pct only drifts in the noise digits (e.g. 94.37618 → 94.37789).
-    // Otherwise Dioxus rewrites the style attribute every tick and the browser
-    // re-paints the fill div, producing a visible flicker on the busiest rows.
     let width = (p.min(100.0) * 10.0).round() / 10.0;
     rsx! {
-        div {
-            style: "height: 3px; margin-top: 4px; width: 100%; background: {bg}; border-radius: 2px; overflow: hidden; position: relative;",
-            div {
-                style: "position: absolute; left: 0; top: 0; bottom: 0; width: {width:.1}%; background: {fg}; box-shadow: {glow};"
-            }
-            div {
-                style: "position: absolute; left: 80%; top: 0; bottom: 0; width: 1px; background: color-mix(in srgb, var(--text-muted) 60%, transparent);"
-            }
+        div { class: "mb-outer {mode}",
+            div { class: "mb-fill", style: "width: {width:.1}%;" }
+            div { class: "mb-tick" }
         }
     }
 }
