@@ -32,6 +32,17 @@ async fn handle_request(
 ) -> Result<HttpOkResult, HttpFailResult> {
     let containers = action.app.cache.get_snapshot().await;
     let instance = action.app.get_env_info();
+    let proc_base = action.app.settings_model.host_proc_path().to_string();
+
+    let host_mem = tokio::task::spawn_blocking(move || crate::host_mem::read(&proc_base))
+        .await
+        .ok()
+        .flatten();
+
+    let mut hosts = Vec::new();
+    if let Some(snap) = host_mem {
+        hosts.push(HostMemEntryHttpModel::from_snapshot(instance.clone(), snap));
+    }
 
     let response = ContainersHttpResponse {
         vm: instance.clone(),
@@ -39,6 +50,7 @@ async fn handle_request(
             .into_iter()
             .map(|itm| ContainerJsonModel::new(itm, instance.clone()))
             .collect(),
+        hosts,
     };
 
     HttpOutput::as_json(response).into_ok_result(false).into()

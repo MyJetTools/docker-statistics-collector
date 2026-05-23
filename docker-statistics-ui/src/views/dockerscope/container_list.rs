@@ -1,6 +1,7 @@
 use dioxus::prelude::*;
 
-use crate::states::{ContainerFilter, MainState};
+use crate::router::AppRoute;
+use crate::states::{primary_name, ContainerFilter, MainState};
 use crate::views::dockerscope::helpers::*;
 use crate::views::dockerscope::icons::*;
 
@@ -26,7 +27,10 @@ pub fn ContainerListPanel() -> Element {
         };
     };
 
-    let active_id = cs_ra.get_active_container_id().map(|s| s.to_string());
+    let active_name = cs_ra.get_active_container_name().map(|s| s.to_string());
+    let vm_for_links = cs_ra
+        .get_selected_vm_name()
+        .unwrap_or_else(|| "".to_string());
     let rows: Vec<_> = rows_src
         .iter()
         .map(|m| ContainerRowData::from(*m))
@@ -43,7 +47,7 @@ pub fn ContainerListPanel() -> Element {
                     }
                 } else {
                     for row in rows.into_iter() {
-                        ContainerRow { row, active_id: active_id.clone() }
+                        ContainerRow { row, active_name: active_name.clone(), vm_name: vm_for_links.clone() }
                     }
                 }
             }
@@ -59,48 +63,73 @@ struct ContainerRowData {
     state_class: &'static str,
     cpu: f64,
     mem_bytes: i64,
+    /// Percentage of `mem.limit` actually used. None when no limit declared.
+    mem_pct_of_limit: Option<i32>,
 }
 
 impl ContainerRowData {
     fn from(m: &crate::models::MetricsByVm) -> Self {
         let c = &m.container;
-        let name = c
-            .names
-            .first()
-            .map(|n| n.trim_start_matches('/').to_string())
-            .unwrap_or_else(|| shorten_id(&c.id, 12).to_string());
+        let name = if c.names.is_empty() {
+            shorten_id(&c.id, 12).to_string()
+        } else {
+            primary_name(&c.names).to_string()
+        };
+        let mem_used = c.mem.usage.unwrap_or(0);
+        // Effective limit: declared > 0  →  declared; otherwise host RAM (unlimited container).
+        // When neither is known, percentage is hidden.
+        let effective_limit = match c.mem.limit {
+            Some(v) if v > 0 => Some(v),
+            _ => m.host_mem_total,
+        };
+        let mem_pct_of_limit = effective_limit
+            .filter(|l| *l > 0)
+            .map(|l| pct(mem_used, l) as i32);
         Self {
             id: c.id.clone(),
             name,
             image: c.image.clone(),
             state_class: state_class_for(c.state.as_deref()),
             cpu: c.cpu.usage.unwrap_or(0.0),
-            mem_bytes: c.mem.usage.unwrap_or(0),
+            mem_bytes: mem_used,
+            mem_pct_of_limit,
         }
     }
 }
 
 #[component]
-fn ContainerRow(row: ContainerRowData, active_id: Option<String>) -> Element {
-    let is_active = active_id.as_deref() == Some(row.id.as_str());
-    let row_class = if is_active {
-        "cont-row active"
-    } else {
-        "cont-row"
+fn ContainerRow(row: ContainerRowData, active_name: Option<String>, vm_name: String) -> Element {
+    let is_active = active_name
+        .as_deref()
+        .map(|n| n.eq_ignore_ascii_case(&row.name))
+        .unwrap_or(false);
+    let mem_heat = match row.mem_pct_of_limit {
+        Some(p) if p >= 95 => " crit-mem",
+        Some(p) if p >= 80 => " hot-mem",
+        _ => "",
     };
+    let active_cls = if is_active { " active" } else { "" };
+    let row_class = format!("cont-row{}{}", active_cls, mem_heat);
     let state_cls = format!("state {}", row.state_class);
-    let id_for_click = row.id.clone();
     let cpu_str = format!("{:.2}%", row.cpu);
-    let mem_str = fmt_mem_short(row.mem_bytes);
+    let mem_str = match row.mem_pct_of_limit {
+        Some(p) => format!("{} · {}%", fmt_mem_short(row.mem_bytes), p),
+        None => fmt_mem_short(row.mem_bytes),
+    };
+    let mem_title = match row.mem_pct_of_limit {
+        Some(p) => format!("{}% of declared mem limit", p),
+        None => "no mem limit declared".to_string(),
+    };
+
+    let target = AppRoute::ContainerRoute {
+        vm_name: vm_name.clone(),
+        container_name: row.name.clone(),
+    };
 
     rsx! {
-        div {
+        Link {
+            to: target,
             class: "{row_class}",
-            onclick: move |_| {
-                consume_context::<Signal<MainState>>()
-                    .write()
-                    .set_active_container_id(Some(id_for_click.clone()));
-            },
             span { class: "{state_cls}" }
             div { class: "info",
                 div { class: "name", "{row.name}" }
@@ -108,7 +137,7 @@ fn ContainerRow(row: ContainerRowData, active_id: Option<String>) -> Element {
             }
             div { class: "metrics",
                 span { class: "cpu", "{cpu_str}" }
-                span { class: "mem", "{mem_str}" }
+                span { class: "mem", title: "{mem_title}", "{mem_str}" }
             }
         }
     }

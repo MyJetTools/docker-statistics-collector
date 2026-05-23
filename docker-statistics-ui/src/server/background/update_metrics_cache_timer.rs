@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use rust_extensions::MyTimerTick;
 
+use crate::server::app::DataCache;
 use crate::server::APP_CTX;
 
 pub struct UpdateMetricsCacheTimer;
@@ -31,6 +32,8 @@ impl MyTimerTick for UpdateMetricsCacheTimer {
                     }
                 };
 
+                let host_mem_by_instance = DataCache::host_mem_map(&statistics.hosts);
+
                 let mut by_instance: BTreeMap<String, Vec<_>> = BTreeMap::new();
                 for container in statistics.containers {
                     by_instance
@@ -48,7 +51,12 @@ impl MyTimerTick for UpdateMetricsCacheTimer {
 
                 {
                     let mut data_cache = APP_CTX.data_cache_by_env.lock().await;
-                    data_cache.update_from_master(&env, by_instance, master_url);
+                    data_cache.update_from_master(
+                        &env,
+                        by_instance,
+                        host_mem_by_instance,
+                        master_url,
+                    );
                 }
             });
 

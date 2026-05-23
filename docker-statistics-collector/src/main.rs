@@ -5,6 +5,7 @@ use settings::SettingsModel;
 use timers::{SyncContainersInfoTimer, SyncMetricsEndpointsTimer};
 
 mod app;
+mod host_mem;
 mod http;
 mod mcp;
 mod peers_client;

@@ -1,6 +1,5 @@
 #![allow(non_snake_case)]
 
-use std::rc::Rc;
 use std::time::Duration;
 
 #[cfg(feature = "server")]
@@ -16,6 +15,7 @@ use dioxus_utils::*;
 
 mod models;
 
+mod router;
 mod selected_vm;
 mod utils;
 
@@ -23,6 +23,7 @@ mod states;
 
 mod views;
 
+pub use router::*;
 use views::*;
 
 use crate::states::*;
@@ -48,18 +49,20 @@ fn main() {
                     rel: "stylesheet",
                     href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap",
                 }
-                App {}
+                Router::<AppRoute> {}
             }
         })
 }
 
+/// Layout shared by every route — providers, env gating, the 3-column UI, plus
+/// an `Outlet` so the per-route leaf components can sync URL ↔ state.
 #[component]
-fn App() -> Element {
+pub fn AppShell() -> Element {
     use_context_provider(|| Signal::new(MainState::new()));
     use_context_provider(|| Signal::new(DialogState::Hidden));
     use_context_provider(|| Signal::new(Prefs::load()));
 
-    // Apply the persisted theme to <html> so CSS variable cascade reaches body + scrollbars + chart vars.
+    // Apply persisted theme to <html> so CSS variable cascade reaches body + scrollbars + chart vars.
     let prefs = consume_context::<Signal<Prefs>>();
     use_effect(move || {
         let theme = prefs.read().theme.data_attr();
@@ -103,32 +106,27 @@ fn App() -> Element {
         return rsx! { PromptSshPassKey {} };
     }
 
-    rsx! { ActiveApp {} }
-}
-
-#[component]
-fn ActiveApp() -> Element {
-    let main_state = consume_context::<Signal<MainState>>();
-    let mut started = use_signal(|| false);
-
-    let env = { main_state.read().envs.get_selected_env() };
+    let env = main_state_ra.envs.get_selected_env();
+    drop(main_state_ra);
     let Some(env) = env else {
         return rsx! { div { class: "ds-loading", "no env selected" } };
     };
 
+    let mut started = use_signal(|| false);
     use_effect(move || {
         started.set(true);
         read_loop(main_state);
     });
 
     rsx! {
-        div { class: "app density-cozy", "data-accent": "green",
+        div { class: "app density-cozy",
             Topbar {}
             VmRail {}
             ContainerListPanel {}
             DetailPanel { env: env.clone() }
             dialog::render_dialog {}
         }
+        Outlet::<AppRoute> {}
     }
 }
 
@@ -163,6 +161,3 @@ pub fn read_loop(mut main_state: Signal<MainState>) {
         }
     });
 }
-
-#[allow(dead_code)]
-fn _suppress_unused(_r: Rc<String>) {}

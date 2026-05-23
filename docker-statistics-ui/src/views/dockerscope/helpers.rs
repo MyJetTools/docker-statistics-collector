@@ -54,6 +54,45 @@ pub fn fmt_mem_short(bytes: i64) -> String {
     }
 }
 
+/// VM-card memory severity, computed from used / reserved (sum of limits) / host total.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum MemSeverity {
+    Ok,
+    Warn,
+    Danger,
+}
+
+/// Severity rules:
+/// - `Danger` if reserved > host_total (over-committed: containers can claim more than VM has)
+///            OR used / host_total >= 90%.
+/// - `Warn`   if reserved / host_total >= 80%
+///            OR used / host_total >= 75%.
+/// - `Ok`     otherwise.
+/// host_total = None → severity is based only on used vs reserved (Warn if used >= 90% of reserved).
+pub fn vm_mem_severity(used: i64, reserved: i64, host_total: Option<i64>) -> MemSeverity {
+    if let Some(total) = host_total {
+        if total > 0 {
+            if reserved > total {
+                return MemSeverity::Danger;
+            }
+            let used_pct = pct(used, total);
+            let reserved_pct = pct(reserved, total);
+            if used_pct >= 90.0 {
+                return MemSeverity::Danger;
+            }
+            if reserved_pct >= 80.0 || used_pct >= 75.0 {
+                return MemSeverity::Warn;
+            }
+            return MemSeverity::Ok;
+        }
+    }
+    if reserved > 0 && pct(used, reserved) >= 90.0 {
+        MemSeverity::Warn
+    } else {
+        MemSeverity::Ok
+    }
+}
+
 pub fn fmt_mem_pair(bytes: i64) -> (String, &'static str) {
     let mb = bytes as f64 / (1024.0 * 1024.0);
     if mb >= 1024.0 {

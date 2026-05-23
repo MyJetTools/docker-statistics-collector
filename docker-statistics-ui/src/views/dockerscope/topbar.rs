@@ -1,5 +1,6 @@
 use dioxus::prelude::*;
 
+use crate::router::AppRoute;
 use crate::states::{MainState, Prefs, Theme};
 use crate::views::dockerscope::icons::*;
 
@@ -47,14 +48,16 @@ pub fn Topbar() -> Element {
                 oninput: move |evt| {
                     let v = evt.value();
                     consume_context::<Signal<MainState>>().write().envs.set_active_env(&v);
+                    // Different env means different VM set — clear the deep link.
+                    navigator().push(AppRoute::Home {});
                 },
                 {env_options.into_iter()}
             }
             div { class: "crumbs",
-                span { "fleet" }
+                Link { to: AppRoute::Home {}, "fleet" }
                 if let Some(vm) = selected_vm_label.as_ref() {
                     span { class: "sep", "/" }
-                    b { "{vm}" }
+                    Link { to: AppRoute::VmRoute { vm_name: vm.clone() }, b { "{vm}" } }
                 }
                 if let Some(name) = active_container_name.as_ref() {
                     span { class: "sep", "/" }

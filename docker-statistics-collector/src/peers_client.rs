@@ -4,14 +4,16 @@ use flurl::FlUrl;
 
 use crate::app::{AppContext, ServiceInfo};
 use crate::http::controllers::containers_controller::contracts::{
-    ContainerProcessesHttpResponse, ContainersHttpResponse, ProcessHttpModel,
+    ContainerProcessesHttpResponse, ContainersHttpResponse, HostMemEntryHttpModel, ProcessHttpModel,
 };
 use crate::http::controllers::containers_controller::RouteLogsResult;
 
 /// Result of fanning out `/api/containers/local` to every configured peer.
-/// Each tuple is `(peer_instance_name, peer_containers_as_serviceinfo)`.
+/// Each tuple is `(peer_instance_name, peer_containers_as_serviceinfo, peer_host_mem_entries)`.
 /// Peers that failed are logged to stderr and skipped (best-effort merge).
-pub async fn fanout_local_containers(app: &AppContext) -> Vec<(String, Vec<ServiceInfo>)> {
+pub async fn fanout_local_containers(
+    app: &AppContext,
+) -> Vec<(String, Vec<ServiceInfo>, Vec<HostMemEntryHttpModel>)> {
     let peers = app.settings_model.peers_or_empty();
     if peers.is_empty() {
         return Vec::new();
@@ -30,7 +32,7 @@ pub async fn fanout_local_containers(app: &AppContext) -> Vec<(String, Vec<Servi
     let mut out = Vec::new();
     for task in tasks {
         match task.await {
-            Ok(Ok((instance, containers))) => out.push((instance, containers)),
+            Ok(Ok((instance, containers, hosts))) => out.push((instance, containers, hosts)),
             Ok(Err(err)) => eprintln!("peers_client::fanout_local_containers: {}", err),
             Err(err) => eprintln!("peers_client::fanout_local_containers: join error: {:?}", err),
         }
@@ -41,7 +43,7 @@ pub async fn fanout_local_containers(app: &AppContext) -> Vec<(String, Vec<Servi
 async fn fetch_one_peer(
     peer_url: String,
     timeout: Duration,
-) -> Result<(String, Vec<ServiceInfo>), String> {
+) -> Result<(String, Vec<ServiceInfo>, Vec<HostMemEntryHttpModel>), String> {
     let mut response = FlUrl::new(peer_url.as_str())
         .append_path_segment("api")
         .append_path_segment("containers")
@@ -71,7 +73,7 @@ async fn fetch_one_peer(
         .map(|c| c.into_service_info())
         .collect();
 
-    Ok((parsed.vm, containers))
+    Ok((parsed.vm, containers, parsed.hosts))
 }
 
 /// Real-time log routing: try local first, then fan out to peers in parallel

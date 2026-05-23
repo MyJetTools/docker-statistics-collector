@@ -52,9 +52,9 @@
   --text: #0f172a;
   --text-dim: #475569;
   --text-muted: #8a93a0;
-  --accent: #16a34a;
-  --accent-soft: rgba(22,163,74,.10);
-  --cpu: #16a34a;
+  --accent: #15803d;
+  --accent-soft: rgba(21,128,61,.14);
+  --cpu: #15803d;
   --mem: #2563eb;
   --net: #d97706;
   --danger: #dc2626;
@@ -66,7 +66,7 @@
   --chart-grid: #e2e6ec;
   --log-bg: #f8fafc;
 
-  --app-tint-1: radial-gradient(1200px 600px at 100% -20%, rgba(22,163,74,.06), transparent 50%);
+  --app-tint-1: radial-gradient(1200px 600px at 100% -20%, rgba(21,128,61,.07), transparent 50%);
   --app-tint-2: radial-gradient(800px 400px at 0% 100%, rgba(37,99,235,.04), transparent 50%);
 
   --scrollbar-thumb: #cbd2db;
@@ -240,6 +240,29 @@ button, input { font-family: inherit; color: inherit; }
   height: 22px;
   width: 100%;
 }
+
+.vm-card .vm-mem {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  margin-top: 3px;
+  font-family: var(--mono); font-size: 10.5px;
+}
+.vm-card .vm-mem .tag {
+  display: inline-flex; align-items: baseline; gap: 4px;
+  padding: 1px 6px;
+  border-radius: 99px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+}
+.vm-card .vm-mem .tag .lbl { color: var(--text-muted); letter-spacing: .08em; text-transform: uppercase; font-size: 9px; }
+.vm-card .vm-mem .tag .val { color: var(--text-dim); }
+
+/* Container row — memory pressure highlight (>=80% of limit) */
+.cont-row.hot-mem { background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.25); }
+.cont-row.hot-mem:hover { background: rgba(245,158,11,.12); }
+.cont-row.hot-mem .metrics .mem { color: var(--warn); }
+.cont-row.crit-mem { background: rgba(239,68,68,.10); border-color: rgba(239,68,68,.35); }
+.cont-row.crit-mem:hover { background: rgba(239,68,68,.14); }
+.cont-row.crit-mem .metrics .mem { color: var(--danger); }
 
 /* ─── Container list (middle column) ─── */
 .list-col {

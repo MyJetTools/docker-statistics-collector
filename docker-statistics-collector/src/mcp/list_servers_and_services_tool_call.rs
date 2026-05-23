@@ -87,7 +87,7 @@ impl McpToolCall<ListServersAndServicesInputData, ListServersAndServicesResponse
 
         let mut servers = vec![build_entry(&local_instance, &local, only_running)];
 
-        for (peer_instance, peer_containers) in
+        for (peer_instance, peer_containers, _peer_hosts) in
             crate::peers_client::fanout_local_containers(&self.app).await
         {
             servers.push(build_entry(&peer_instance, &peer_containers, only_running));

@@ -156,7 +156,7 @@ impl McpToolCall<FindContainersInputData, FindContainersResponse> for FindContai
             .map(|c| to_summary(c, local_instance.clone()))
             .collect();
 
-        for (peer_instance, peer_containers) in
+        for (peer_instance, peer_containers, _peer_hosts) in
             crate::peers_client::fanout_local_containers(&self.app).await
         {
             for c in peer_containers

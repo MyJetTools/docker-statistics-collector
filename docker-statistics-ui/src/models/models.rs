@@ -125,6 +125,19 @@ pub struct ContainerJsonModel {
 pub struct StatisticsContract {
     pub vm: String,
     pub containers: Vec<ContainerJsonModel>,
+    #[serde(default)]
+    pub hosts: Vec<HostMemEntryModel>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct HostMemEntryModel {
+    pub instance: String,
+    pub total: i64,
+    pub available: i64,
+    pub used: i64,
+    /// Logical CPU count of the host. `0` means unknown.
+    #[serde(default)]
+    pub cpu_count: i32,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -152,4 +165,9 @@ pub struct MetricsByVm {
     pub vm: Option<String>,
     pub url: String,
     pub container: ContainerModel,
+    /// Host RAM total of the VM this container runs on (bytes). `None` when the
+    /// collector couldn't read `/proc/meminfo`. UI uses this as the effective
+    /// limit when `container.mem.limit` is `None` (unlimited container).
+    #[serde(default)]
+    pub host_mem_total: Option<i64>,
 }

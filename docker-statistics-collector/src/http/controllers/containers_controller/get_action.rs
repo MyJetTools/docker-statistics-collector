@@ -38,17 +38,35 @@ async fn handle_request(
         .map(|itm| ContainerJsonModel::new(itm, local_instance.clone()))
         .collect();
 
-    for (peer_instance, peer_containers) in
+    let mut hosts: Vec<HostMemEntryHttpModel> = Vec::new();
+
+    // Local host memory.
+    let proc_base = action.app.settings_model.host_proc_path().to_string();
+    let local_host_mem = tokio::task::spawn_blocking(move || crate::host_mem::read(&proc_base))
+        .await
+        .ok()
+        .flatten();
+    if let Some(snap) = local_host_mem {
+        hosts.push(HostMemEntryHttpModel::from_snapshot(
+            local_instance.clone(),
+            snap,
+        ));
+    }
+
+    // Peers — containers + their host memory.
+    for (peer_instance, peer_containers, peer_hosts) in
         crate::peers_client::fanout_local_containers(&action.app).await
     {
         for itm in peer_containers {
             containers.push(ContainerJsonModel::new(itm, peer_instance.clone()));
         }
+        hosts.extend(peer_hosts);
     }
 
     let response = ContainersHttpResponse {
         vm: local_instance,
         containers,
+        hosts,
     };
 
     HttpOutput::as_json(response).into_ok_result(false).into()

@@ -39,7 +39,7 @@ pub struct MainState {
     containers: Option<Vec<MetricsByVm>>,
     filter: String,
     container_filter: ContainerFilter,
-    active_container_id: Option<String>,
+    active_container_name: Option<String>,
 
     pub dialog_is_shown: bool,
     pub prompt_pass_key: bool,
@@ -52,7 +52,7 @@ impl MainState {
             containers: None,
             filter: "".to_string(),
             container_filter: ContainerFilter::All,
-            active_container_id: None,
+            active_container_name: None,
             state_no: 0,
             dialog_is_shown: false,
             data_request_no: 0,
@@ -65,7 +65,7 @@ impl MainState {
     pub fn set_selected_vm(&mut self, selected_vm: SelectedVm) {
         self.selected_vm = Some(selected_vm);
         self.containers = None;
-        self.active_container_id = None;
+        self.active_container_name = None;
         self.filter = String::new();
         self.container_filter = ContainerFilter::All;
         self.state_no += 1;
@@ -86,12 +86,12 @@ impl MainState {
         self.container_filter = f;
     }
 
-    pub fn get_active_container_id(&self) -> Option<&str> {
-        self.active_container_id.as_deref()
+    pub fn get_active_container_name(&self) -> Option<&str> {
+        self.active_container_name.as_deref()
     }
 
-    pub fn set_active_container_id(&mut self, id: Option<String>) {
-        self.active_container_id = id;
+    pub fn set_active_container_name(&mut self, id: Option<String>) {
+        self.active_container_name = id;
     }
 
     pub fn is_single_vm_selected(&self, vm: &str) -> bool {
@@ -141,18 +141,18 @@ impl MainState {
     }
 
     pub fn set_containers(&mut self, containers: Vec<MetricsByVm>) {
-        if let Some(ref active) = self.active_container_id {
-            let still_exists = containers.iter().any(|c| &c.container.id == active);
-            if !still_exists {
-                self.active_container_id = None;
-            }
-        }
+        // Don't auto-drop the active selection when it's not in the new list —
+        // the router is the source of truth; data may simply not have arrived
+        // yet for that VM/env. Detail panel just renders the empty state.
         self.containers = Some(containers);
     }
 
     pub fn find_active_container(&self) -> Option<&MetricsByVm> {
-        let id = self.active_container_id.as_deref()?;
-        self.containers.as_ref()?.iter().find(|c| c.container.id == id)
+        let name = self.active_container_name.as_deref()?;
+        self.containers
+            .as_ref()?
+            .iter()
+            .find(|c| primary_name(&c.container.names).eq_ignore_ascii_case(name))
     }
 
     pub fn set_filter(&mut self, value: String) {
@@ -162,4 +162,11 @@ impl MainState {
     pub fn get_filter(&self) -> &str {
         &self.filter
     }
+}
+
+pub fn primary_name(names: &[String]) -> &str {
+    names
+        .first()
+        .map(|n| n.trim_start_matches('/'))
+        .unwrap_or("")
 }

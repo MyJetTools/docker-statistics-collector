@@ -103,7 +103,7 @@ impl McpToolCall<FindApplicationInputData, FindApplicationResponse> for FindAppl
             }
         }
 
-        for (peer_instance, peer_containers) in
+        for (peer_instance, peer_containers, _peer_hosts) in
             crate::peers_client::fanout_local_containers(&self.app).await
         {
             for c in peer_containers

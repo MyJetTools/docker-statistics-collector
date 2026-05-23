@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::selected_vm::SelectedVm;
+use crate::router::AppRoute;
 use crate::states::MainState;
 use crate::views::dockerscope::helpers::*;
 use crate::views::dockerscope::icons::*;
@@ -46,15 +46,11 @@ pub fn VmRail() -> Element {
                 items: grouped.dev.into_iter().map(|(n, v)| (n.clone(), v.clone())).collect::<Vec<_>>(),
                 active_vm: active_vm.clone(),
             }
-            // All VMs entry
-            div {
+            // All VMs entry — links to root path, which clears single-vm selection.
+            Link {
+                to: AppRoute::Home {},
                 class: if all_selected { "vm-card active" } else { "vm-card" },
                 style: "margin-top: 12px;",
-                onclick: move |_| {
-                    consume_context::<Signal<MainState>>()
-                        .write()
-                        .set_selected_vm(SelectedVm::All);
-                },
                 div { class: "ico", {icon_server()} }
                 div { class: "body",
                     div { class: "name", "All VMs" }
@@ -91,20 +87,41 @@ fn VmGroupSection(
 fn VmCard(name: String, vm: crate::models::VmModel, active: bool) -> Element {
     let status = vm_status(&vm);
     let heart_class = format!("heart {}", if status == "ok" { "" } else { status });
-    let mem_pct = pct(vm.mem, vm.mem_limit) as i32;
     let cpu_pct = vm.cpu.round() as i32;
     let card_class = if active { "vm-card active" } else { "vm-card" };
-    let name_for_click = name.clone();
+    let target = AppRoute::VmRoute {
+        vm_name: name.clone(),
+    };
+
+    let used_short = fmt_mem_short(vm.mem);
+    let reserved_short = fmt_mem_short(vm.mem_limit);
+    let host_total_short = vm.host_mem_total.map(fmt_mem_short);
+
+    let severity = vm_mem_severity(vm.mem, vm.mem_limit, vm.host_mem_total);
+    let (reserved_color, mem_title) = match severity {
+        MemSeverity::Danger => (
+            "var(--danger)",
+            match vm.host_mem_total {
+                Some(t) if vm.mem_limit > t => format!(
+                    "Reserved {} exceeds host RAM {} — containers can claim more than this VM has.",
+                    fmt_mem_short(vm.mem_limit),
+                    fmt_mem_short(t),
+                ),
+                _ => "Used memory above 90% of host RAM.".to_string(),
+            },
+        ),
+        MemSeverity::Warn => (
+            "var(--warn)",
+            "Reserved or used memory is close to host RAM capacity.".to_string(),
+        ),
+        MemSeverity::Ok => ("var(--text-dim)", String::new()),
+    };
 
     rsx! {
-        div {
+        Link {
+            to: target,
             class: "{card_class}",
             title: "{vm.api_url}",
-            onclick: move |_| {
-                consume_context::<Signal<MainState>>()
-                    .write()
-                    .set_selected_vm(crate::selected_vm::SelectedVm::SingleVm(name_for_click.clone()));
-            },
             div { class: "ico",
                 {icon_server()}
                 span { class: "{heart_class}" }
@@ -112,8 +129,26 @@ fn VmCard(name: String, vm: crate::models::VmModel, active: bool) -> Element {
             div { class: "body",
                 div { class: "name", "{name}" }
                 div { class: "meta",
-                    span { class: "item cpu", "{cpu_pct}%" }
-                    span { class: "item mem", "{mem_pct}%" }
+                    span { class: "item cpu", "{cpu_pct}% cpu" }
+                    if let Some(c) = vm.host_cpu_count {
+                        span { class: "item", title: "host cores", "{c}c" }
+                    }
+                }
+                div { class: "vm-mem", title: "{mem_title}",
+                    span { class: "tag",
+                        span { class: "lbl", "use" }
+                        span { class: "val", "{used_short}" }
+                    }
+                    span { class: "tag",
+                        span { class: "lbl", "res" }
+                        span { class: "val", style: "color: {reserved_color};", "{reserved_short}" }
+                    }
+                    if let Some(total) = host_total_short.as_ref() {
+                        span { class: "tag",
+                            span { class: "lbl", "host" }
+                            span { class: "val", "{total}" }
+                        }
+                    }
                 }
             }
             div { class: "count", "{vm.containers_amount}" }

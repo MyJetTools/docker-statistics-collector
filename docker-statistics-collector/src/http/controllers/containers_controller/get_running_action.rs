@@ -39,7 +39,7 @@ async fn handle_request(
         .map(|itm| ContainerJsonModel::new(itm, local_instance.clone()))
         .collect();
 
-    for (peer_instance, peer_containers) in
+    for (peer_instance, peer_containers, _peer_hosts) in
         crate::peers_client::fanout_local_containers(&action.app).await
     {
         for itm in peer_containers.into_iter().filter(|c| c.running) {
@@ -50,6 +50,7 @@ async fn handle_request(
     let response = ContainersHttpResponse {
         vm: local_instance,
         containers,
+        hosts: Vec::new(),
     };
 
     HttpOutput::as_json(response).into_ok_result(false).into()

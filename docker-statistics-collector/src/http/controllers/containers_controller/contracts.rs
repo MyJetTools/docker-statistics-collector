@@ -4,11 +4,39 @@ use my_http_server::macros::MyHttpObjectStructure;
 use serde::{Deserialize, Serialize};
 
 use crate::app::ServiceInfo;
+use crate::host_mem::HostMemSnapshot;
 
 #[derive(MyHttpObjectStructure, Serialize, Deserialize)]
 pub struct ContainersHttpResponse {
     pub vm: String,
     pub containers: Vec<ContainerJsonModel>,
+    pub hosts: Vec<HostMemEntryHttpModel>,
+}
+
+// HostMemEntryHttpModel — per-instance host snapshot.
+//   total/available/used: bytes from /proc/meminfo
+//   cpu_count: logical processors from /proc/cpuinfo (0 = unknown)
+// Field-level doc comments are intentionally omitted — MyHttpObjectStructure
+// can't parse `#[doc="..."]` attributes (panics on the `=` punct).
+#[derive(MyHttpObjectStructure, Serialize, Deserialize, Clone, Debug)]
+pub struct HostMemEntryHttpModel {
+    pub instance: String,
+    pub total: i64,
+    pub available: i64,
+    pub used: i64,
+    pub cpu_count: i32,
+}
+
+impl HostMemEntryHttpModel {
+    pub fn from_snapshot(instance: String, s: HostMemSnapshot) -> Self {
+        Self {
+            instance,
+            total: s.total,
+            available: s.available,
+            used: s.used,
+            cpu_count: s.cpu_count.map(|v| v as i32).unwrap_or(0),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, MyHttpObjectStructure)]
