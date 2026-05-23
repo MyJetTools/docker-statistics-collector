@@ -138,6 +138,21 @@ fn ContainerRow(
         .unwrap_or(false)
         && active_vm.as_deref() == row_vm.as_deref();
     let pct = row.mem_pct();
+
+    // DEBUG: trace mem-bar inputs for any container whose name contains "kafka".
+    // Remove once the flicker investigation is done.
+    if row.name.to_ascii_lowercase().contains("kafka") {
+        dioxus_utils::console_log(&format!(
+            "[kafka-debug] name={} running={} mem_bytes={} effective_limit={:?} declared={} pct={:?}",
+            row.name,
+            row.is_running,
+            row.mem_bytes,
+            row.effective_mem_limit,
+            row.mem_limit_is_declared,
+            pct,
+        ));
+    }
+
     let mem_heat = match pct {
         Some(p) if p >= 90.0 => " mem-danger",
         Some(p) if p >= 80.0 => " mem-warn",
@@ -218,7 +233,11 @@ fn MemBar(pct: Option<f64>, running: bool) -> Element {
         }
     }));
 
-    let effective = pct.or(*last_pct.read());
+    // Fall back to the sticky value not only on None but on Some(0.0) too:
+    // backend sometimes reports mem.usage=0 for a single tick on hot containers
+    // (kafka, loggers). Without this filter the bar disappears every few ticks
+    // exactly for the busiest containers.
+    let effective = pct.filter(|p| *p > 0.0).or(*last_pct.read());
     let Some(p) = effective else {
         return rsx! {};
     };
