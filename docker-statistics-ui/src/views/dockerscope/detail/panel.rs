@@ -60,9 +60,9 @@ pub fn DetailPanel(env: Rc<String>) -> Element {
                 ChartCard {
                     label: "CPU".to_string(),
                     color: "#4ade80".to_string(),
-                    big_value: format!("{:.1}", cpu_now),
+                    big_value: format!("{:.2}", cpu_now),
                     unit: "%".to_string(),
-                    delta_value: format!("{:.1}%", cpu_delta.abs()),
+                    delta_value: format!("{:.2}%", cpu_delta.abs()),
                     delta_up: cpu_delta >= 0.0,
                     sub: "2s window".to_string(),
                     values: cpu_history,

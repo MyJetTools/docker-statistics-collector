@@ -15,7 +15,7 @@ pub fn StatLine(container: ContainerModel) -> Element {
 
     rsx! {
         div { class: "statline",
-            Stat { k: "CPU usage", v: format!("{:.1}", cpu), u: "%".to_string() }
+            Stat { k: "CPU usage", v: format!("{:.2}", cpu), u: "%".to_string() }
             Stat { k: "Memory %",   v: format!("{}",     mem_pct), u: "%".to_string() }
             Stat { k: "Open FDs",   v: format!("{}",     files_open), u: format!("/ {}", files_limit) }
             Stat { k: "FD %",       v: format!("{}",     files_pct), u: "%".to_string() }

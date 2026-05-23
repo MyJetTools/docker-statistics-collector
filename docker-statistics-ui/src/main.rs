@@ -57,6 +57,17 @@ fn main() {
 fn App() -> Element {
     use_context_provider(|| Signal::new(MainState::new()));
     use_context_provider(|| Signal::new(DialogState::Hidden));
+    use_context_provider(|| Signal::new(Prefs::load()));
+
+    // Apply the persisted theme to <html> so CSS variable cascade reaches body + scrollbars + chart vars.
+    let prefs = consume_context::<Signal<Prefs>>();
+    use_effect(move || {
+        let theme = prefs.read().theme.data_attr();
+        let _ = dioxus_utils::eval(&format!(
+            "document.documentElement.setAttribute('data-theme','{}')",
+            theme
+        ));
+    });
 
     let mut main_state = consume_context::<Signal<MainState>>();
     let main_state_ra = main_state.read();

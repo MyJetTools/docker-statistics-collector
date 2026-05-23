@@ -90,7 +90,7 @@ fn ContainerRow(row: ContainerRowData, active_id: Option<String>) -> Element {
     };
     let state_cls = format!("state {}", row.state_class);
     let id_for_click = row.id.clone();
-    let cpu_str = format!("{:.1}%", row.cpu);
+    let cpu_str = format!("{:.2}%", row.cpu);
     let mem_str = fmt_mem_short(row.mem_bytes);
 
     rsx! {

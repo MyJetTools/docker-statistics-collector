@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::states::MainState;
+use crate::states::{MainState, Prefs, Theme};
 use crate::views::dockerscope::icons::*;
 
 #[component]
@@ -80,9 +80,33 @@ pub fn Topbar() -> Element {
                         "issues" b { "{totals.issues}" }
                     }
                 }
+                ThemeToggle {}
                 button { class: "icon-btn", title: "refresh", {icon_refresh()} }
                 button { class: "icon-btn", title: "notifications", {icon_bell()} }
             }
+        }
+    }
+}
+
+#[component]
+fn ThemeToggle() -> Element {
+    let prefs = consume_context::<Signal<Prefs>>();
+    let theme = prefs.read().theme;
+    let (icon, title) = match theme {
+        Theme::Dark => (icon_sun(), "switch to light theme"),
+        Theme::Light => (icon_moon(), "switch to dark theme"),
+    };
+    rsx! {
+        button {
+            class: "icon-btn",
+            title: "{title}",
+            onclick: move |_| {
+                let mut prefs = consume_context::<Signal<Prefs>>();
+                let mut w = prefs.write();
+                w.theme = w.theme.toggle();
+                w.save();
+            },
+            {icon}
         }
     }
 }

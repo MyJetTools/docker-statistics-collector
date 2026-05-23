@@ -40,15 +40,15 @@ pub fn AreaChart(values: Vec<f64>, color: String, height: u32, unit: String) -> 
             g {
                 line {
                     x1: "0", x2: "{w}", y1: "{h * 0.25}", y2: "{h * 0.25}",
-                    stroke: "#1d232c", stroke_dasharray: "2 4", stroke_width: "1",
+                    stroke: "var(--chart-grid)", stroke_dasharray: "2 4", stroke_width: "1",
                 }
                 line {
                     x1: "0", x2: "{w}", y1: "{h * 0.5}", y2: "{h * 0.5}",
-                    stroke: "#1d232c", stroke_dasharray: "2 4", stroke_width: "1",
+                    stroke: "var(--chart-grid)", stroke_dasharray: "2 4", stroke_width: "1",
                 }
                 line {
                     x1: "0", x2: "{w}", y1: "{h * 0.75}", y2: "{h * 0.75}",
-                    stroke: "#1d232c", stroke_dasharray: "2 4", stroke_width: "1",
+                    stroke: "var(--chart-grid)", stroke_dasharray: "2 4", stroke_width: "1",
                 }
             }
             path { d: "{area}", fill: "{url}" }
@@ -59,7 +59,7 @@ pub fn AreaChart(values: Vec<f64>, color: String, height: u32, unit: String) -> 
             }
             circle {
                 cx: "{last_x}", cy: "{last_y}", r: "3",
-                fill: "{color}", stroke: "#0a0b0d", stroke_width: "2",
+                fill: "{color}", stroke: "var(--chart-dot-stroke)", stroke_width: "2",
             }
         }
     }

@@ -1,12 +1,44 @@
+use std::time::Duration;
+
 use dioxus::prelude::*;
 use dioxus_utils::*;
 
 use crate::api::{get_processes, ProcessHttpModel};
+use crate::states::{DialogState, DialogType};
 use crate::utils::format_mem;
 
 #[component]
 pub fn show_processes(env: String, url: String, container_id: String) -> Element {
     let mut state = use_signal(|| ProcessesDialogState::new());
+
+    // Background poller: refreshes every 1s without going through Loading, so the table doesn't flash.
+    // Self-terminates when DialogState no longer shows ShowProcesses for THIS container_id
+    // (dialog closed, or user opened the dialog for a different container).
+    let dialog_signal = consume_context::<Signal<DialogState>>();
+    {
+        let env_l = env.clone();
+        let url_l = url.clone();
+        let id_l = container_id.clone();
+        use_effect(move || {
+            let env_l = env_l.clone();
+            let url_l = url_l.clone();
+            let id_l = id_l.clone();
+            spawn(async move {
+                loop {
+                    dioxus_utils::js::sleep(Duration::from_secs(1)).await;
+                    if !is_still_active(dialog_signal, &id_l) {
+                        break;
+                    }
+                    let result = get_processes(env_l.clone(), url_l.clone(), id_l.clone()).await;
+                    match result {
+                        Ok(items) => state.write().data.set_loaded(items),
+                        Err(err) => state.write().data.set_error(err.to_string()),
+                    }
+                }
+            });
+        });
+    }
+
     let state_ra = state.read();
 
     let items = match state_ra.data.as_ref() {
@@ -32,17 +64,23 @@ pub fn show_processes(env: String, url: String, container_id: String) -> Element
     rsx! {
         div { class: "ds-modal-toolbar",
             span { style: "color:var(--text-muted); font-family:var(--mono); font-size:11px;",
-                "{items.len()} processes"
-            }
-            button {
-                class: "btn",
-                onclick: move |_| { state.write().data.reset(); },
-                "refresh"
+                "{items.len()} processes · auto-refresh 1s"
             }
         }
         div { class: "ds-modal-scroll",
             {render_processes_table(items)}
         }
+    }
+}
+
+fn is_still_active(dialog: Signal<DialogState>, my_id: &str) -> bool {
+    let ra = dialog.read();
+    match &*ra {
+        DialogState::Shown {
+            dialog_type: DialogType::ShowProcesses { container_id, .. },
+            ..
+        } => container_id == my_id,
+        _ => false,
     }
 }
 
