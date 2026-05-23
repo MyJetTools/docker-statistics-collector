@@ -56,42 +56,62 @@ pub struct ContainerModel {
 }
 
 impl ContainerModel {
-    pub fn filter_me(&self, value: &str) -> bool {
-        if value == "" {
-            return true;
+    pub fn update(&mut self, src: ContainerJsonModel) {
+        self.cpu = src.cpu;
+        self.mem = src.mem;
+        self.files = src.files;
+        self.labels = src.labels;
+        self.enabled = src.enabled;
+        self.image = src.image;
+        self.instance = src.instance;
+        // Adopt new started_at only when it's known; keep the previous value
+        // across transient inspect glitches (same pattern as collector cache).
+        if src.started_at.is_some() {
+            self.started_at = src.started_at;
         }
-
-        if self.id.contains(value) {
-            return true;
-        }
-
-        let value = value.to_lowercase();
-
-        if self.image.to_lowercase().contains(&value) {
-            return true;
-        }
-
-        for name in &self.names {
-            if name.to_lowercase().contains(&value) {
-                return true;
-            }
-        }
-
-        if let Some(labels) = &self.labels {
-            for (key, v) in labels {
-                if key.to_lowercase().contains(&value) {
-                    return true;
-                }
-
-                if v.to_lowercase().contains(&value) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
+}
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ContainerJsonModel {
+    pub id: String,
+    pub image: String,
+    pub names: Vec<String>,
+    pub labels: Option<BTreeMap<String, String>>,
+    pub enabled: bool,
+    pub created: Option<i64>,
+    #[serde(default)]
+    pub started_at: Option<i64>,
+    pub state: Option<String>,
+    pub status: Option<String>,
+    #[serde(default)]
+    pub instance: String,
+    pub cpu: CpuUsageJsonMode,
+    pub mem: MemUsageJsonMode,
+    #[serde(default)]
+    pub files: FilesUsageJsonMode,
+    pub ports: Option<Vec<PortHttpModel>>,
+    #[serde(default)]
+    pub volumes: Option<Vec<VolumeHttpModel>>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct StatisticsContract {
+    pub vm: String,
+    pub containers: Vec<ContainerJsonModel>,
+    #[serde(default)]
+    pub hosts: Vec<HostMemEntryModel>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct HostMemEntryModel {
+    pub instance: String,
+    pub total: i64,
+    pub available: i64,
+    pub used: i64,
+    /// Logical CPU count of the host. `0` means unknown.
+    #[serde(default)]
+    pub cpu_count: i32,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]

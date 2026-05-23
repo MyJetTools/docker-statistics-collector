@@ -1,7 +1,7 @@
 use flurl::FlUrl;
 use serde::Deserialize;
 
-use crate::api::ProcessHttpModel;
+use crate::models::ProcessHttpModel;
 
 #[derive(Deserialize)]
 struct ProcessesResponseModel {

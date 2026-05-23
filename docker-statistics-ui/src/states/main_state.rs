@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use dioxus_shared::states::EnvListState;
+use super::EnvListState;
 
 use crate::{
     models::{MetricsByVm, VmModel},

@@ -1,5 +1,8 @@
-use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
+
+use crate::models::RequestError;
+
+use super::{get_base_url, url_encode};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ProcessHttpModel {
@@ -12,18 +15,18 @@ pub struct ProcessHttpModel {
     pub threads: Option<i64>,
 }
 
-#[get("/api/processes?env&url&id")]
 pub async fn get_processes(
     env: String,
     url: String,
     id: String,
-) -> Result<Vec<ProcessHttpModel>, ServerFnError> {
-    let fl_url = crate::server::APP_CTX
-        .get_fl_url(env.as_str(), url.as_str())
-        .await;
-
-    match crate::server::http_client::get_processes(fl_url, id).await {
-        Ok(result) => Ok(result),
-        Err(err) => Err(ServerFnError::new(err)),
-    }
+) -> Result<Vec<ProcessHttpModel>, RequestError> {
+    let endpoint = format!(
+        "{}/api/processes?env={}&url={}&id={}",
+        get_base_url(),
+        url_encode(&env),
+        url_encode(&url),
+        url_encode(&id),
+    );
+    let resp = reqwest::Client::new().get(&endpoint).send().await?;
+    Ok(resp.json::<Vec<ProcessHttpModel>>().await?)
 }

@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use rust_extensions::MyTimerTick;
 
-use crate::server::app::DataCache;
-use crate::server::APP_CTX;
+use crate::app::DataCache;
+use crate::APP_CTX;
 
 pub struct UpdateMetricsCacheTimer;
 
@@ -12,14 +12,14 @@ impl MyTimerTick for UpdateMetricsCacheTimer {
     async fn tick(&self) {
         let stop_watch = rust_extensions::StopWatch::new();
 
-        let urls = crate::server::APP_CTX.settings_reader.get_urls().await;
+        let urls = APP_CTX.settings_reader.get_urls().await;
 
         let mut spawns = Vec::new();
         for (env, master_url) in urls {
             let task = tokio::spawn(async move {
-                let fl_url = crate::server::APP_CTX.create_fl_url(&master_url);
+                let fl_url = APP_CTX.create_fl_url(&master_url);
 
-                let statistics = crate::server::http_client::get_statistics(fl_url).await;
+                let statistics = crate::http_client::get_statistics(fl_url).await;
 
                 let statistics = match statistics {
                     Ok(s) => s,

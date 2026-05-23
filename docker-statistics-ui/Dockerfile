@@ -1,10 +1,9 @@
-FROM ghcr.io/myjettools/dioxus-docker:0.7.7
+FROM myjettools/web-app-host:0.1.1
+ARG BUILD_VERSION
+ENV BUILD_VERSION=$BUILD_VERSION
 
-ENV PORT=9001
-ENV IP=0.0.0.0
+ARG RFC3339_TIME
+ENV COMPILE_TIME=$RFC3339_TIME
 
-COPY ./target/dx/docker-statistics-ui/release/web /target/dx/docker-statistics-ui/release/web
-
-RUN chmod +x /target/dx/docker-statistics-ui/release/web/server
-WORKDIR /target/dx/docker-statistics-ui/release/web/
-ENTRYPOINT ["./server"]
+WORKDIR /app
+COPY ./target/dx/docker-statistics-ui/release/web/public ./wwwroot

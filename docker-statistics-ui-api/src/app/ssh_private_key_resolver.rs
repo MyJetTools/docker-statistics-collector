@@ -2,7 +2,7 @@ use std::sync::{atomic::AtomicBool, Arc};
 
 use tokio::sync::Mutex;
 
-use crate::server::settings::AppSettingsReader;
+use crate::settings_reader::AppSettingsReader;
 
 pub struct SshPrivateKeyResolver {
     pub settings_reader: Arc<AppSettingsReader>,

@@ -2,15 +2,10 @@
 
 use std::time::Duration;
 
-#[cfg(feature = "server")]
-mod server;
-
 mod api;
 
 use api::*;
 use dioxus::prelude::*;
-#[cfg(feature = "server")]
-use dioxus::server::{IncrementalRendererConfig, ServeConfig};
 use dioxus_utils::*;
 
 mod models;
@@ -28,30 +23,23 @@ use views::*;
 
 use crate::states::*;
 
-pub const METRICS_HISTORY_SIZE: usize = 150;
-
 fn main() {
-    dioxus::LaunchBuilder::new()
-        .with_cfg(server_only!(ServeConfig::builder().incremental(
-            IncrementalRendererConfig::default()
-                .invalidate_after(std::time::Duration::from_secs(120)),
-        )))
-        .launch(|| {
-            rsx! {
-                document::Link { rel: "icon", href: "/assets/favicon.ico" }
-                document::Link { rel: "preconnect", href: "https://fonts.googleapis.com" }
-                document::Link {
-                    rel: "preconnect",
-                    href: "https://fonts.gstatic.com",
-                    crossorigin: "anonymous",
-                }
-                document::Link {
-                    rel: "stylesheet",
-                    href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap",
-                }
-                Router::<AppRoute> {}
+    dioxus::LaunchBuilder::new().launch(|| {
+        rsx! {
+            document::Link { rel: "icon", href: "/assets/favicon.ico" }
+            document::Link { rel: "preconnect", href: "https://fonts.googleapis.com" }
+            document::Link {
+                rel: "preconnect",
+                href: "https://fonts.gstatic.com",
+                crossorigin: "anonymous",
             }
-        })
+            document::Link {
+                rel: "stylesheet",
+                href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap",
+            }
+            Router::<AppRoute> {}
+        }
+    })
 }
 
 /// Layout shared by every route — providers, env gating, the 3-column UI, plus

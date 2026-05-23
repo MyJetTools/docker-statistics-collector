@@ -5,16 +5,16 @@ use flurl::FlUrl;
 use rust_extensions::AppStates;
 use tokio::sync::Mutex;
 
-use crate::server::settings::AppSettingsReader;
+use crate::settings_reader::AppSettingsReader;
 
 use super::{DataCacheByEnv, SshPrivateKeyResolver};
 
-use crate::server::background::UpdateMetricsCacheTimer;
+use crate::background::UpdateMetricsCacheTimer;
 use rust_extensions::MyTimer;
 
 pub struct AppCtx {
     pub data_cache_by_env: Mutex<DataCacheByEnv>,
-    pub _app_states: Arc<AppStates>,
+    pub app_states: Arc<AppStates>,
     pub settings_reader: Arc<AppSettingsReader>,
     pub ssh_private_key_resolver: Arc<SshPrivateKeyResolver>,
 }
@@ -37,7 +37,7 @@ impl AppCtx {
         Self {
             ssh_private_key_resolver: SshPrivateKeyResolver::new(settings_reader.clone()).into(),
             data_cache_by_env: Mutex::new(DataCacheByEnv::new()),
-            _app_states: app_states,
+            app_states,
             settings_reader,
         }
     }

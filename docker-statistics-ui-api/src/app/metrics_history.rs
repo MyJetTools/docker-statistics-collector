@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use crate::METRICS_HISTORY_SIZE;
+pub const METRICS_HISTORY_SIZE: usize = 150;
 
 #[derive(Clone)]
 pub struct MetricsHistory<T: Copy> {

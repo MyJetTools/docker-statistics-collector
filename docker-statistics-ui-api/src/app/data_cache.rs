@@ -119,8 +119,6 @@ impl DataCache {
                 },
             );
         } else {
-            // Always refresh the api_url to the current master URL — the env
-            // YAML may have changed between ticks.
             let w = self.containers.get_mut(vm).unwrap();
             w.api_url = api_url;
             w.host_mem = host_mem;
@@ -146,8 +144,6 @@ impl DataCache {
                 }
             }
 
-            // Open-file history is recorded independently of CPU/mem — a leak
-            // shows up as a steadily climbing line on the graph.
             if let Some(open) = container.files.open {
                 if !self.metrics_history.contains_key(&id) {
                     self.metrics_history
@@ -170,68 +166,6 @@ impl DataCache {
         }
     }
 
-    /*
-       pub fn get_containers(&self) -> BTreeMap<String, Vec<ContainerModel>> {
-           let mut result = BTreeMap::new();
-
-           for (vm, items) in self.containers.iter() {
-               let mut vm_result = Vec::with_capacity(items.containers.len());
-
-               for itm in items.containers.values() {
-                   vm_result.push(itm.clone());
-               }
-
-               result.insert(vm.clone(), vm_result);
-           }
-
-           result
-       }
-
-
-    pub fn get_cpu_by_vm_and_container(&self) -> BTreeMap<String, BTreeMap<String, f64>> {
-        let mut result = BTreeMap::new();
-
-        for (vm, wrapper) in self.containers.iter() {
-            let mut vm_result = BTreeMap::new();
-
-            for itm in wrapper.containers.values() {
-                let cpu_usage = if let Some(usage) = itm.cpu.usage {
-                    usage
-                } else {
-                    0.0
-                };
-
-                vm_result.insert(itm.id.to_string(), cpu_usage);
-            }
-
-            result.insert(vm.clone(), vm_result);
-        }
-
-        result
-    }
-
-    pub fn get_mem_by_vm_and_container(&self) -> BTreeMap<String, BTreeMap<String, i64>> {
-        let mut result = BTreeMap::new();
-
-        for (vm, wrapper) in self.containers.iter() {
-            let mut vm_result = BTreeMap::new();
-
-            for itm in wrapper.containers.values() {
-                let mem_usage = if let Some(usage) = itm.mem.usage {
-                    usage
-                } else {
-                    0
-                };
-
-                vm_result.insert(itm.id.to_string(), mem_usage);
-            }
-
-            result.insert(vm.clone(), vm_result);
-        }
-
-        result
-    }
-    */
     pub fn get_vm_cpu_and_mem(&self) -> BTreeMap<String, VmModel> {
         let mut result = BTreeMap::new();
 

@@ -4,5 +4,5 @@ pub use models::*;
 mod vm_model;
 pub use vm_model::*;
 
-mod request_error;
-pub use request_error::*;
+mod http_responses;
+pub use http_responses::*;
