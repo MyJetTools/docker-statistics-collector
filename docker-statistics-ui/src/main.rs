@@ -72,6 +72,7 @@ pub fn AppShell() -> Element {
                         let mut w = main_state.write();
                         w.envs.set_items(envs.envs);
                         w.prompt_pass_key = envs.request_pass_key;
+                        w.current_user = envs.user_id;
                     }
                     Err(err) => {
                         main_state.write().envs.set_error(err.to_string());

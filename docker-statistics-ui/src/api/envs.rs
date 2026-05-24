@@ -8,6 +8,8 @@ use super::get_base_url;
 pub struct EnvsHttpModel {
     pub envs: Vec<String>,
     pub request_pass_key: bool,
+    #[serde(default)]
+    pub user_id: String,
 }
 
 pub async fn get_envs() -> Result<EnvsHttpModel, RequestError> {

@@ -47,6 +47,7 @@ pub fn Topbar() -> Element {
     };
 
     let totals = compute_fleet_totals(&cs_ra);
+    let current_user = cs_ra.current_user.clone();
 
     rsx! {
         header { class: "topbar",
@@ -103,6 +104,13 @@ pub fn Topbar() -> Element {
                         title: "containers in restarting / unhealthy state OR using ≥80% of their effective memory limit",
                         span { class: "swatch", style: "background: var(--danger);" }
                         "issues" b { "{totals.issues}" }
+                    }
+                }
+                if !current_user.is_empty() {
+                    span {
+                        class: "current-user",
+                        title: "Identity reported by reverse proxy via x-ssl-user",
+                        "{current_user}"
                     }
                 }
                 ThemeToggle {}

@@ -44,6 +44,7 @@ async fn handle_request(
     let response = EnvsHttpModel {
         envs,
         request_pass_key,
+        user_id,
     };
 
     HttpOutput::as_json(response)

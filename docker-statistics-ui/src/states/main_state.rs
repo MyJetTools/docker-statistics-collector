@@ -48,6 +48,9 @@ pub struct MainState {
 
     pub dialog_is_shown: bool,
     pub prompt_pass_key: bool,
+    /// Identity reported by api from the `x-ssl-user` header.
+    /// Empty when the upstream proxy didn't inject one.
+    pub current_user: String,
 }
 
 impl MainState {
@@ -64,6 +67,7 @@ impl MainState {
             data_request_no: 0,
             vms_state: BTreeMap::new(),
             prompt_pass_key: false,
+            current_user: String::new(),
             envs: EnvListState::new(),
         }
     }
