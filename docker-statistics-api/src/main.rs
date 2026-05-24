@@ -3,6 +3,7 @@ use std::sync::Arc;
 use app::AppCtx;
 
 mod app;
+mod auth;
 mod background;
 mod http;
 mod http_client;

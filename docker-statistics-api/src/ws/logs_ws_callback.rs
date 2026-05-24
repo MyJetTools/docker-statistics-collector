@@ -23,9 +23,16 @@ impl MyWebSocketCallback for LogsWsCallback {
     async fn connected(
         &self,
         ws: Arc<MyWebSocket>,
-        _http_request: MyWebSocketHttpRequest,
+        http_request: MyWebSocketHttpRequest,
         _disconnect_timeout: Duration,
     ) -> Result<(), WebSocketConnectedFail> {
+        let user_id = http_request
+            .get_headers()
+            .get(crate::auth::SSL_USER_HEADER)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("")
+            .to_string();
+
         let (env, container_id, tail) = {
             let query = match ws.get_query_string() {
                 Some(q) => q,
@@ -60,6 +67,20 @@ impl MyWebSocketCallback for LogsWsCallback {
                 .and_then(|v| v.from_str::<u32>().ok());
             (env, id, tail)
         };
+
+        // RBAC: drop the connection before opening anything if this user is
+        // not allowed to see this env.
+        {
+            let settings = self.app.settings_reader.get_settings().await;
+            if !settings.is_env_allowed_for_user(&user_id, &env) {
+                return Err(WebSocketConnectedFail {
+                    reason: format!(
+                        "env '{env}' is not accessible for user '{user_id}'"
+                    ),
+                    write_to_logs: true,
+                });
+            }
+        }
 
         let app = self.app.clone();
         let ws_for_task = ws.clone();

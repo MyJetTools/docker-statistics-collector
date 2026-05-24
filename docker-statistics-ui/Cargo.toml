@@ -15,6 +15,7 @@ dioxus-utils = { tag = "0.7.0", git = "https://github.com/MyJetTools/dioxus-util
 reqwest = { version = "*", features = ["json"] }
 reqwasm = "*"
 futures = "*"
+web-sys = { version = "*", features = ["Window", "MediaQueryList"] }
 
 rust-extensions = { tag = "0.1.5", git = "https://github.com/MyJetTools/rust-extensions.git" }
 

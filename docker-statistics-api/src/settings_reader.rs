@@ -9,6 +9,11 @@ pub struct SettingsModel {
     pub envs: BTreeMap<String, VmSettingsModel>,
     pub ssh_private_keys: Option<HashMap<String, SshPrivateKeySettingsModel>>,
     pub prompt_pass_phrase: Option<bool>,
+    /// `user_id (== x-ssl-user header) -> group name`. Group `*` means
+    /// "every env". A user that is not listed here gets nothing.
+    pub users: Option<HashMap<String, String>>,
+    /// `group name -> list of env names the group can see`.
+    pub user_groups: Option<HashMap<String, Vec<String>>>,
 }
 
 impl SettingsModel {
@@ -22,8 +27,37 @@ impl SettingsModel {
             .collect()
     }
 
-    pub fn get_envs(&self) -> Vec<String> {
-        self.envs.keys().cloned().collect()
+    /// Envs visible to the given user (from the `x-ssl-user` header).
+    /// Rules:
+    ///   * `users` is not configured at all → everyone sees all envs (dev mode)
+    ///   * user is not in `users` → no envs
+    ///   * user's group is `*` → all envs
+    ///   * otherwise → intersection of `user_groups[group]` with configured envs
+    pub fn get_envs_for_user(&self, user_id: &str) -> Vec<String> {
+        let Some(users) = self.users.as_ref() else {
+            return self.envs.keys().cloned().collect();
+        };
+        let Some(group) = users.get(user_id) else {
+            return Vec::new();
+        };
+        if group == "*" {
+            return self.envs.keys().cloned().collect();
+        }
+        let Some(groups) = self.user_groups.as_ref() else {
+            return Vec::new();
+        };
+        let Some(allowed) = groups.get(group) else {
+            return Vec::new();
+        };
+        allowed
+            .iter()
+            .filter(|e| self.envs.contains_key(e.as_str()))
+            .cloned()
+            .collect()
+    }
+
+    pub fn is_env_allowed_for_user(&self, user_id: &str, env: &str) -> bool {
+        self.get_envs_for_user(user_id).iter().any(|e| e == env)
     }
 }
 

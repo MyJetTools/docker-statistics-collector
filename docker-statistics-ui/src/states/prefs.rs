@@ -42,7 +42,9 @@ impl Prefs {
         let raw = GlobalAppSettings::get_local_storage().get(STORAGE_KEY);
         let theme = match raw {
             Some(s) => Theme::parse(&s),
-            None => Theme::Dark,
+            // Nothing stored yet → follow the OS preference so the app doesn't
+            // blast white-on-black in a light-mode session (or vice-versa).
+            None => system_theme().unwrap_or(Theme::Dark),
         };
         Self { theme }
     }
@@ -50,4 +52,10 @@ impl Prefs {
     pub fn save(&self) {
         GlobalAppSettings::get_local_storage().set(STORAGE_KEY, self.theme.data_attr());
     }
+}
+
+fn system_theme() -> Option<Theme> {
+    let window = web_sys::window()?;
+    let mql = window.match_media("(prefers-color-scheme: dark)").ok().flatten()?;
+    Some(if mql.matches() { Theme::Dark } else { Theme::Light })
 }

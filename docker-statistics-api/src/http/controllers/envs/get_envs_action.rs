@@ -27,11 +27,12 @@ impl GetEnvsAction {
 
 async fn handle_request(
     action: &GetEnvsAction,
-    _ctx: &mut HttpContext,
+    ctx: &mut HttpContext,
 ) -> Result<HttpOkResult, HttpFailResult> {
     let settings = action.app.settings_reader.get_settings().await;
 
-    let envs = settings.get_envs();
+    let user_id = crate::auth::user_from_http(ctx);
+    let envs = settings.get_envs_for_user(&user_id);
 
     let mut request_pass_key = false;
     if settings.prompt_pass_phrase.unwrap_or(false)

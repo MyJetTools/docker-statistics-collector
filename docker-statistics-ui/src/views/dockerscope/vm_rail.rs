@@ -86,7 +86,7 @@ fn VmCard(
 ) -> Element {
     let status = vm_status(&vm);
     let heart_class = format!("heart {}", if status == "ok" { "" } else { status });
-    let cpu_pct = vm.cpu.round() as i32;
+    let cpu_pct = vm.cpu;
     let card_class = if active { "vm-card active" } else { "vm-card" };
     let target = if is_all {
         AppRoute::AllRoute {}
@@ -152,7 +152,7 @@ fn VmCard(
                 div { class: "info",
                     div { class: "name", "{name}" }
                     div { class: "meta",
-                        span { class: "item cpu", "{cpu_pct}% cpu" }
+                        span { class: "item cpu", "{cpu_pct:.2}% cpu" }
                         if let Some(c) = vm.host_cpu_count {
                             span { class: "item", title: "host cores", "{c}c" }
                         }

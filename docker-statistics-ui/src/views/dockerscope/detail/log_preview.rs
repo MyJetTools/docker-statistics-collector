@@ -58,10 +58,31 @@ pub fn LogPreview(container_id: String, vm_url: String, is_running: bool) -> Ele
                 } else if reconnect_dep > 0 {
                     push_marker(&mut w.lines, "── reconnected ──");
                 }
+                // Every fresh subscribe (new container OR explicit reconnect)
+                // re-arms the auto-scroll so the freshest lines snap into view.
+                w.did_initial_scroll = false;
                 w.live = true;
                 w.error = None;
             }
             run_stream(cs, env, container_for_res).await;
+        }
+    }));
+
+    // After the first line(s) arrive, snap the scroll container to the bottom
+    // so the user sees the freshest output immediately. Re-armed on every
+    // container switch via `did_initial_scroll = false` above.
+    let line_count = cs.read().lines.len();
+    let did_scroll = cs.read().did_initial_scroll;
+    let mut cs_for_effect = cs.to_owned();
+    use_effect(use_reactive!(|line_count, did_scroll| {
+        if line_count > 0 && !did_scroll {
+            cs_for_effect.write().did_initial_scroll = true;
+            let _ = dioxus_utils::eval(
+                "requestAnimationFrame(() => { \
+                    const el = document.getElementById('log-preview-scroll'); \
+                    if (el) el.scrollTop = el.scrollHeight; \
+                });",
+            );
         }
     }));
 
@@ -123,7 +144,7 @@ pub fn LogPreview(container_id: String, vm_url: String, is_running: bool) -> Ele
                     }
                 }
             }
-            div { class: "log-mini log-mini-tall", {body} }
+            div { id: "log-preview-scroll", class: "log-mini log-mini-tall", {body} }
         }
     }
 }
@@ -240,5 +261,8 @@ struct LogPreviewState {
     current_id: Option<String>,
     /// true while the WS task is alive and consuming messages.
     live: bool,
+    /// false until the first batch of lines has been auto-scrolled to bottom;
+    /// re-armed when the user switches container.
+    did_initial_scroll: bool,
     error: Option<String>,
 }
