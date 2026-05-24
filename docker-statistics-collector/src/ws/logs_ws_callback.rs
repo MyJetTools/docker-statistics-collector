@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use futures::StreamExt;
+use futures::{SinkExt, StreamExt};
 use my_http_server::web_sockets::{
     MyWebSocket, MyWebSocketCallback, MyWebSocketHttpRequest, WebSocketConnectedFail, WsMessage,
 };
@@ -216,7 +216,7 @@ async fn try_peer_and_forward(
     client_ws: Arc<MyWebSocket>,
 ) -> bool {
     let ws_url = build_collector_ws_url(peer_http_url, container_id, Some(tail));
-    let stream = match tokio_tungstenite::connect_async(&ws_url).await {
+    let mut stream = match tokio_tungstenite::connect_async(&ws_url).await {
         Ok((s, _)) => s,
         Err(err) => {
             println!("peer logs WS connect failed for {peer_http_url}: {err:?}");
@@ -224,10 +224,11 @@ async fn try_peer_and_forward(
         }
     };
 
-    let (_write, mut read) = stream.split();
-
+    // NOTE: do not split — tokio-tungstenite's auto-Pong path requires the
+    // same task that reads to also be able to write. The peer collector pings
+    // every 5s and will close us on its 60s idle timeout if we never Pong.
     let mut owned_by_this_peer = false;
-    while let Some(msg) = read.next().await {
+    while let Some(msg) = stream.next().await {
         if !client_ws.is_connected() {
             return true; // client gone; no need to keep trying peers
         }
@@ -249,6 +250,13 @@ async fn try_peer_and_forward(
                     .send_message(std::iter::once(WsMessage::Binary(bytes.to_vec().into())))
                     .await;
             }
+            Ok(Message::Ping(payload)) => {
+                if let Err(err) = stream.send(Message::Pong(payload)).await {
+                    println!("peer logs WS pong failed for {peer_http_url}: {err:?}");
+                    break;
+                }
+            }
+            Ok(Message::Pong(_)) => {}
             Ok(Message::Close(_)) | Err(_) => break,
             Ok(_) => {}
         }

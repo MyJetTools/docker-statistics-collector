@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use futures::StreamExt;
+use futures::{SinkExt, StreamExt};
 use my_http_server::web_sockets::{
     MyWebSocket, MyWebSocketCallback, MyWebSocketHttpRequest, WebSocketConnectedFail, WsMessage,
 };
@@ -118,7 +118,7 @@ async fn forward_logs(
 
     let upstream_url = build_collector_ws_url(&master_url, &container_id, tail);
     println!("[api-ws-logs] dialing collector upstream={upstream_url}");
-    let upstream = match tokio_tungstenite::connect_async(&upstream_url).await {
+    let mut upstream = match tokio_tungstenite::connect_async(&upstream_url).await {
         Ok((stream, _)) => {
             println!("[api-ws-logs] upstream connected env={env} id={container_id}");
             stream
@@ -135,9 +135,13 @@ async fn forward_logs(
         }
     };
 
-    let (_write_upstream, mut read_upstream) = upstream.split();
-
-    // Two timers:
+    // NOTE: we deliberately do NOT call `.split()` on `upstream`. Split sinks
+    // disable tokio-tungstenite's transparent Pong-on-Ping, which means the
+    // collector would never see a Pong back and would eventually close us out
+    // on its 60-second idle timeout. Keeping the stream whole and replying to
+    // Pings explicitly inside this same loop keeps both directions alive.
+    //
+    // Timers:
     //  - alive_check (2s): cheap heartbeat into our own loop so a silent
     //    upstream doesn't keep an already-dead downstream connection open.
     //  - ping_tick (5s): WS Ping frame downstream so the browser doesn't
@@ -160,7 +164,7 @@ async fn forward_logs(
                 ws.send_message(std::iter::once(WsMessage::Ping(Vec::new().into())))
                     .await;
             }
-            msg = read_upstream.next() => {
+            msg = upstream.next() => {
                 match msg {
                     Some(Ok(Message::Text(text))) => {
                         ws.send_message(std::iter::once(WsMessage::Text(text.to_string().into())))
@@ -170,9 +174,14 @@ async fn forward_logs(
                         ws.send_message(std::iter::once(WsMessage::Binary(bytes.to_vec().into())))
                             .await;
                     }
-                    Some(Ok(Message::Ping(_))) | Some(Ok(Message::Pong(_))) => {
-                        // tokio-tungstenite auto-responds to Ping; nothing to forward.
+                    Some(Ok(Message::Ping(payload))) => {
+                        // Reply manually — we own the writer in this loop too.
+                        if let Err(err) = upstream.send(Message::Pong(payload)).await {
+                            println!("api ws pong->upstream failed for {container_id}: {err:?}");
+                            break;
+                        }
                     }
+                    Some(Ok(Message::Pong(_))) => {}
                     Some(Ok(Message::Close(_))) | None => break,
                     Some(Ok(_)) => {}
                     Some(Err(err)) => {
