@@ -157,15 +157,15 @@ fn VmCard(
                             span { class: "item", title: "host cores", "{c}c" }
                         }
                     }
-                    div { class: "vm-mem-text",
-                        span { class: "used", "{used_short}" }
-                        span { class: "denom", " / {denom_label}" }
-                        span { class: "sep", " · " }
-                        span { class: "res-lbl", "res " }
-                        span { style: "color: {reserved_color};", "{reserved_short}" }
-                    }
                 }
                 div { class: "count", "{vm.containers_amount}" }
+            }
+            div { class: "vm-mem-text",
+                span { class: "used", "{used_short}" }
+                span { class: "denom", " / {denom_label}" }
+                span { class: "sep", " · " }
+                span { class: "res-lbl", "res " }
+                span { style: "color: {reserved_color};", "{reserved_short}" }
             }
             div { class: "vm-mem-bar", title: "{mem_title}",
                 div {
