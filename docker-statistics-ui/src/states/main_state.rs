@@ -58,7 +58,9 @@ impl MainState {
         Self {
             selected_vm: None,
             containers: Vec::new(),
-            filter: "".to_string(),
+            // Restore the container search from the URL (`?service=`) so a
+            // refresh / shared link keeps the active filter.
+            filter: crate::utils::read_url_query("service").unwrap_or_default(),
             container_filter: ContainerFilter::All,
             active_container_name: None,
             active_container_vm: None,
@@ -77,7 +79,9 @@ impl MainState {
         self.containers = Vec::new();
         self.active_container_name = None;
         self.active_container_vm = None;
-        self.filter = String::new();
+        // Keep `filter` across VM switches — it's mirrored into the URL
+        // (`?service=`) and restored on refresh, so clearing it here would
+        // wipe the user's search every time the route effect re-selects a VM.
         self.container_filter = ContainerFilter::All;
         self.state_no += 1;
     }

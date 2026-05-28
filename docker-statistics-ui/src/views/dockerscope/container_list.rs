@@ -300,9 +300,11 @@ fn ListHead(title: String, total: usize) -> Element {
                     placeholder: "filter by name, image, id…",
                     value: "{query}",
                     oninput: move |evt| {
+                        let value = evt.value();
+                        crate::utils::set_url_query("service", &value);
                         consume_context::<Signal<MainState>>()
                             .write()
-                            .set_filter(evt.value());
+                            .set_filter(value);
                     },
                 }
                 span { class: "kbd", "⌘K" }
