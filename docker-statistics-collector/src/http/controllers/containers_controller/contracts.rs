@@ -58,6 +58,8 @@ pub struct ContainerJsonModel {
     pub mem: MemUsageJsonMode,
     #[serde(default)]
     pub files: FilesUsageJsonMode,
+    #[serde(default)]
+    pub net: NetUsageJsonMode,
     pub ports: Vec<PortHttpModel>,
     pub volumes: Vec<VolumeHttpModel>,
 }
@@ -80,6 +82,10 @@ impl ContainerJsonModel {
             files: FilesUsageJsonMode {
                 open: itm.open_files,
                 limit: itm.fd_limit,
+            },
+            net: NetUsageJsonMode {
+                in_mbps: itm.net_in_mbps,
+                out_mbps: itm.net_out_mbps,
             },
             names: itm.names,
             labels: itm.labels,
@@ -133,6 +139,11 @@ impl ContainerJsonModel {
             mem_limit: self.mem.limit,
             mem_usage: self.mem.usage,
             cpu_usage: self.cpu.usage,
+            net_in_mbps: self.net.in_mbps,
+            net_out_mbps: self.net.out_mbps,
+            prev_rx_bytes: None,
+            prev_tx_bytes: None,
+            prev_net_at: None,
             open_files: self.files.open,
             fd_limit: self.files.limit,
             ports: self
@@ -181,6 +192,14 @@ pub struct MemUsageJsonMode {
 pub struct FilesUsageJsonMode {
     pub open: Option<i64>,
     pub limit: Option<i64>,
+}
+
+// Network throughput in MB/s, derived from rx/tx byte deltas between polls.
+// None until two samples are collected.
+#[derive(Serialize, Deserialize, MyHttpObjectStructure, Default)]
+pub struct NetUsageJsonMode {
+    pub in_mbps: Option<f64>,
+    pub out_mbps: Option<f64>,
 }
 
 #[derive(Serialize, Deserialize, MyHttpObjectStructure)]

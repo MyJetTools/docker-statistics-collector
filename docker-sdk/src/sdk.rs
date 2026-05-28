@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::time::Duration;
 
 use flurl::{
@@ -12,6 +13,18 @@ pub struct ContainerStatsJsonModel {
     pub memory_stats: MemoryStatsJsonModel,
     pub cpu_stats: CpuStatsJsonModel,
     pub precpu_stats: CpuStatsJsonModel,
+    /// Per-interface cumulative byte counters. Absent for containers on
+    /// `network_mode: none/host` — treated as zero traffic.
+    #[serde(default)]
+    pub networks: Option<HashMap<String, NetworkStatJsonModel>>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct NetworkStatJsonModel {
+    #[serde(default)]
+    pub rx_bytes: i64,
+    #[serde(default)]
+    pub tx_bytes: i64,
 }
 
 impl ContainerStatsJsonModel {
@@ -56,6 +69,23 @@ impl ContainerStatsJsonModel {
         let result = (cpu_delta / system_cpu_delta) * self.number_cpus() as f64;
 
         result
+    }
+
+    /// Total received bytes across all interfaces (cumulative since container
+    /// start). Rate is derived in the collector from the delta between polls.
+    pub fn total_rx_bytes(&self) -> i64 {
+        match self.networks.as_ref() {
+            Some(nets) => nets.values().map(|n| n.rx_bytes).sum(),
+            None => 0,
+        }
+    }
+
+    /// Total transmitted bytes across all interfaces (cumulative).
+    pub fn total_tx_bytes(&self) -> i64 {
+        match self.networks.as_ref() {
+            Some(nets) => nets.values().map(|n| n.tx_bytes).sum(),
+            None => 0,
+        }
     }
 }
 

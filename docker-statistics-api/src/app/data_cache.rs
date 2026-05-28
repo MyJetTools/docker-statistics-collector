@@ -19,6 +19,8 @@ pub struct MetricsHistoryWrapper {
     pub cpu: MetricsHistory<f64>,
     pub mem: MetricsHistory<i64>,
     pub open_files: MetricsHistory<i64>,
+    pub net_in: MetricsHistory<f64>,
+    pub net_out: MetricsHistory<f64>,
 }
 impl MetricsHistoryWrapper {
     pub fn new() -> Self {
@@ -26,6 +28,8 @@ impl MetricsHistoryWrapper {
             cpu: MetricsHistory::new(),
             mem: MetricsHistory::new(),
             open_files: MetricsHistory::new(),
+            net_in: MetricsHistory::new(),
+            net_out: MetricsHistory::new(),
         }
     }
 }
@@ -53,9 +57,12 @@ impl Into<ContainerModel> for ContainerJsonModel {
             cpu: self.cpu,
             mem: self.mem,
             files: self.files,
+            net: self.net,
             cpu_usage_history: None,
             mem_usage_history: None,
             open_files_history: None,
+            net_in_history: None,
+            net_out_history: None,
             ports: self.ports,
             volumes: self.volumes,
         }
@@ -155,6 +162,18 @@ impl DataCache {
                     .unwrap()
                     .open_files
                     .add(open);
+            }
+
+            // Network throughput history — recorded whenever the collector
+            // has a rate (i.e. after its second sample for the container).
+            if container.net.in_mbps.is_some() || container.net.out_mbps.is_some() {
+                if !self.metrics_history.contains_key(&id) {
+                    self.metrics_history
+                        .insert(id.to_string(), MetricsHistoryWrapper::new());
+                }
+                let wrapper = self.metrics_history.get_mut(&id).unwrap();
+                wrapper.net_in.add(container.net.in_mbps.unwrap_or(0.0));
+                wrapper.net_out.add(container.net.out_mbps.unwrap_or(0.0));
             }
 
             if !by_vm.containers.contains_key(&id) {

@@ -46,9 +46,13 @@ pub struct ContainerModel {
     pub mem: MemUsageJsonMode,
     #[serde(default)]
     pub files: FilesUsageJsonMode,
+    #[serde(default)]
+    pub net: NetUsageJsonMode,
     pub cpu_usage_history: Option<Vec<f64>>,
     pub mem_usage_history: Option<Vec<i64>>,
     pub open_files_history: Option<Vec<i64>>,
+    pub net_in_history: Option<Vec<f64>>,
+    pub net_out_history: Option<Vec<f64>>,
 
     pub ports: Option<Vec<PortHttpModel>>,
     #[serde(default)]
@@ -60,6 +64,7 @@ impl ContainerModel {
         self.cpu = src.cpu;
         self.mem = src.mem;
         self.files = src.files;
+        self.net = src.net;
         self.labels = src.labels;
         self.enabled = src.enabled;
         self.image = src.image;
@@ -90,6 +95,8 @@ pub struct ContainerJsonModel {
     pub mem: MemUsageJsonMode,
     #[serde(default)]
     pub files: FilesUsageJsonMode,
+    #[serde(default)]
+    pub net: NetUsageJsonMode,
     pub ports: Option<Vec<PortHttpModel>>,
     #[serde(default)]
     pub volumes: Option<Vec<VolumeHttpModel>>,
@@ -132,6 +139,14 @@ pub struct FilesUsageJsonMode {
     pub open: Option<i64>,
     /// `nofile` soft limit (`RLIMIT_NOFILE`) of the container's main process.
     pub limit: Option<i64>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
+pub struct NetUsageJsonMode {
+    /// Inbound throughput in MB/s. `None` until the collector has two samples.
+    pub in_mbps: Option<f64>,
+    /// Outbound throughput in MB/s.
+    pub out_mbps: Option<f64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

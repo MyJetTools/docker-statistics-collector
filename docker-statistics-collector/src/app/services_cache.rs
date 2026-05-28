@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, HashMap};
+use std::time::Instant;
 
 use docker_sdk::list_of_containers::ContainerJsonModel;
 use tokio::sync::RwLock;
@@ -17,6 +18,17 @@ pub struct ServiceInfo {
     pub mem_limit: Option<i64>,
     pub mem_usage: Option<i64>,
     pub cpu_usage: Option<f64>,
+
+    /// Network throughput in MB/s, derived from the delta of cumulative
+    /// rx/tx byte counters between two stats polls. `None` until we have two
+    /// samples.
+    pub net_in_mbps: Option<f64>,
+    pub net_out_mbps: Option<f64>,
+    /// Previous cumulative counters + the instant they were taken, used to
+    /// compute the rate on the next poll.
+    pub(crate) prev_rx_bytes: Option<i64>,
+    pub(crate) prev_tx_bytes: Option<i64>,
+    pub(crate) prev_net_at: Option<Instant>,
 
     /// Unix epoch seconds of the last container start (from
     /// `State.StartedAt`). `None` when never started or not inspected yet.
@@ -87,6 +99,11 @@ impl ServicesCache {
                         mem_usage: None,
                         cpu_usage: None,
                         mem_limit: None,
+                        net_in_mbps: None,
+                        net_out_mbps: None,
+                        prev_rx_bytes: None,
+                        prev_tx_bytes: None,
+                        prev_net_at: None,
                         open_files: None,
                         fd_limit: None,
                         started_at: None,
@@ -136,6 +153,8 @@ impl ServicesCache {
         mem_available: i64,
         mem_limit: i64,
         cpu_usage: f64,
+        rx_bytes: i64,
+        tx_bytes: i64,
     ) {
         let mut write_access = self.data.write().await;
 
@@ -144,6 +163,28 @@ impl ServicesCache {
             container.mem_usage = Some(mem_usage);
             container.mem_limit = Some(mem_limit);
             container.mem_available = Some(mem_available);
+
+            // Derive MB/s from the delta since the previous sample.
+            let now = Instant::now();
+            if let (Some(prev_rx), Some(prev_tx), Some(prev_at)) = (
+                container.prev_rx_bytes,
+                container.prev_tx_bytes,
+                container.prev_net_at,
+            ) {
+                let secs = now.duration_since(prev_at).as_secs_f64();
+                if secs > 0.0 {
+                    const MB: f64 = 1024.0 * 1024.0;
+                    // Counters reset to a lower value on container restart — clamp
+                    // negatives to 0 instead of reporting a huge spike.
+                    let rx_rate = (rx_bytes - prev_rx).max(0) as f64 / secs / MB;
+                    let tx_rate = (tx_bytes - prev_tx).max(0) as f64 / secs / MB;
+                    container.net_in_mbps = Some(rx_rate);
+                    container.net_out_mbps = Some(tx_rate);
+                }
+            }
+            container.prev_rx_bytes = Some(rx_bytes);
+            container.prev_tx_bytes = Some(tx_bytes);
+            container.prev_net_at = Some(now);
         }
     }
 
@@ -171,6 +212,12 @@ impl ServicesCache {
             container.mem_limit = None;
 
             container.cpu_usage = None;
+
+            container.net_in_mbps = None;
+            container.net_out_mbps = None;
+            container.prev_rx_bytes = None;
+            container.prev_tx_bytes = None;
+            container.prev_net_at = None;
 
             container.open_files = None;
             container.fd_limit = None;

@@ -78,6 +78,8 @@ async fn handle_request(
                         row.container.mem_usage_history = Some(wrapper.mem.get_snapshot());
                         row.container.open_files_history =
                             Some(wrapper.open_files.get_snapshot());
+                        row.container.net_in_history = Some(wrapper.net_in.get_snapshot());
+                        row.container.net_out_history = Some(wrapper.net_out.get_snapshot());
                     }
                 }
 

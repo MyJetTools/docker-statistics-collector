@@ -52,6 +52,25 @@ pub fn DetailPanel(env: Rc<String>) -> Element {
     let (lim_v, lim_u) = fmt_mem_pair(mem_limit);
     let mem_pct_now = pct(mem_now, mem_limit) as i32;
 
+    let net_in_history = container
+        .net_in_history
+        .clone()
+        .unwrap_or_else(|| vec![container.net.in_mbps.unwrap_or(0.0)]);
+    let net_out_history = container
+        .net_out_history
+        .clone()
+        .unwrap_or_else(|| vec![container.net.out_mbps.unwrap_or(0.0)]);
+    let net_in_now = container
+        .net
+        .in_mbps
+        .or_else(|| net_in_history.last().copied())
+        .unwrap_or(0.0);
+    let net_out_now = container
+        .net
+        .out_mbps
+        .or_else(|| net_out_history.last().copied())
+        .unwrap_or(0.0);
+
     rsx! {
         main { class: "detail",
             Hero { container: container.clone(), vm_url: vm_url.clone() }
@@ -76,6 +95,26 @@ pub fn DetailPanel(env: Rc<String>) -> Element {
                     delta_up: true,
                     sub: format!("limit {} {} · {}% used", lim_v, lim_u, mem_pct_now),
                     values: mem_history_mib,
+                }
+                ChartCard {
+                    label: "Net In".to_string(),
+                    color: "#a78bfa".to_string(),
+                    big_value: format!("{:.2}", net_in_now),
+                    unit: "MB/s".to_string(),
+                    delta_value: "↓ inbound".to_string(),
+                    delta_up: true,
+                    sub: "2s window".to_string(),
+                    values: net_in_history,
+                }
+                ChartCard {
+                    label: "Net Out".to_string(),
+                    color: "#f59e0b".to_string(),
+                    big_value: format!("{:.2}", net_out_now),
+                    unit: "MB/s".to_string(),
+                    delta_value: "↑ outbound".to_string(),
+                    delta_up: true,
+                    sub: "2s window".to_string(),
+                    values: net_out_history,
                 }
             }
 
