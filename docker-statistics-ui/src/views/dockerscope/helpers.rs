@@ -153,6 +153,8 @@ pub fn aggregate_all_vms(vms: &BTreeMap<String, VmModel>) -> VmModel {
     let mut mem_limit = 0_i64;
     let mut containers_amount = 0_usize;
     let mut open_files = 0_i64;
+    let mut net_in_mbps = 0.0_f64;
+    let mut net_out_mbps = 0.0_f64;
     let mut host_mem_total: Option<i64> = None;
     let mut host_mem_available: Option<i64> = None;
     let mut host_mem_used: Option<i64> = None;
@@ -164,6 +166,8 @@ pub fn aggregate_all_vms(vms: &BTreeMap<String, VmModel>) -> VmModel {
         mem_limit += vm.mem_limit;
         containers_amount += vm.containers_amount;
         open_files += vm.open_files;
+        net_in_mbps += vm.net_in_mbps;
+        net_out_mbps += vm.net_out_mbps;
         if let Some(t) = vm.host_mem_total {
             host_mem_total = Some(host_mem_total.unwrap_or(0) + t);
         }
@@ -185,6 +189,8 @@ pub fn aggregate_all_vms(vms: &BTreeMap<String, VmModel>) -> VmModel {
         mem_limit,
         containers_amount,
         open_files,
+        net_in_mbps,
+        net_out_mbps,
         host_mem_total,
         host_mem_available,
         host_mem_used,

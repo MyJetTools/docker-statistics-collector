@@ -275,6 +275,7 @@ button, input { font-family: inherit; color: inherit; }
 .vm-card .meta .item { display: inline-flex; align-items: center; gap: 4px; }
 .vm-card .meta .item.cpu { color: #74c98a; }
 .vm-card .meta .item.mem { color: #87b3f0; }
+.vm-card .meta .item.net { color: var(--purple); }
 .vm-card .count {
   font-family: var(--mono); font-size: 11px; color: var(--text-dim);
   background: var(--surface-1); border: 1px solid var(--border);
@@ -535,6 +536,7 @@ button, input { font-family: inherit; color: inherit; }
 }
 .cont-row .metrics .cpu { color: var(--cpu); }
 .cont-row .metrics .mem { color: var(--mem); }
+.cont-row .metrics .net { color: var(--purple); font-size: 10px; }
 
 /* ─── Detail panel (right column) ─── */
 .detail {

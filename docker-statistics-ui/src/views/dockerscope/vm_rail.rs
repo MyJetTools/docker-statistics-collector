@@ -156,6 +156,11 @@ fn VmCard(
                         if let Some(c) = vm.host_cpu_count {
                             span { class: "item", title: "host cores", "{c}c" }
                         }
+                        span {
+                            class: "item net",
+                            title: "network in / out (sum across containers, MB/s)",
+                            "↓{vm.net_in_mbps:.2} ↑{vm.net_out_mbps:.2} MB/s"
+                        }
                     }
                 }
                 div { class: "count", "{vm.containers_amount}" }

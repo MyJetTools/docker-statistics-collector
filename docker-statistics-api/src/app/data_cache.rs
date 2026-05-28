@@ -194,6 +194,8 @@ impl DataCache {
             let mut mem_limit = 0;
             let mut containers_amount = 0;
             let mut open_files = 0;
+            let mut net_in_mbps = 0.0;
+            let mut net_out_mbps = 0.0;
 
             // Effective limit for a container without `mem.limit` declared — it can
             // grab everything the host has, so we charge it the full host RAM.
@@ -215,6 +217,13 @@ impl DataCache {
 
                 if let Some(open) = itm.files.open {
                     open_files += open;
+                }
+
+                if let Some(v) = itm.net.in_mbps {
+                    net_in_mbps += v;
+                }
+                if let Some(v) = itm.net.out_mbps {
+                    net_out_mbps += v;
                 }
 
                 if itm.enabled {
@@ -242,6 +251,8 @@ impl DataCache {
                     containers_amount,
                     mem_limit,
                     open_files,
+                    net_in_mbps,
+                    net_out_mbps,
                     host_mem_total,
                     host_mem_available,
                     host_mem_used,

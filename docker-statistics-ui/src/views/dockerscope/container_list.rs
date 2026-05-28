@@ -84,6 +84,8 @@ struct ContainerRowData {
     /// Whether `effective_mem_limit` came from `mem.limit` (true) or fell back
     /// to host RAM (false). Drives the tooltip wording.
     mem_limit_is_declared: bool,
+    net_in_mbps: f64,
+    net_out_mbps: f64,
 }
 
 impl ContainerRowData {
@@ -110,6 +112,8 @@ impl ContainerRowData {
             mem_bytes: mem_used,
             effective_mem_limit,
             mem_limit_is_declared,
+            net_in_mbps: c.net.in_mbps.unwrap_or(0.0),
+            net_out_mbps: c.net.out_mbps.unwrap_or(0.0),
         }
     }
 
@@ -193,6 +197,11 @@ fn ContainerRow(
                     if let Some(lim) = limit_str.as_ref() {
                         span { style: "color: var(--text-muted);", " / {lim}" }
                     }
+                }
+                span {
+                    class: "net",
+                    title: "network in / out (MB/s)",
+                    "↓{row.net_in_mbps:.2} ↑{row.net_out_mbps:.2}"
                 }
             }
         }

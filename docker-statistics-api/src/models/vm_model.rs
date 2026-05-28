@@ -9,6 +9,12 @@ pub struct VmModel {
     pub containers_amount: usize,
     // Total file descriptors open by the VM's containers.
     pub open_files: i64,
+    /// Sum of inbound network throughput (MB/s) across the VM's containers.
+    #[serde(default)]
+    pub net_in_mbps: f64,
+    /// Sum of outbound network throughput (MB/s) across the VM's containers.
+    #[serde(default)]
+    pub net_out_mbps: f64,
     /// Host physical memory in bytes — reported by the collector reading
     /// `/proc/meminfo` on the peer's host. `None` when `/proc` is not
     /// bind-mounted into the collector container or the platform has no `/proc`.
