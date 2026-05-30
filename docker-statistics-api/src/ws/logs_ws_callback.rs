@@ -167,8 +167,13 @@ async fn forward_logs(
 
     loop {
         if !ws.is_connected() {
+            println!("[api-ws-logs] loop exit: downstream ws disconnected id={container_id}");
             break;
         }
+        // Set inside the ping branch; the actual upstream send happens AFTER the
+        // select! ends — we can't borrow `upstream` mutably in two select arms
+        // (here and in `upstream.next()`) at once.
+        let mut ping_upstream = false;
         tokio::select! {
             biased;
             _ = alive_check.tick() => {
@@ -178,6 +183,7 @@ async fn forward_logs(
                 println!("[api-ws-logs] -> PING to client id={container_id}");
                 ws.send_message(std::iter::once(WsMessage::Ping(Vec::new().into())))
                     .await;
+                ping_upstream = true;
             }
             msg = upstream.next() => {
                 match msg {
@@ -197,13 +203,32 @@ async fn forward_logs(
                         }
                     }
                     Some(Ok(Message::Pong(_))) => {}
-                    Some(Ok(Message::Close(_))) | None => break,
+                    Some(Ok(Message::Close(_))) => {
+                        println!("[api-ws-logs] loop exit: upstream sent CLOSE id={container_id}");
+                        break;
+                    }
+                    None => {
+                        println!("[api-ws-logs] loop exit: upstream stream ENDED (None) id={container_id}");
+                        break;
+                    }
                     Some(Ok(_)) => {}
                     Some(Err(err)) => {
                         println!("api ws upstream error for {container_id}: {err:?}");
                         break;
                     }
                 }
+            }
+        }
+
+        // Keep the collector's read side alive. In the peer-relay path the
+        // collector only forwards log frames to us and never pings, so without
+        // this we'd send nothing upstream and the collector's 60s read-idle
+        // would close us — cascading a Close down to the browser.
+        if ping_upstream {
+            println!("[api-ws-logs] -> PING upstream (collector) id={container_id}");
+            if let Err(err) = upstream.send(Message::Ping(Vec::new().into())).await {
+                println!("[api-ws-logs] -> PING upstream failed id={container_id}: {err:?}");
+                break;
             }
         }
     }
