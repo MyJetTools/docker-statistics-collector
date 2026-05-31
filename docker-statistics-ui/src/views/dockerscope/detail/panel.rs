@@ -71,6 +71,9 @@ pub fn DetailPanel(env: Rc<String>) -> Element {
         .or_else(|| net_out_history.last().copied())
         .unwrap_or(0.0);
 
+    let (net_in_v, net_in_u) = fmt_throughput_pair(net_in_now);
+    let (net_out_v, net_out_u) = fmt_throughput_pair(net_out_now);
+
     rsx! {
         main { class: "detail",
             Hero { container: container.clone(), vm_url: vm_url.clone() }
@@ -99,8 +102,8 @@ pub fn DetailPanel(env: Rc<String>) -> Element {
                 ChartCard {
                     label: "Net In".to_string(),
                     color: "#a78bfa".to_string(),
-                    big_value: format!("{:.2}", net_in_now),
-                    unit: "MB/s".to_string(),
+                    big_value: net_in_v,
+                    unit: net_in_u,
                     delta_value: "↓ inbound".to_string(),
                     delta_up: true,
                     sub: "2s window".to_string(),
@@ -109,8 +112,8 @@ pub fn DetailPanel(env: Rc<String>) -> Element {
                 ChartCard {
                     label: "Net Out".to_string(),
                     color: "#f59e0b".to_string(),
-                    big_value: format!("{:.2}", net_out_now),
-                    unit: "MB/s".to_string(),
+                    big_value: net_out_v,
+                    unit: net_out_u,
                     delta_value: "↑ outbound".to_string(),
                     delta_up: true,
                     sub: "2s window".to_string(),

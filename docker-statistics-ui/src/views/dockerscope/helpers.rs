@@ -102,6 +102,36 @@ pub fn fmt_mem_pair(bytes: i64) -> (String, &'static str) {
     }
 }
 
+/// Auto-scale a byte count into a `(value, unit)` pair, mirroring MyNoSqlServer's
+/// `format_bytes` convention (TypeScript/Utils.ts): binary (1024) steps, 2-decimal
+/// precision and short `b / Kb / Mb / Gb / Tb` suffixes.
+pub fn format_bytes_pair(bytes: f64) -> (String, &'static str) {
+    const UNITS: [&str; 5] = ["b", "Kb", "Mb", "Gb", "Tb"];
+    let mut value = bytes.max(0.0);
+    let mut idx = 0;
+    while value >= 1024.0 && idx < UNITS.len() - 1 {
+        value /= 1024.0;
+        idx += 1;
+    }
+    (format!("{:.2}", value), UNITS[idx])
+}
+
+/// Auto-scale a bytes-per-second rate (input is MB/s, i.e. MiB/s — the unit the
+/// collector reports) into a `(value, unit)` pair that picks the most readable
+/// magnitude. Reuses [`format_bytes_pair`] so the suffixes match the rest of the
+/// fleet (`B/s`, `KB/s`, `MB/s`, `GB/s`).
+pub fn fmt_throughput_pair(mbps: f64) -> (String, String) {
+    let bytes_per_sec = mbps.max(0.0) * 1024.0 * 1024.0;
+    let (v, u) = format_bytes_pair(bytes_per_sec);
+    (v, format!("{}/s", u))
+}
+
+/// Single-string form of [`fmt_throughput_pair`], e.g. `"12.34 MB/s"`.
+pub fn fmt_throughput(mbps: f64) -> String {
+    let (v, u) = fmt_throughput_pair(mbps);
+    format!("{} {}", v, u)
+}
+
 pub fn pct(numer: i64, denom: i64) -> f64 {
     if denom <= 0 {
         0.0

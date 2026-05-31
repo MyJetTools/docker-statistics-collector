@@ -155,6 +155,8 @@ fn ContainerRow(
 
     let used_str = fmt_mem_short(row.mem_bytes);
     let limit_str = row.effective_mem_limit.map(fmt_mem_short);
+    let net_in_str = fmt_throughput(row.net_in_mbps);
+    let net_out_str = fmt_throughput(row.net_out_mbps);
     let mem_title = match (pct, row.mem_limit_is_declared) {
         (Some(p), true) => format!("{:.0}% of declared mem limit", p),
         (Some(p), false) => format!("{:.0}% of host RAM (no container limit)", p),
@@ -200,8 +202,8 @@ fn ContainerRow(
                 }
                 span {
                     class: "net",
-                    title: "network in / out (MB/s)",
-                    "↓{row.net_in_mbps:.2} ↑{row.net_out_mbps:.2}"
+                    title: "network in / out",
+                    "↓{net_in_str} ↑{net_out_str}"
                 }
             }
         }

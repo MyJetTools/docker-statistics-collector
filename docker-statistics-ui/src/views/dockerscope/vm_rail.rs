@@ -139,6 +139,9 @@ fn VmCard(
     let reserved_cls = if over_commit { "over-commit" } else { "" };
     let denom_label = host_total_short.clone().unwrap_or_else(|| reserved_short.clone());
 
+    let net_in_str = fmt_throughput(vm.net_in_mbps);
+    let net_out_str = fmt_throughput(vm.net_out_mbps);
+
     rsx! {
         Link {
             to: target,
@@ -158,8 +161,8 @@ fn VmCard(
                         }
                         span {
                             class: "item net",
-                            title: "network in / out (sum across containers, MB/s)",
-                            "↓{vm.net_in_mbps:.2} ↑{vm.net_out_mbps:.2} MB/s"
+                            title: "network in / out (sum across containers)",
+                            "↓{net_in_str} ↑{net_out_str}"
                         }
                     }
                 }
