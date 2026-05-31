@@ -93,21 +93,7 @@ impl MyWebSocketCallback for LogsWsCallback {
 
     async fn disconnected(&self, _ws: &MyWebSocket) {}
 
-    async fn on_message(&self, _ws: Arc<MyWebSocket>, message: WsMessage) {
-        // DEBUG: confirm whether the client's Pong (reply to our 5s Ping) — or
-        // anything at all — actually reaches the API's read side. If we keep
-        // sending PING but never see PONG here, the 60s idle close is explained.
-        match &message {
-            WsMessage::Pong(p) => println!("[api-ws-logs] <- PONG from client ({} bytes)", p.len()),
-            WsMessage::Ping(p) => println!("[api-ws-logs] <- PING from client ({} bytes)", p.len()),
-            WsMessage::Text(t) => println!("[api-ws-logs] <- TEXT from client: {:?}", t),
-            WsMessage::Binary(b) => {
-                println!("[api-ws-logs] <- BINARY from client ({} bytes)", b.len())
-            }
-            WsMessage::Close(_) => println!("[api-ws-logs] <- CLOSE from client"),
-            WsMessage::Frame(_) => println!("[api-ws-logs] <- raw FRAME from client"),
-        }
-    }
+    async fn on_message(&self, _ws: Arc<MyWebSocket>, _message: WsMessage) {}
 }
 
 async fn forward_logs(
@@ -180,7 +166,6 @@ async fn forward_logs(
                 continue;
             }
             _ = ping_tick.tick() => {
-                println!("[api-ws-logs] -> PING to client id={container_id}");
                 ws.send_message(std::iter::once(WsMessage::Ping(Vec::new().into())))
                     .await;
                 ping_upstream = true;
@@ -225,7 +210,6 @@ async fn forward_logs(
         // this we'd send nothing upstream and the collector's 60s read-idle
         // would close us — cascading a Close down to the browser.
         if ping_upstream {
-            println!("[api-ws-logs] -> PING upstream (collector) id={container_id}");
             if let Err(err) = upstream.send(Message::Ping(Vec::new().into())).await {
                 println!("[api-ws-logs] -> PING upstream failed id={container_id}: {err:?}");
                 break;
