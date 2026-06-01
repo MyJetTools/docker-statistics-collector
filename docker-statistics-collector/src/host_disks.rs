@@ -35,7 +35,7 @@ pub struct DiskSnapshot {
 ///
 /// Returns an empty vec when the mount table can't be read (no host `/proc`) or
 /// when no physical filesystem could be measured (host root not mounted).
-pub fn read(proc_base: &str, root_base: &str) -> Vec<DiskSnapshot> {
+pub fn read(proc_base: &str, root_base: &str, ignore: &[String]) -> Vec<DiskSnapshot> {
     let mounts = match read_host_mount_table(proc_base) {
         Some(content) => content,
         None => return Vec::new(),
@@ -48,6 +48,11 @@ pub fn read(proc_base: &str, root_base: &str) -> Vec<DiskSnapshot> {
         // Same physical device can appear several times (bind mounts, btrfs
         // subvolumes) — report each disk once.
         if !seen_devices.insert(device.clone()) {
+            continue;
+        }
+
+        // Operator-configured hide list — match by device or mount point.
+        if is_ignored(&device, &mount_point, ignore) {
             continue;
         }
 
@@ -65,6 +70,12 @@ pub fn read(proc_base: &str, root_base: &str) -> Vec<DiskSnapshot> {
     }
 
     result
+}
+
+/// A disk is hidden when the operator's `ignore_disks` list contains its block
+/// device (e.g. `/dev/sda15`) or its mount point (e.g. `/boot/efi`).
+fn is_ignored(device: &str, mount_point: &str, ignore: &[String]) -> bool {
+    ignore.iter().any(|i| i == device || i == mount_point)
 }
 
 /// Read the HOST's mount table.
@@ -231,6 +242,15 @@ overlay /var/lib/docker/overlay2/abc/merged overlay rw 0 0
         // "/mnt/my disk" with the space octal-escaped as \040.
         assert_eq!(unescape_mount("/mnt/my\\040disk"), "/mnt/my disk");
         assert_eq!(unescape_mount("/data"), "/data");
+    }
+
+    #[test]
+    fn ignore_matches_device_or_mount_point() {
+        let ignore = vec!["/boot/efi".to_string(), "/dev/sdf".to_string()];
+        assert!(is_ignored("/dev/sda15", "/boot/efi", &ignore)); // by mount point
+        assert!(is_ignored("/dev/sdf", "/mnt/vol", &ignore)); // by device
+        assert!(!is_ignored("/dev/sda1", "/", &ignore)); // kept
+        assert!(!is_ignored("/dev/sda1", "/", &[])); // empty list keeps everything
     }
 
     #[test]

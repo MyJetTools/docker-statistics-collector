@@ -65,6 +65,7 @@ Settings are read from `~/.docker-statistics-collector` (YAML). See
 | `peers_request_timeout_secs` | `u64?`         | Optional. Per-peer request timeout. Default `5`.                                  |
 | `host_proc_path`             | `string?`      | Optional. Path inside the collector container where the host `/proc` is mounted. Used to read per-container open file descriptors and `nofile` limits. Default `/host/proc`. See [File descriptor statistics](#file-descriptor-statistics). |
 | `host_root_path`             | `string?`      | Optional. Path inside the collector container where the host root filesystem is bind-mounted (`-v /:/host/root:ro`). Used to `statvfs` each host mount point for physical-disk usage. Default `/host/root`. See [Host disk statistics](#host-disk-statistics). |
+| `ignore_disks`               | `list<string>?`| Optional. Physical disks to hide from host disk stats. Each entry matches either the block device (`/dev/sda15`) or the mount point (`/boot/efi`). |
 
 Example:
 
@@ -88,6 +89,10 @@ host_proc_path: /host/proc
 # container. Default is `/host/root` — see "Host disk statistics" below for the
 # required `-v /:/host/root:ro` volume mount.
 host_root_path: /host/root
+# Disks to hide from host disk stats — matched by device or mount point.
+ignore_disks:
+  - /boot/efi
+  - /dev/sdf
 ```
 
 The HTTP listen port (`8000`) is hardcoded in
@@ -232,7 +237,9 @@ Each disk entry has `device` (e.g. `/dev/sda1`), `mountPoint` (e.g. `/`),
 
 Only filesystems backed by a real block device (`/dev/...`) are reported;
 pseudo-filesystems (tmpfs, overlay, proc, sysfs, cgroup, …) are filtered out, and
-each physical device is listed once.
+each physical device is listed once. To hide specific disks (e.g. the EFI
+partition), list them under `ignore_disks` — each entry matches either the
+device (`/dev/sda15`) or the mount point (`/boot/efi`).
 
 ### Why a second mount is required
 

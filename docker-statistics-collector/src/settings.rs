@@ -19,6 +19,7 @@ pub struct SettingsModel {
     /// `statvfs` each host mount point for physical-disk usage. Defaults to
     /// `/host/root`.
     pub host_root_path: Option<String>,
+    pub ignore_disks: Option<Vec<String>>,
 }
 
 impl SettingsModel {
@@ -58,6 +59,13 @@ impl SettingsModel {
         match self.host_root_path.as_deref() {
             Some(path) => path,
             None => "/host/root",
+        }
+    }
+
+    pub fn ignore_disks(&self) -> &[String] {
+        match self.ignore_disks.as_ref() {
+            Some(v) => v.as_slice(),
+            None => &[],
         }
     }
 }

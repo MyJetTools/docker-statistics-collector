@@ -201,10 +201,11 @@ fn VmCard(
                 div { class: "info",
                     div { class: "name", "{name}" }
                     div { class: "cpu-line",
-                        span { class: "item cpu", "{cpu_pct:.2}% cpu" }
+                        span { class: "cico", {icon_cpu()} }
                         if let Some(c) = vm.host_cpu_count {
-                            span { class: "item", title: "host cores", "{c}c" }
+                            span { class: "cores", title: "host cores", "{c}" }
                         }
+                        span { class: "item cpu", "{cpu_pct:.2}%" }
                     }
                 }
                 div { class: "count", "{vm.containers_amount}" }

@@ -110,11 +110,12 @@ impl McpToolCall<GetHostInfoInputData, GetHostInfoResponse> for GetHostInfoHandl
         let instance = self.app.get_env_info();
         let proc_base = self.app.settings_model.host_proc_path().to_string();
         let root_base = self.app.settings_model.host_root_path().to_string();
+        let ignore_disks = self.app.settings_model.ignore_disks().to_vec();
 
         // Local host — memory + physical disks (same source as /api/containers).
         let local = tokio::task::spawn_blocking(move || {
             let mem = crate::host_mem::read(&proc_base);
-            let disks = crate::host_disks::read(&proc_base, &root_base);
+            let disks = crate::host_disks::read(&proc_base, &root_base, &ignore_disks);
             (mem, disks)
         })
         .await

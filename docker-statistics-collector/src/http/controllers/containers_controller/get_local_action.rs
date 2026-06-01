@@ -34,10 +34,11 @@ async fn handle_request(
     let instance = action.app.get_env_info();
     let proc_base = action.app.settings_model.host_proc_path().to_string();
     let root_base = action.app.settings_model.host_root_path().to_string();
+    let ignore_disks = action.app.settings_model.ignore_disks().to_vec();
 
     let host = tokio::task::spawn_blocking(move || {
         let mem = crate::host_mem::read(&proc_base);
-        let disks = crate::host_disks::read(&proc_base, &root_base);
+        let disks = crate::host_disks::read(&proc_base, &root_base, &ignore_disks);
         (mem, disks)
     })
     .await

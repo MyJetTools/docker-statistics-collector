@@ -190,20 +190,23 @@ fn ContainerRow(
                     }
                 }
                 div { class: "image", "{row.image}" }
-                MemBar { pct, running: row.is_running }
-            }
-            div { class: "metrics",
-                span { class: "cpu", "{cpu_str}" }
-                span { class: "mem", title: "{mem_title}",
-                    "{used_str}"
+                div { class: "cont-mem-text", title: "{mem_title}",
+                    span { class: "mico", {icon_memory()} }
+                    span { class: "used", "{used_str}" }
                     if let Some(lim) = limit_str.as_ref() {
-                        span { style: "color: var(--text-muted);", " / {lim}" }
+                        span { class: "denom", " / {lim}" }
                     }
                 }
-                span {
-                    class: "net",
-                    title: "network in / out",
-                    "↓{net_in_str} ↑{net_out_str}"
+                MemBar { pct, running: row.is_running }
+                div { class: "cont-net-line", title: "network in / out",
+                    span { class: "nico", {icon_network()} }
+                    span { class: "net", "In: {net_in_str} Out: {net_out_str}" }
+                }
+            }
+            div { class: "metrics",
+                span { class: "cpu",
+                    span { class: "cico", {icon_cpu()} }
+                    "{cpu_str}"
                 }
             }
         }
