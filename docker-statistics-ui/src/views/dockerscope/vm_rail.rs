@@ -200,21 +200,23 @@ fn VmCard(
                 }
                 div { class: "info",
                     div { class: "name", "{name}" }
+                    div { class: "cpu-line",
+                        span { class: "item cpu", "{cpu_pct:.2}% cpu" }
+                        if let Some(c) = vm.host_cpu_count {
+                            span { class: "item", title: "host cores", "{c}c" }
+                        }
+                    }
                 }
                 div { class: "count", "{vm.containers_amount}" }
             }
-            div { class: "meta",
-                span { class: "item cpu", "{cpu_pct:.2}% cpu" }
-                if let Some(c) = vm.host_cpu_count {
-                    span { class: "item", title: "host cores", "{c}c" }
-                }
-                span {
-                    class: "item net",
-                    title: "network in / out (sum across containers)",
-                    "↓{net_in_str} ↑{net_out_str}"
-                }
+            div {
+                class: "net-line",
+                title: "network in / out (sum across containers)",
+                span { class: "nico", {icon_network()} }
+                span { class: "net", "↓{net_in_str} ↑{net_out_str}" }
             }
             div { class: "vm-mem-text",
+                span { class: "mico", {icon_memory()} }
                 span { class: "used", "{used_short}" }
                 span { class: "denom", " / {denom_label}" }
                 span { class: "sep", " · " }
@@ -239,6 +241,7 @@ fn VmCard(
                             class: "vm-disk",
                             title: "{row.device} · {row.fs_type}",
                             div { class: "vm-disk-head",
+                                span { class: "dico", {icon_disk()} }
                                 span { class: "mp", "{row.mount_point}" }
                                 span { class: "amt", "{row.amount}" }
                             }

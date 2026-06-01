@@ -16,6 +16,46 @@ pub fn icon_server() -> Element {
     }
 }
 
+/// Host-disk / volume glyph (storage drive with a gauge), inline so it inherits
+/// the row's `currentColor`. Adapted from public/assets/img/volume.svg.
+pub fn icon_disk() -> Element {
+    rsx! {
+        svg {
+            width: "11", height: "11", view_box: "0 0 24 24",
+            style: "stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; fill: none; stroke: currentColor;",
+            rect { x: "3.5", y: "1.5", width: "17", height: "21", rx: "2" }
+            circle { cx: "12", cy: "10", r: "4.6" }
+            line { x1: "13.4", y1: "11.4", x2: "16.3", y2: "14.3" }
+            circle { cx: "12", cy: "10", r: "0.9", fill: "currentColor", stroke: "none" }
+            line { x1: "7.2", y1: "18.7", x2: "16.8", y2: "18.7" }
+        }
+    }
+}
+
+/// Memory-module (RAM stick) glyph, inline so it inherits `currentColor`.
+/// Adapted from public/assets/img/ico-memory.svg (a fill icon).
+pub fn icon_memory() -> Element {
+    rsx! {
+        svg {
+            width: "12", height: "12", view_box: "0 0 16 16",
+            style: "fill: currentColor;",
+            path { d: "M1 3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h4.586a1 1 0 0 0 .707-.293l.353-.353a.5.5 0 0 1 .708 0l.353.353a1 1 0 0 0 .707.293H15a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1H1Zm.5 1h3a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-4a.5.5 0 0 1 .5-.5Zm5 0h3a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-4a.5.5 0 0 1 .5-.5Zm4.5.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-4ZM2 10v2H1v-2h1Zm2 0v2H3v-2h1Zm2 0v2H5v-2h1Zm3 0v2H8v-2h1Zm2 0v2h-1v-2h1Zm2 0v2h-1v-2h1Zm2 0v2h-1v-2h1Z" }
+        }
+    }
+}
+
+/// Network glyph (nested squares / node), inline so it inherits the row's
+/// `currentColor`. Adapted from public/assets/img/network.svg (a fill icon).
+pub fn icon_network() -> Element {
+    rsx! {
+        svg {
+            width: "11", height: "11", view_box: "0 0 16 16",
+            style: "fill: currentColor;",
+            path { fill_rule: "evenodd", d: "M9 7V5H7v2H5v4h6V7H9zm-9 9h16V0H0v16zm2-2V2h12v12H2z" }
+        }
+    }
+}
+
 pub fn icon_search() -> Element {
     rsx! {
         svg {
