@@ -27,4 +27,8 @@ pub struct VmModel {
     /// Logical CPU count of the host VM. `None` when unknown.
     #[serde(default)]
     pub host_cpu_count: Option<u32>,
+    /// Host physical disks. `None` for the synthetic "All VMs" aggregate;
+    /// empty `Some(vec)` when the host root filesystem is not mounted.
+    #[serde(default)]
+    pub host_disks: Option<Vec<crate::models::DiskModel>>,
 }

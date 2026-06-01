@@ -40,16 +40,21 @@ async fn handle_request(
 
     let mut hosts: Vec<HostMemEntryHttpModel> = Vec::new();
 
-    // Local host memory.
+    // Local host memory + physical disks (host-level, not per-container).
     let proc_base = action.app.settings_model.host_proc_path().to_string();
-    let local_host_mem = tokio::task::spawn_blocking(move || crate::host_mem::read(&proc_base))
-        .await
-        .ok()
-        .flatten();
-    if let Some(snap) = local_host_mem {
+    let root_base = action.app.settings_model.host_root_path().to_string();
+    let local_host = tokio::task::spawn_blocking(move || {
+        let mem = crate::host_mem::read(&proc_base);
+        let disks = crate::host_disks::read(&proc_base, &root_base);
+        (mem, disks)
+    })
+    .await
+    .ok();
+    if let Some((Some(snap), disks)) = local_host {
         hosts.push(HostMemEntryHttpModel::from_snapshot(
             local_instance.clone(),
             snap,
+            disks,
         ));
     }
 

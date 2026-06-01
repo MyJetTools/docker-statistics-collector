@@ -1,18 +1,20 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::{
-    models::{ContainerJsonModel, ContainerModel, HostMemEntryModel, MetricsByVm, VmModel},
+    models::{ContainerJsonModel, ContainerModel, DiskModel, HostMemEntryModel, MetricsByVm, VmModel},
     selected_vm::SelectedVm,
 };
 
 use super::MetricsHistory;
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct HostMemSnapshot {
     pub total: i64,
     pub available: i64,
     pub used: i64,
     pub cpu_count: Option<u32>,
+    /// Host physical disks (empty when the host root filesystem isn't mounted).
+    pub disks: Vec<DiskModel>,
 }
 
 pub struct MetricsHistoryWrapper {
@@ -98,7 +100,7 @@ impl DataCache {
         self.containers.retain(|vm, _| active.contains(vm));
 
         for (instance, containers) in containers_by_instance {
-            let host_mem = host_mem_by_instance.get(&instance).copied();
+            let host_mem = host_mem_by_instance.get(&instance).cloned();
             self.update_one_vm(&instance, containers, host_mem, master_url.clone());
         }
     }
@@ -199,7 +201,7 @@ impl DataCache {
 
             // Effective limit for a container without `mem.limit` declared — it can
             // grab everything the host has, so we charge it the full host RAM.
-            let unlimited_effective = wrapper.host_mem.map(|s| s.total).unwrap_or(0);
+            let unlimited_effective = wrapper.host_mem.as_ref().map(|s| s.total).unwrap_or(0);
 
             for itm in wrapper.containers.values() {
                 if let Some(usage) = itm.cpu.usage {
@@ -231,15 +233,16 @@ impl DataCache {
                 }
             }
 
-            let (host_mem_total, host_mem_available, host_mem_used, host_cpu_count) =
-                match wrapper.host_mem {
+            let (host_mem_total, host_mem_available, host_mem_used, host_cpu_count, host_disks) =
+                match &wrapper.host_mem {
                     Some(snap) => (
                         Some(snap.total),
                         Some(snap.available),
                         Some(snap.used),
                         snap.cpu_count,
+                        Some(snap.disks.clone()),
                     ),
-                    None => (None, None, None, None),
+                    None => (None, None, None, None, None),
                 };
 
             result.insert(
@@ -257,6 +260,7 @@ impl DataCache {
                     host_mem_available,
                     host_mem_used,
                     host_cpu_count,
+                    host_disks,
                 },
             );
         }
@@ -280,6 +284,7 @@ impl DataCache {
                         } else {
                             None
                         },
+                        disks: e.disks.clone(),
                     },
                 )
             })
@@ -292,7 +297,7 @@ impl DataCache {
                 let mut result = Vec::new();
 
                 for (vm, wrapper) in self.containers.iter() {
-                    let host_total = wrapper.host_mem.map(|s| s.total);
+                    let host_total = wrapper.host_mem.as_ref().map(|s| s.total);
                     for itm in wrapper.containers.values() {
                         result.push(MetricsByVm {
                             vm: Some(vm.to_string()),
@@ -308,7 +313,7 @@ impl DataCache {
             SelectedVm::SingleVm(vm) => match self.containers.get(vm) {
                 Some(wrapper) => {
                     let mut result: Vec<MetricsByVm> = Vec::with_capacity(wrapper.containers.len());
-                    let host_total = wrapper.host_mem.map(|s| s.total);
+                    let host_total = wrapper.host_mem.as_ref().map(|s| s.total);
 
                     for item in wrapper.containers.values() {
                         result.push(MetricsByVm {

@@ -27,6 +27,7 @@ serde_json = "*"
 
 rust-extensions = { tag = "0.1.5", git = "https://github.com/MyJetTools/rust-extensions.git" }
 docker-sdk = { path = "../docker-sdk" }
+libc = "0.2"
 async-trait = "*"
 serde_yaml = "*"
 

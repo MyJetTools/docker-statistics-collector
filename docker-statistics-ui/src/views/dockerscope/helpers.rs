@@ -225,5 +225,7 @@ pub fn aggregate_all_vms(vms: &BTreeMap<String, VmModel>) -> VmModel {
         host_mem_available,
         host_mem_used,
         host_cpu_count,
+        // Aggregate "All VMs" card intentionally hides per-disk usage.
+        host_disks: None,
     }
 }

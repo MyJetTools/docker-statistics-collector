@@ -4,6 +4,7 @@ use my_http_server::macros::MyHttpObjectStructure;
 use serde::{Deserialize, Serialize};
 
 use crate::app::ServiceInfo;
+use crate::host_disks::DiskSnapshot;
 use crate::host_mem::HostMemSnapshot;
 
 #[derive(MyHttpObjectStructure, Serialize, Deserialize)]
@@ -13,9 +14,11 @@ pub struct ContainersHttpResponse {
     pub hosts: Vec<HostMemEntryHttpModel>,
 }
 
-// HostMemEntryHttpModel — per-instance host snapshot.
-//   total/available/used: bytes from /proc/meminfo
+// HostMemEntryHttpModel — per-instance HOST snapshot (the physical machine the
+// collector runs on, NOT a container).
+//   total/available/used: memory bytes from /proc/meminfo
 //   cpu_count: logical processors from /proc/cpuinfo (0 = unknown)
+//   disks: one entry per physical filesystem (empty when host root not mounted)
 // Field-level doc comments are intentionally omitted — MyHttpObjectStructure
 // can't parse `#[doc="..."]` attributes (panics on the `=` punct).
 #[derive(MyHttpObjectStructure, Serialize, Deserialize, Clone, Debug)]
@@ -25,16 +28,49 @@ pub struct HostMemEntryHttpModel {
     pub available: i64,
     pub used: i64,
     pub cpu_count: i32,
+    #[serde(default)]
+    pub disks: Vec<HostDiskHttpModel>,
 }
 
 impl HostMemEntryHttpModel {
-    pub fn from_snapshot(instance: String, s: HostMemSnapshot) -> Self {
+    pub fn from_snapshot(instance: String, s: HostMemSnapshot, disks: Vec<DiskSnapshot>) -> Self {
         Self {
             instance,
             total: s.total,
             available: s.available,
             used: s.used,
             cpu_count: s.cpu_count.map(|v| v as i32).unwrap_or(0),
+            disks: disks.into_iter().map(HostDiskHttpModel::from).collect(),
+        }
+    }
+}
+
+// HostDiskHttpModel — one physical filesystem on the host.
+//   device: block device, e.g. /dev/sda1
+//   mount_point: where it's mounted on the host, e.g. / or /data
+//   fs_type: ext4, xfs, btrfs, ...
+//   total/used/available: bytes (from statvfs on the host filesystem)
+#[derive(MyHttpObjectStructure, Serialize, Deserialize, Clone, Debug)]
+pub struct HostDiskHttpModel {
+    pub device: String,
+    #[serde(rename = "mountPoint")]
+    pub mount_point: String,
+    #[serde(rename = "fsType")]
+    pub fs_type: String,
+    pub total: i64,
+    pub used: i64,
+    pub available: i64,
+}
+
+impl From<DiskSnapshot> for HostDiskHttpModel {
+    fn from(s: DiskSnapshot) -> Self {
+        Self {
+            device: s.device,
+            mount_point: s.mount_point,
+            fs_type: s.fs_type,
+            total: s.total,
+            used: s.used,
+            available: s.available,
         }
     }
 }

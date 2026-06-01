@@ -33,15 +33,23 @@ async fn handle_request(
     let containers = action.app.cache.get_snapshot().await;
     let instance = action.app.get_env_info();
     let proc_base = action.app.settings_model.host_proc_path().to_string();
+    let root_base = action.app.settings_model.host_root_path().to_string();
 
-    let host_mem = tokio::task::spawn_blocking(move || crate::host_mem::read(&proc_base))
-        .await
-        .ok()
-        .flatten();
+    let host = tokio::task::spawn_blocking(move || {
+        let mem = crate::host_mem::read(&proc_base);
+        let disks = crate::host_disks::read(&proc_base, &root_base);
+        (mem, disks)
+    })
+    .await
+    .ok();
 
     let mut hosts = Vec::new();
-    if let Some(snap) = host_mem {
-        hosts.push(HostMemEntryHttpModel::from_snapshot(instance.clone(), snap));
+    if let Some((Some(snap), disks)) = host {
+        hosts.push(HostMemEntryHttpModel::from_snapshot(
+            instance.clone(),
+            snap,
+            disks,
+        ));
     }
 
     let response = ContainersHttpResponse {

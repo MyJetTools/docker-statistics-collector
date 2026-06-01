@@ -5,6 +5,16 @@ use crate::states::MainState;
 use crate::views::dockerscope::helpers::*;
 use crate::views::dockerscope::icons::*;
 
+/// One pre-rendered host-disk row for a VM card (left rail).
+struct DiskRow {
+    mount_point: String,
+    device: String,
+    fs_type: String,
+    amount: String,
+    pct: f64,
+    color_cls: &'static str,
+}
+
 #[component]
 pub fn VmRail() -> Element {
     let main_state = consume_context::<Signal<MainState>>();
@@ -142,6 +152,42 @@ fn VmCard(
     let net_in_str = fmt_throughput(vm.net_in_mbps);
     let net_out_str = fmt_throughput(vm.net_out_mbps);
 
+    // Host physical disks — shown under each real VM, never on the "All VMs"
+    // aggregate (disk usage doesn't sum meaningfully across hosts).
+    let disk_rows: Vec<DiskRow> = if is_all {
+        Vec::new()
+    } else {
+        vm.host_disks
+            .as_ref()
+            .map(|disks| {
+                disks
+                    .iter()
+                    .map(|d| {
+                        let pct = if d.total > 0 {
+                            (d.used as f64 / d.total as f64 * 100.0).clamp(0.0, 100.0)
+                        } else {
+                            0.0
+                        };
+                        DiskRow {
+                            mount_point: d.mount_point.clone(),
+                            device: d.device.clone(),
+                            fs_type: d.fs_type.clone(),
+                            amount: format!("{} / {}", fmt_mem_short(d.used), fmt_mem_short(d.total)),
+                            pct,
+                            color_cls: if pct >= 90.0 {
+                                "col-danger"
+                            } else if pct >= 75.0 {
+                                "col-warn"
+                            } else {
+                                ""
+                            },
+                        }
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+
     rsx! {
         Link {
             to: target,
@@ -154,19 +200,19 @@ fn VmCard(
                 }
                 div { class: "info",
                     div { class: "name", "{name}" }
-                    div { class: "meta",
-                        span { class: "item cpu", "{cpu_pct:.2}% cpu" }
-                        if let Some(c) = vm.host_cpu_count {
-                            span { class: "item", title: "host cores", "{c}c" }
-                        }
-                        span {
-                            class: "item net",
-                            title: "network in / out (sum across containers)",
-                            "↓{net_in_str} ↑{net_out_str}"
-                        }
-                    }
                 }
                 div { class: "count", "{vm.containers_amount}" }
+            }
+            div { class: "meta",
+                span { class: "item cpu", "{cpu_pct:.2}% cpu" }
+                if let Some(c) = vm.host_cpu_count {
+                    span { class: "item", title: "host cores", "{c}c" }
+                }
+                span {
+                    class: "item net",
+                    title: "network in / out (sum across containers)",
+                    "↓{net_in_str} ↑{net_out_str}"
+                }
             }
             div { class: "vm-mem-text",
                 span { class: "used", "{used_short}" }
@@ -185,6 +231,26 @@ fn VmCard(
                     style: "width: {used_pct:.1}%;",
                 }
                 div { class: "vm-mem-bar-tick" }
+            }
+            if !disk_rows.is_empty() {
+                div { class: "vm-disks",
+                    for row in disk_rows.iter() {
+                        div {
+                            class: "vm-disk",
+                            title: "{row.device} · {row.fs_type}",
+                            div { class: "vm-disk-head",
+                                span { class: "mp", "{row.mount_point}" }
+                                span { class: "amt", "{row.amount}" }
+                            }
+                            div { class: "vm-disk-bar",
+                                div {
+                                    class: "vm-disk-bar-used {row.color_cls}",
+                                    style: "width: {row.pct:.1}%;",
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

@@ -14,6 +14,11 @@ pub struct SettingsModel {
     /// Used to read per-container open file descriptors and `nofile` limits.
     /// Defaults to `/host/proc` (the recommended bind-mount target).
     pub host_proc_path: Option<String>,
+    /// Path inside the collector container where the host root filesystem is
+    /// recursively bind-mounted (recommended `-v /:/host/root:ro`). Used to
+    /// `statvfs` each host mount point for physical-disk usage. Defaults to
+    /// `/host/root`.
+    pub host_root_path: Option<String>,
 }
 
 impl SettingsModel {
@@ -46,6 +51,13 @@ impl SettingsModel {
         match self.host_proc_path.as_deref() {
             Some(path) => path,
             None => "/host/proc",
+        }
+    }
+
+    pub fn host_root_path(&self) -> &str {
+        match self.host_root_path.as_deref() {
+            Some(path) => path,
+            None => "/host/root",
         }
     }
 }

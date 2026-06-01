@@ -27,4 +27,23 @@ pub struct VmModel {
     /// Logical CPU count of the host VM. `None` when unknown.
     #[serde(default)]
     pub host_cpu_count: Option<u32>,
+    /// Host physical disks. `None` for the synthetic "All VMs" aggregate (the
+    /// summary card hides disks); empty `Some(vec)` when the host root
+    /// filesystem isn't mounted into the collector.
+    #[serde(default)]
+    pub host_disks: Option<Vec<DiskModel>>,
+}
+
+/// One physical filesystem on the host (matches the API's `DiskModel`). Sizes
+/// are bytes.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct DiskModel {
+    pub device: String,
+    #[serde(rename = "mountPoint")]
+    pub mount_point: String,
+    #[serde(rename = "fsType")]
+    pub fs_type: String,
+    pub total: i64,
+    pub used: i64,
+    pub available: i64,
 }

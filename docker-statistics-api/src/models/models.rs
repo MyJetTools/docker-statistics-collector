@@ -119,6 +119,24 @@ pub struct HostMemEntryModel {
     /// Logical CPU count of the host. `0` means unknown.
     #[serde(default)]
     pub cpu_count: i32,
+    /// Physical disks on the host. Empty when the host root filesystem is not
+    /// bind-mounted into the collector container.
+    #[serde(default)]
+    pub disks: Vec<DiskModel>,
+}
+
+/// One physical filesystem on the host (mirrors the collector's
+/// `HostDiskHttpModel`). Sizes are bytes.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct DiskModel {
+    pub device: String,
+    #[serde(rename = "mountPoint")]
+    pub mount_point: String,
+    #[serde(rename = "fsType")]
+    pub fs_type: String,
+    pub total: i64,
+    pub used: i64,
+    pub available: i64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
