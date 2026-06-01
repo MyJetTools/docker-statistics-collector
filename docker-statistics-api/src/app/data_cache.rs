@@ -60,6 +60,7 @@ impl Into<ContainerModel> for ContainerJsonModel {
             mem: self.mem,
             files: self.files,
             net: self.net,
+            disk: self.disk,
             cpu_usage_history: None,
             mem_usage_history: None,
             open_files_history: None,

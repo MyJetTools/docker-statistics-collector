@@ -48,6 +48,8 @@ pub struct ContainerModel {
     pub files: FilesUsageJsonMode,
     #[serde(default)]
     pub net: NetUsageJsonMode,
+    #[serde(default)]
+    pub disk: DiskUsageJsonMode,
     pub cpu_usage_history: Option<Vec<f64>>,
     pub mem_usage_history: Option<Vec<i64>>,
     pub open_files_history: Option<Vec<i64>>,
@@ -118,6 +120,15 @@ pub struct FilesUsageJsonMode {
     pub open: Option<i64>,
     /// `nofile` soft limit (`RLIMIT_NOFILE`) of the container's main process.
     pub limit: Option<i64>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
+pub struct DiskUsageJsonMode {
+    /// Writable-layer size in bytes (the container's own data on top of the
+    /// image). `None` until the collector's first slow size pass.
+    pub size_rw: Option<i64>,
+    /// Total size in bytes including the image layers.
+    pub size_root_fs: Option<i64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]

@@ -96,6 +96,8 @@ pub struct ContainerJsonModel {
     pub files: FilesUsageJsonMode,
     #[serde(default)]
     pub net: NetUsageJsonMode,
+    #[serde(default)]
+    pub disk: DiskUsageJsonMode,
     pub ports: Vec<PortHttpModel>,
     pub volumes: Vec<VolumeHttpModel>,
 }
@@ -122,6 +124,10 @@ impl ContainerJsonModel {
             net: NetUsageJsonMode {
                 in_mbps: itm.net_in_mbps,
                 out_mbps: itm.net_out_mbps,
+            },
+            disk: DiskUsageJsonMode {
+                size_rw: itm.size_rw,
+                size_root_fs: itm.size_root_fs,
             },
             names: itm.names,
             labels: itm.labels,
@@ -182,6 +188,8 @@ impl ContainerJsonModel {
             prev_net_at: None,
             open_files: self.files.open,
             fd_limit: self.files.limit,
+            size_rw: self.disk.size_rw,
+            size_root_fs: self.disk.size_root_fs,
             ports: self
                 .ports
                 .into_iter()
@@ -236,6 +244,16 @@ pub struct FilesUsageJsonMode {
 pub struct NetUsageJsonMode {
     pub in_mbps: Option<f64>,
     pub out_mbps: Option<f64>,
+}
+
+// Per-container disk usage in bytes (refreshed on a slow cadence by the
+// collector). `size_rw` — writable layer (the container's own data on top of
+// the image). `size_root_fs` — total including image layers. None until the
+// first size pass.
+#[derive(Serialize, Deserialize, MyHttpObjectStructure, Default)]
+pub struct DiskUsageJsonMode {
+    pub size_rw: Option<i64>,
+    pub size_root_fs: Option<i64>,
 }
 
 #[derive(Serialize, Deserialize, MyHttpObjectStructure)]

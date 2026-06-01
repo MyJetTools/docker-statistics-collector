@@ -26,6 +26,15 @@ pub struct ContainerJsonModel {
 
     #[serde(rename = "Mounts")]
     pub mounts: Option<Vec<ContainerMountModel>>,
+
+    /// Writable-layer size in bytes — only present when the list is fetched
+    /// with `size=true` (expensive: Docker walks the storage layers).
+    #[serde(rename = "SizeRw", default)]
+    pub size_rw: Option<i64>,
+    /// Total size in bytes including the read-only image layers — only present
+    /// with `size=true`.
+    #[serde(rename = "SizeRootFs", default)]
+    pub size_root_fs: Option<i64>,
 }
 
 impl ContainerJsonModel {
@@ -75,6 +84,65 @@ pub async fn get_list_of_containers(url: String) -> Vec<ContainerJsonModel> {
 
     let body = result.get_body_as_slice().await.unwrap();
     serde_json::from_slice(body).unwrap()
+}
+
+#[derive(Deserialize)]
+struct ContainerSizeInspect {
+    #[serde(rename = "SizeRw", default)]
+    size_rw: Option<i64>,
+    #[serde(rename = "SizeRootFs", default)]
+    size_root_fs: Option<i64>,
+}
+
+/// Disk usage for a SINGLE container, via `GET /containers/{id}/json?size=true`.
+/// This is EXPENSIVE (Docker walks that container's storage layers), so callers
+/// compute one container per tick rather than the whole batch at once. Returns
+/// `(size_rw, size_root_fs)` in bytes; `(None, None)` on any failure.
+pub async fn get_container_size(url: String, container_id: &str) -> (Option<i64>, Option<i64>) {
+    let result = url
+        .as_str()
+        .with_header("host", "localhost")
+        .append_path_segment("containers")
+        .append_path_segment(container_id)
+        .append_path_segment("json")
+        .append_query_param("size", Some("true"))
+        .set_timeout(Duration::from_secs(30))
+        .do_not_reuse_connection()
+        .get()
+        .await;
+
+    let mut result = match result {
+        Ok(r) => r,
+        Err(err) => {
+            eprintln!("get_container_size {}: request failed: {:?}", container_id, err);
+            return (None, None);
+        }
+    };
+
+    if result.get_status_code() != 200 {
+        eprintln!(
+            "get_container_size {}: docker returned status {}",
+            container_id,
+            result.get_status_code()
+        );
+        return (None, None);
+    }
+
+    let body = match result.get_body_as_slice().await {
+        Ok(b) => b,
+        Err(err) => {
+            eprintln!("get_container_size {}: body read failed: {:?}", container_id, err);
+            return (None, None);
+        }
+    };
+
+    match serde_json::from_slice::<ContainerSizeInspect>(body) {
+        Ok(p) => (p.size_rw, p.size_root_fs),
+        Err(err) => {
+            eprintln!("get_container_size {}: parse failed: {}", container_id, err);
+            (None, None)
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]

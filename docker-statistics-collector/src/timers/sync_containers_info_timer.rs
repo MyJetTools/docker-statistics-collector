@@ -1,16 +1,31 @@
-use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 
 use rust_extensions::{MyTimerTick, StopWatch};
 
 use crate::app::AppContext;
 
+/// Per-container disk usage is expensive (Docker walks the storage layers), so
+/// we never compute the whole batch at once. Instead, every Nth *idle* tick we
+/// refill `pending_disk` with all container ids, then drain it one container per
+/// tick. Ticks that drain the queue do NOT count toward the next refill.
+const DISK_SIZE_REFILL_EVERY_N_IDLE_TICKS: u64 = 10;
+
 pub struct SyncContainersInfoTimer {
     app: Arc<AppContext>,
+    /// Container ids still waiting for a disk-size pass (drained one per tick).
+    pending_disk: Mutex<Vec<String>>,
+    /// Idle ticks (queue empty) counted toward the next refill.
+    idle_tick_no: AtomicU64,
 }
 
 impl SyncContainersInfoTimer {
     pub fn new(app: Arc<AppContext>) -> Self {
-        Self { app }
+        Self {
+            app,
+            pending_disk: Mutex::new(Vec::new()),
+            idle_tick_no: AtomicU64::new(0),
+        }
     }
 }
 
@@ -25,6 +40,34 @@ impl MyTimerTick for SyncContainersInfoTimer {
         .await;
 
         self.app.cache.update_services(&list_of_containers).await;
+
+        // Disk usage — drain one container from the pending queue per tick. When
+        // the queue is empty we count idle ticks and refill it (with all current
+        // container ids) every Nth idle tick. Draining ticks don't count.
+        let next_disk_id = {
+            let mut pending = self.pending_disk.lock().unwrap();
+            if pending.is_empty() {
+                let n = self.idle_tick_no.fetch_add(1, Ordering::Relaxed) + 1;
+                if n >= DISK_SIZE_REFILL_EVERY_N_IDLE_TICKS {
+                    self.idle_tick_no.store(0, Ordering::Relaxed);
+                    *pending = list_of_containers.iter().map(|c| c.id.clone()).collect();
+                }
+                pending.pop()
+            } else {
+                pending.pop()
+            }
+        };
+        if let Some(id) = next_disk_id {
+            let (size_rw, size_root_fs) = docker_sdk::list_of_containers::get_container_size(
+                self.app.settings_model.docker_url.to_string(),
+                &id,
+            )
+            .await;
+            self.app
+                .cache
+                .update_disk_usage(&id, size_rw, size_root_fs)
+                .await;
+        }
 
         let mut usages_result = Vec::new();
 

@@ -636,6 +636,18 @@ button, input { font-family: inherit; color: inherit; }
 }
 .cont-row .info .cont-net-line .net { white-space: nowrap; }
 
+/* Disk usage line (writable layer) with icon, under the network line. */
+.cont-row .info .cont-disk-line {
+  display: flex; align-items: center; gap: 5px;
+  margin-top: 3px;
+  font-family: var(--mono); font-size: 10px;
+  color: var(--text-muted);
+}
+.cont-row .info .cont-disk-line .dico {
+  flex: 0 0 auto; display: inline-flex; align-items: center; opacity: .8;
+}
+.cont-row .info .cont-disk-line .disk { white-space: nowrap; }
+
 /* ─── Detail panel (right column) ─── */
 .detail {
   overflow-y: auto;

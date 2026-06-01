@@ -41,6 +41,13 @@ pub struct ServiceInfo {
     /// `None` when the host `/proc` is not reachable.
     pub fd_limit: Option<i64>,
 
+    /// Writable-layer disk usage in bytes (the container's own data on top of
+    /// the image). Refreshed on a slow cadence — see the size timer. `None`
+    /// until the first size pass completes.
+    pub size_rw: Option<i64>,
+    /// Total disk size in bytes including image layers. Slow-cadence too.
+    pub size_root_fs: Option<i64>,
+
     pub ports: Vec<ServiceInfoPortModel>,
     pub volumes: Vec<ServiceInfoVolumeModel>,
 }
@@ -106,6 +113,8 @@ impl ServicesCache {
                         prev_net_at: None,
                         open_files: None,
                         fd_limit: None,
+                        size_rw: None,
+                        size_root_fs: None,
                         started_at: None,
                         state: info.state.clone(),
                         status: info.status.clone(),
@@ -194,6 +203,22 @@ impl ServicesCache {
         if let Some(container) = write_access.get_mut(id) {
             container.open_files = open_files;
             container.fd_limit = fd_limit;
+        }
+    }
+
+    /// Slow-cadence disk-usage update. Kept separate from `update_usage` /
+    /// `reset_usage` so the cached sizes survive between the infrequent size
+    /// passes and aren't wiped on every 5s stats tick.
+    pub async fn update_disk_usage(
+        &self,
+        id: &str,
+        size_rw: Option<i64>,
+        size_root_fs: Option<i64>,
+    ) {
+        let mut write_access = self.data.write().await;
+        if let Some(container) = write_access.get_mut(id) {
+            container.size_rw = size_rw;
+            container.size_root_fs = size_root_fs;
         }
     }
 

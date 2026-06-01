@@ -86,6 +86,11 @@ struct ContainerRowData {
     mem_limit_is_declared: bool,
     net_in_mbps: f64,
     net_out_mbps: f64,
+    /// Writable-layer disk usage in bytes (the container's own data). `None`
+    /// until the collector's slow size pass has run.
+    size_rw: Option<i64>,
+    /// Total size including image layers, for the tooltip.
+    size_root_fs: Option<i64>,
 }
 
 impl ContainerRowData {
@@ -114,6 +119,8 @@ impl ContainerRowData {
             mem_limit_is_declared,
             net_in_mbps: c.net.in_mbps.unwrap_or(0.0),
             net_out_mbps: c.net.out_mbps.unwrap_or(0.0),
+            size_rw: c.disk.size_rw,
+            size_root_fs: c.disk.size_root_fs,
         }
     }
 
@@ -157,6 +164,16 @@ fn ContainerRow(
     let limit_str = row.effective_mem_limit.map(fmt_mem_short);
     let net_in_str = fmt_throughput(row.net_in_mbps);
     let net_out_str = fmt_throughput(row.net_out_mbps);
+    let disk_str = row.size_rw.map(fmt_mem_short);
+    let disk_title = match (row.size_rw, row.size_root_fs) {
+        (Some(rw), Some(root)) => format!(
+            "writable layer {} · total with image {}",
+            fmt_mem_short(rw),
+            fmt_mem_short(root)
+        ),
+        (Some(rw), _) => format!("writable layer {}", fmt_mem_short(rw)),
+        _ => "disk size not measured yet".to_string(),
+    };
     let mem_title = match (pct, row.mem_limit_is_declared) {
         (Some(p), true) => format!("{:.0}% of declared mem limit", p),
         (Some(p), false) => format!("{:.0}% of host RAM (no container limit)", p),
@@ -201,6 +218,12 @@ fn ContainerRow(
                 div { class: "cont-net-line", title: "network in / out",
                     span { class: "nico", {icon_network()} }
                     span { class: "net", "In: {net_in_str} Out: {net_out_str}" }
+                }
+                if let Some(d) = disk_str.as_ref() {
+                    div { class: "cont-disk-line", title: "{disk_title}",
+                        span { class: "dico", {icon_disk()} }
+                        span { class: "disk", "Disk: {d}" }
+                    }
                 }
             }
             div { class: "metrics",

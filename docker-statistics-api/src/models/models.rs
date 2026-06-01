@@ -48,6 +48,8 @@ pub struct ContainerModel {
     pub files: FilesUsageJsonMode,
     #[serde(default)]
     pub net: NetUsageJsonMode,
+    #[serde(default)]
+    pub disk: DiskUsageJsonMode,
     pub cpu_usage_history: Option<Vec<f64>>,
     pub mem_usage_history: Option<Vec<i64>>,
     pub open_files_history: Option<Vec<i64>>,
@@ -65,6 +67,7 @@ impl ContainerModel {
         self.mem = src.mem;
         self.files = src.files;
         self.net = src.net;
+        self.disk = src.disk;
         self.labels = src.labels;
         self.enabled = src.enabled;
         self.image = src.image;
@@ -97,6 +100,8 @@ pub struct ContainerJsonModel {
     pub files: FilesUsageJsonMode,
     #[serde(default)]
     pub net: NetUsageJsonMode,
+    #[serde(default)]
+    pub disk: DiskUsageJsonMode,
     pub ports: Option<Vec<PortHttpModel>>,
     #[serde(default)]
     pub volumes: Option<Vec<VolumeHttpModel>>,
@@ -165,6 +170,15 @@ pub struct NetUsageJsonMode {
     pub in_mbps: Option<f64>,
     /// Outbound throughput in MB/s.
     pub out_mbps: Option<f64>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
+pub struct DiskUsageJsonMode {
+    /// Writable-layer size in bytes (the container's own data on top of the
+    /// image). `None` until the collector's first slow size pass.
+    pub size_rw: Option<i64>,
+    /// Total size in bytes including the image layers.
+    pub size_root_fs: Option<i64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
