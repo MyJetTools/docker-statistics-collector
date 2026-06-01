@@ -36,9 +36,9 @@ pub struct DiskSnapshot {
 /// Returns an empty vec when the mount table can't be read (no host `/proc`) or
 /// when no physical filesystem could be measured (host root not mounted).
 pub fn read(proc_base: &str, root_base: &str) -> Vec<DiskSnapshot> {
-    let mounts = match std::fs::read_to_string(format!("{}/mounts", proc_base)) {
-        Ok(content) => content,
-        Err(_) => return Vec::new(),
+    let mounts = match read_host_mount_table(proc_base) {
+        Some(content) => content,
+        None => return Vec::new(),
     };
 
     let mut result = Vec::new();
@@ -65,6 +65,20 @@ pub fn read(proc_base: &str, root_base: &str) -> Vec<DiskSnapshot> {
     }
 
     result
+}
+
+/// Read the HOST's mount table.
+///
+/// `<proc_base>/mounts` is a symlink to `self/mounts`, which resolves to the
+/// COLLECTOR process — and that process lives in the container's mount
+/// namespace, so it lists overlay/bind mounts, not the host's physical disks.
+/// The host's real mount table lives in PID 1's namespace, so we read
+/// `<proc_base>/1/mounts` (host init). We fall back to `self/mounts` only if
+/// PID 1 is unreadable, so a misconfigured deployment still returns *something*.
+fn read_host_mount_table(proc_base: &str) -> Option<String> {
+    std::fs::read_to_string(format!("{}/1/mounts", proc_base))
+        .or_else(|_| std::fs::read_to_string(format!("{}/mounts", proc_base)))
+        .ok()
 }
 
 /// Parse `/proc/mounts`, keeping only filesystems backed by a real block device
