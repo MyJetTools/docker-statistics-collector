@@ -1142,13 +1142,16 @@ button, input { font-family: inherit; color: inherit; }
   border-radius: var(--r-md);
   padding: 10px 12px;
   font-family: var(--mono); font-size: 12px; line-height: 1.45;
+  /* The console is always a dark terminal, so use fixed light colors here
+     instead of theme variables (which are dark text in light mode). */
+  color: #d4d4d4;
 }
 .ds-exec-line { white-space: pre-wrap; word-break: break-word; }
-.ds-exec-line.exec-input  { color: #74c98a; }
-.ds-exec-line.exec-output { color: var(--text); }
-.ds-exec-line.exec-error  { color: var(--danger); }
-.ds-exec-line.exec-info   { color: var(--text-muted); }
-.ds-exec-line.exec-exit   { color: var(--text-dim); }
+.ds-exec-line.exec-input  { color: #6ad08a; }
+.ds-exec-line.exec-output { color: #d4d4d4; }
+.ds-exec-line.exec-error  { color: #f87171; }
+.ds-exec-line.exec-info   { color: #8b98a9; }
+.ds-exec-line.exec-exit   { color: #6b7280; }
 
 .ds-exec-inputrow {
   display: flex; align-items: center; gap: 8px;
