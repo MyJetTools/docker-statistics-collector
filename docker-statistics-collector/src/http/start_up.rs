@@ -7,10 +7,10 @@ use my_http_server::{
 
 use crate::app::AppContext;
 use crate::mcp::{
-    FindApplicationHandler, FindContainersHandler, GetContainerLogsHandler, GetHostInfoHandler,
-    HowToUseItPromptHandler, ListServersAndServicesHandler,
+    ExecInContainerHandler, FindApplicationHandler, FindContainersHandler, GetContainerLogsHandler,
+    GetHostInfoHandler, HowToUseItPromptHandler, ListServersAndServicesHandler,
 };
-use crate::ws::LogsWsCallback;
+use crate::ws::{ExecWsCallback, LogsWsCallback};
 
 /// Sent to MCP clients on `initialize` as ServerInfo.instructions. Loaded at
 /// compile time from MCP_INSTRUCTION.md so the document can be edited as
@@ -35,6 +35,7 @@ pub async fn start_http_server(app: &Arc<AppContext>) {
     mcp.register_tool_call(Arc::new(FindContainersHandler::new(app.clone())));
     mcp.register_tool_call(Arc::new(GetContainerLogsHandler::new(app.clone())));
     mcp.register_tool_call(Arc::new(GetHostInfoHandler::new(app.clone())));
+    mcp.register_tool_call(Arc::new(ExecInContainerHandler::new(app.clone())));
 
     mcp.register_prompt(Arc::new(HowToUseItPromptHandler));
 
@@ -43,6 +44,12 @@ pub async fn start_http_server(app: &Arc<AppContext>) {
     http_server.add_middleware(Arc::new(MyWebsocketMiddleware::new(
         "/ws/logs",
         Arc::new(LogsWsCallback::new(app.clone())),
+        my_logger::LOGGER.clone(),
+    )));
+
+    http_server.add_middleware(Arc::new(MyWebsocketMiddleware::new(
+        "/ws/exec",
+        Arc::new(ExecWsCallback::new(app.clone())),
         my_logger::LOGGER.clone(),
     )));
 

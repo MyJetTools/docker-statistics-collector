@@ -4,9 +4,12 @@ use flurl::FlUrl;
 
 use crate::app::{AppContext, ServiceInfo};
 use crate::http::controllers::containers_controller::contracts::{
-    ContainerProcessesHttpResponse, ContainersHttpResponse, HostMemEntryHttpModel, ProcessHttpModel,
+    ContainerExecHttpResponse, ContainerProcessesHttpResponse, ContainersHttpResponse,
+    HostMemEntryHttpModel, ProcessHttpModel,
 };
 use crate::http::controllers::containers_controller::RouteLogsResult;
+
+use docker_sdk::exec::ExecResult;
 
 /// Result of fanning out `/api/containers/local` to every configured peer.
 /// Each tuple is `(peer_instance_name, peer_containers_as_serviceinfo, peer_host_mem_entries)`.
@@ -195,6 +198,103 @@ pub async fn fanout_processes(app: &AppContext, container_id: &str) -> RouteProc
         Some(err) => RouteProcessesResult::PeerError(err),
         None => RouteProcessesResult::NotFound,
     }
+}
+
+/// Outcome of routing a container exec request.
+pub enum RouteExecResult {
+    Ok(ExecResult),
+    NotFound,
+    PeerError(String),
+}
+
+/// Exec a command in a container: run locally if the container is owned here,
+/// otherwise fan out to peers and return the first hit. Mirrors
+/// `fanout_processes`. Exec can run long, so peer calls use a 65s timeout.
+pub async fn fanout_exec(app: &AppContext, container_id: &str, command: &str) -> RouteExecResult {
+    if container_owned_locally(app, container_id).await {
+        return match docker_sdk::exec::exec_in_container(
+            app.settings_model.docker_url.as_str(),
+            container_id,
+            command,
+        )
+        .await
+        {
+            Ok(result) => RouteExecResult::Ok(result),
+            Err(err) => RouteExecResult::PeerError(err),
+        };
+    }
+
+    let peers = app.settings_model.peers_or_empty();
+    if peers.is_empty() {
+        return RouteExecResult::NotFound;
+    }
+
+    let timeout = Duration::from_secs(65);
+    let mut tasks = Vec::with_capacity(peers.len());
+
+    for peer in peers {
+        let peer_url = peer.clone();
+        let id = container_id.to_string();
+        let cmd = command.to_string();
+        tasks.push(tokio::spawn(async move {
+            fetch_exec_from_peer(peer_url, id, cmd, timeout).await
+        }));
+    }
+
+    let mut last_err: Option<String> = None;
+    for task in tasks {
+        match task.await {
+            Ok(Ok(Some(result))) => return RouteExecResult::Ok(result),
+            Ok(Ok(None)) => {}
+            Ok(Err(err)) => last_err = Some(err),
+            Err(err) => last_err = Some(format!("join error: {:?}", err)),
+        }
+    }
+
+    match last_err {
+        Some(err) => RouteExecResult::PeerError(err),
+        None => RouteExecResult::NotFound,
+    }
+}
+
+async fn fetch_exec_from_peer(
+    peer_url: String,
+    container_id: String,
+    command: String,
+    timeout: Duration,
+) -> Result<Option<ExecResult>, String> {
+    let mut response = FlUrl::new(peer_url.as_str())
+        .append_path_segment("api")
+        .append_path_segment("containers")
+        .append_path_segment("exec")
+        .append_query_param("id", Some(container_id.as_str()))
+        .append_query_param("command", Some(command.as_str()))
+        .set_timeout(timeout)
+        .do_not_reuse_connection()
+        .post(flurl::body::FlUrlBody::Empty)
+        .await
+        .map_err(|err| format!("peer {}: request failed: {:?}", peer_url, err))?;
+
+    let status = response.get_status_code();
+    if status == 404 {
+        return Ok(None);
+    }
+    if status != 200 {
+        return Err(format!("peer {}: status {}", peer_url, status));
+    }
+
+    let body = response
+        .get_body_as_slice()
+        .await
+        .map_err(|err| format!("peer {}: body read failed: {:?}", peer_url, err))?;
+
+    let parsed: ContainerExecHttpResponse = serde_json::from_slice(body)
+        .map_err(|err| format!("peer {}: parse failed: {}", peer_url, err))?;
+
+    Ok(Some(ExecResult {
+        output: parsed.output,
+        exit_code: parsed.exit_code,
+    }))
 }
 
 async fn fetch_processes_from_peer(

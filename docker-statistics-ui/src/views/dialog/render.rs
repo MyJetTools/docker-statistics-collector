@@ -27,6 +27,13 @@ pub fn render_dialog() -> Element {
                         container_id: container_id.clone(),
                     }
                 },
+                DialogType::ShowExec { env, url, container_id } => rsx! {
+                    show_exec {
+                        env: env.clone(),
+                        url: url.clone(),
+                        container_id: container_id.clone(),
+                    }
+                },
             };
             let header = header.clone();
 

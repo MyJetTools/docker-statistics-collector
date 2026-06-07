@@ -1116,6 +1116,57 @@ button, input { font-family: inherit; color: inherit; }
   border-radius: var(--r-md);
 }
 
+/* ── Exec console dialog ── */
+.ds-exec-gate {
+  padding: 18px;
+  display: flex; flex-direction: column; gap: 14px; align-items: flex-start;
+}
+.ds-exec-warn {
+  font-family: var(--mono); font-size: 12px; line-height: 1.5;
+  color: var(--warn);
+  background: rgba(245,158,11,.08);
+  border: 1px solid rgba(245,158,11,.3);
+  border-radius: var(--r-md);
+  padding: 12px;
+}
+.ds-exec-allow { font-weight: 600; }
+
+.ds-exec-console {
+  display: flex; flex-direction: column;
+  width: 78vw; max-width: 980px; height: 62vh;
+}
+.ds-exec-output {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  background: #0b0e14;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+  font-family: var(--mono); font-size: 12px; line-height: 1.45;
+}
+.ds-exec-line { white-space: pre-wrap; word-break: break-word; }
+.ds-exec-line.exec-input  { color: #74c98a; }
+.ds-exec-line.exec-output { color: var(--text); }
+.ds-exec-line.exec-error  { color: var(--danger); }
+.ds-exec-line.exec-info   { color: var(--text-muted); }
+.ds-exec-line.exec-exit   { color: var(--text-dim); }
+
+.ds-exec-inputrow {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 10px;
+}
+.ds-exec-prompt { color: #74c98a; font-family: var(--mono); font-weight: 600; }
+.ds-exec-input {
+  flex: 1 1 auto;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 8px 10px;
+  color: var(--text);
+  font-family: var(--mono); font-size: 12px;
+  outline: none;
+}
+.ds-exec-input:focus { border-color: var(--border-strong); }
+
 /* ─── Topbar env selector (native <select> dark) ─── */
 .topbar .env-select {
   background: var(--surface-2);

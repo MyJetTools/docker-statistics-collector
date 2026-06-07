@@ -7,8 +7,14 @@ change what the model sees as system context for every session.
 ---
 
 This server gives access to Docker containers across one or more hosts via
-four tools (`list_servers_and_services`, `find_containers`,
-`get_container_logs`, `get_host_info`) plus prompts that carry deeper guidance.
+five tools (`list_servers_and_services`, `find_containers`,
+`get_container_logs`, `get_host_info`, `exec_in_container`) plus prompts that
+carry deeper guidance.
+
+`exec_in_container` runs a shell command inside a container (like `docker exec`,
+as `sh -c "<command>"`) and returns its stdout/stderr and exit code, auto-routed
+to the owning instance or peer. It runs arbitrary commands inside containers —
+use it deliberately.
 
 `get_host_info` returns host-machine stats (NOT per-container) for this
 collector and every peer: RAM, logical CPU count, and physical disks

@@ -22,6 +22,11 @@ pub enum DialogType {
         url: String,
         container_id: String,
     },
+    ShowExec {
+        env: Rc<String>,
+        url: String,
+        container_id: String,
+    },
     /*
     SecretUsage(String),
     SecretUsageBySecret(String),

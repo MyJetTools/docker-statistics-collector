@@ -10,7 +10,7 @@ use crate::app::{AppContext, ServiceInfo};
 #[derive(ApplyJsonSchema, Debug, Serialize, Deserialize)]
 pub struct FindApplicationInputData {
     #[property(
-        description = "Regular expression matched against application identity (compose service name, container names, and image). Case-insensitive. Standard Rust regex syntax."
+        description = "Regular expression matched against application identity: compose service name, container names, image, and any metadata (label) key or value. Case-insensitive. Standard Rust regex syntax."
     )]
     pub pattern: String,
 
@@ -58,7 +58,7 @@ pub struct ApplicationMatch {
     #[property(description = "nofile soft limit (RLIMIT_NOFILE) of the container's main process. None when the host /proc is not reachable.")]
     pub fd_limit: Option<i64>,
 
-    #[property(description = "Which fields the regex matched: compose_service, name, and/or image.")]
+    #[property(description = "Which fields the regex matched: compose_service, name, image, and/or label:<key> for any matching metadata field.")]
     pub matched_on: Vec<String>,
 }
 
@@ -74,7 +74,7 @@ impl FindApplicationHandler {
 
 impl ToolDefinition for FindApplicationHandler {
     const FUNC_NAME: &'static str = "find_application";
-    const DESCRIPTION: &'static str = "Search for an application by regular expression matched against the docker-compose service name, container names, and image. Returns the matching containers' description and the host (instance) each one runs on.";
+    const DESCRIPTION: &'static str = "Search for an application by regular expression matched against the docker-compose service name, container names, image, and any metadata (label) key or value. Returns the matching containers' description and the host (instance) each one runs on.";
 }
 
 #[async_trait::async_trait]
@@ -137,6 +137,15 @@ fn match_application(c: &ServiceInfo, regex: &Regex, instance: &str) -> Option<A
     }
     if regex.is_match(&c.image) {
         matched_on.push("image".to_string());
+    }
+    // Any metadata (label) field — match the regex against every label key and
+    // value, so an application can be found by an arbitrary label too.
+    if let Some(labels) = c.labels.as_ref() {
+        for (k, v) in labels {
+            if regex.is_match(k) || regex.is_match(v) {
+                matched_on.push(format!("label:{}", k));
+            }
+        }
     }
 
     if matched_on.is_empty() {

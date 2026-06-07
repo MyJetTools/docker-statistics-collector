@@ -111,6 +111,11 @@ pub fn LogPreview(container_id: String, vm_url: String, is_running: bool) -> Ele
     let env_for_modal = env.clone();
     let dialog_handle = consume_context::<Signal<DialogState>>();
 
+    let cid_for_exec = container_id.clone();
+    let url_for_exec = vm_url.clone();
+    let env_for_exec = env.clone();
+    let dialog_handle_exec = dialog_handle.clone();
+
     let mut reconnect_signal = reconnect_n.to_owned();
 
     rsx! {
@@ -141,6 +146,20 @@ pub fn LogPreview(container_id: String, vm_url: String, is_running: bool) -> Ele
                             );
                         },
                         "open full viewer"
+                    }
+                    button {
+                        class: "btn btn-sm",
+                        onclick: move |_| {
+                            dialog_handle_exec.clone().write().show_dialog(
+                                "Exec console".to_string(),
+                                DialogType::ShowExec {
+                                    env: env_for_exec.clone(),
+                                    url: url_for_exec.clone(),
+                                    container_id: cid_for_exec.clone(),
+                                },
+                            );
+                        },
+                        "exec »_"
                     }
                 }
             }

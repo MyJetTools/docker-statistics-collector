@@ -273,6 +273,14 @@ pub struct ContainerProcessesHttpResponse {
     pub processes: Vec<ProcessHttpModel>,
 }
 
+// Result of running a command inside a container (`docker exec`-style).
+#[derive(Serialize, Deserialize, MyHttpObjectStructure)]
+pub struct ContainerExecHttpResponse {
+    pub container_id: String,
+    pub output: String,
+    pub exit_code: Option<i64>,
+}
+
 // One process inside a container.
 // `open_files` / `fd_limit` are None when the host `/proc` is not reachable.
 #[derive(Serialize, Deserialize, MyHttpObjectStructure, Clone)]
