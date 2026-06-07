@@ -13,6 +13,9 @@ pub use get_host_info_tool_call::*;
 mod exec_in_container_tool_call;
 pub use exec_in_container_tool_call::*;
 
+mod list_exposed_ports_tool_call;
+pub use list_exposed_ports_tool_call::*;
+
 mod list_servers_and_services_tool_call;
 pub use list_servers_and_services_tool_call::*;
 

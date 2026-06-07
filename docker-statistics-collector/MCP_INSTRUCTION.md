@@ -7,9 +7,12 @@ change what the model sees as system context for every session.
 ---
 
 This server gives access to Docker containers across one or more hosts via
-five tools (`list_servers_and_services`, `find_containers`,
-`get_container_logs`, `get_host_info`, `exec_in_container`) plus prompts that
-carry deeper guidance.
+six tools (`list_servers_and_services`, `find_containers`,
+`get_container_logs`, `get_host_info`, `exec_in_container`,
+`list_exposed_ports`) plus prompts that carry deeper guidance.
+
+`list_exposed_ports` returns every host-published port per instance (sorted),
+so you can see which ports are taken on each VM and choose the next free one.
 
 `exec_in_container` runs a shell command inside a container (like `docker exec`,
 as `sh -c "<command>"`) and returns its stdout/stderr and exit code, auto-routed

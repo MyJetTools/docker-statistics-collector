@@ -8,7 +8,8 @@ use my_http_server::{
 use crate::app::AppContext;
 use crate::mcp::{
     ExecInContainerHandler, FindApplicationHandler, FindContainersHandler, GetContainerLogsHandler,
-    GetHostInfoHandler, HowToUseItPromptHandler, ListServersAndServicesHandler,
+    GetHostInfoHandler, HowToUseItPromptHandler, ListExposedPortsHandler,
+    ListServersAndServicesHandler,
 };
 use crate::ws::{ExecWsCallback, LogsWsCallback};
 
@@ -36,6 +37,7 @@ pub async fn start_http_server(app: &Arc<AppContext>) {
     mcp.register_tool_call(Arc::new(GetContainerLogsHandler::new(app.clone())));
     mcp.register_tool_call(Arc::new(GetHostInfoHandler::new(app.clone())));
     mcp.register_tool_call(Arc::new(ExecInContainerHandler::new(app.clone())));
+    mcp.register_tool_call(Arc::new(ListExposedPortsHandler::new(app.clone())));
 
     mcp.register_prompt(Arc::new(HowToUseItPromptHandler));
 
