@@ -22,6 +22,13 @@ pub fn DetailPanel(env: Rc<String>) -> Element {
 
     let container = item.container.clone();
     let vm_url = item.url.clone();
+    // VM name for the hero header: per-row vm in /all view, falls back to the
+    // routed VM in single-VM view (where item.vm is None).
+    let vm_name = item
+        .vm
+        .clone()
+        .or_else(|| cs_ra.get_active_container_vm().map(|v| v.to_string()))
+        .unwrap_or_default();
     let _ = env;
 
     let mem_limit = container.mem.limit.unwrap_or(0);
@@ -76,7 +83,7 @@ pub fn DetailPanel(env: Rc<String>) -> Element {
 
     rsx! {
         main { class: "detail",
-            Hero { container: container.clone(), vm_url: vm_url.clone() }
+            Hero { container: container.clone(), vm_url: vm_url.clone(), vm_name }
 
             div { class: "charts-row",
                 ChartCard {

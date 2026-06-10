@@ -37,7 +37,7 @@ use crate::views::dockerscope::helpers::shorten_id;
 use crate::views::dockerscope::icons::*;
 
 #[component]
-pub fn Hero(container: ContainerModel, vm_url: String) -> Element {
+pub fn Hero(container: ContainerModel, vm_url: String, vm_name: String) -> Element {
     let state = container.state.clone().unwrap_or_else(|| "—".to_string());
     let lower = state.to_ascii_lowercase();
     let is_running = lower == "running";
@@ -105,6 +105,13 @@ pub fn Hero(container: ContainerModel, vm_url: String) -> Element {
         .and_then(|l| l.get("com.docker.compose.project"))
         .cloned()
         .unwrap_or_else(|| "—".to_string());
+    // Prefix with the VM so the header reads `{vm}/{stack}` — which machine
+    // the stack runs on is the first thing one wants to know here.
+    let stack = if vm_name.is_empty() {
+        stack
+    } else {
+        format!("{}/{}", vm_name, stack)
+    };
 
     // "created" — when the container record was created (docker create).
     // "started" — when the main process was last started (changes on restart).
@@ -185,8 +192,6 @@ pub fn Hero(container: ContainerModel, vm_url: String) -> Element {
                 span { class: "img-tag", "{image}" }
                 span { class: "sep", "·" }
                 span { span { class: "k", "stack" } " {stack}" }
-                span { class: "sep", "·" }
-                span { span { class: "k", "vm" } " {vm_url}" }
                 span { class: "sep", "·" }
                 span {
                     span { class: "k", "created" }
