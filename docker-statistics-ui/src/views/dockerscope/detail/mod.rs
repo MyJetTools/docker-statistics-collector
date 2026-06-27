@@ -10,5 +10,7 @@ mod labels;
 pub use labels::*;
 mod log_preview;
 pub use log_preview::*;
+mod compose;
+pub use compose::*;
 mod panel;
 pub use panel::*;

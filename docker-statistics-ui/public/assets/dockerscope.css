@@ -935,6 +935,15 @@ button, input { font-family: inherit; color: inherit; }
 }
 .log-mini-tall { max-height: 360px; }
 
+/* Decoded docker-compose.yaml — reuse the log box chrome but keep the YAML
+   verbatim (no wrapping) so indentation stays intact; box scrolls instead. */
+.compose-pre {
+  margin: 0;
+  white-space: pre;
+  color: var(--text);
+  line-height: 1.5;
+}
+
 /* Each log entry: small pad + faint dashed separator so wrapped long lines
    don't visually run into the next entry. Applies both to the inline preview
    and the full-screen log dialog. */

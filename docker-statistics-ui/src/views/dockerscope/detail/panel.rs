@@ -145,6 +145,7 @@ pub fn DetailPanel(env: Rc<String>) -> Element {
                     vm_url: vm_url.clone(),
                     is_running: container.state.as_deref() == Some("running"),
                 }
+                ComposePanel { container: container.clone() }
                 LabelsPanel { container: container.clone() }
             }
         }
