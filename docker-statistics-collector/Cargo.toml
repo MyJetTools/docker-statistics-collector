@@ -30,6 +30,8 @@ docker-sdk = { path = "../docker-sdk" }
 libc = "0.2"
 async-trait = "*"
 serde_yaml = "*"
+base64 = "0.22"
+flate2 = "1"
 
 mcp-server-middleware = { tag = "0.8.3", git = "https://github.com/my-ai-utils/mcp-server-middleware.git" }
 my-ai-agent = { tag = "0.1.0", git = "https://github.com/my-ai-utils/my-ai-agent.git", features = [

@@ -7,12 +7,17 @@ change what the model sees as system context for every session.
 ---
 
 This server gives access to Docker containers across one or more hosts via
-six tools (`list_servers_and_services`, `find_containers`,
-`get_container_logs`, `get_host_info`, `exec_in_container`,
+seven tools (`list_servers_and_services`, `find_containers`,
+`get_container_logs`, `get_compose_yaml`, `get_host_info`, `exec_in_container`,
 `list_exposed_ports`) plus prompts that carry deeper guidance.
 
 `list_exposed_ports` returns every host-published port per instance (sorted),
 so you can see which ports are taken on each VM and choose the next free one.
+
+`get_compose_yaml` returns the decoded docker-compose.yaml that produced a
+container, read from its `com.release-mcp.compose-yaml` label (gzip+base64) and
+auto-routed to the owning instance or peer. Errors if the container has no such
+label.
 
 `exec_in_container` runs a shell command inside a container (like `docker exec`,
 as `sh -c "<command>"`) and returns its stdout/stderr and exit code, auto-routed
