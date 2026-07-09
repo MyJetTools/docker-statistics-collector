@@ -83,7 +83,7 @@ pub fn DetailPanel(env: Rc<String>) -> Element {
 
     rsx! {
         main { class: "detail",
-            Hero { container: container.clone(), vm_url: vm_url.clone(), vm_name }
+            Hero { container: container.clone(), vm_url: vm_url.clone(), vm_name: vm_name.clone() }
 
             div { class: "charts-row",
                 ChartCard {
@@ -146,6 +146,14 @@ pub fn DetailPanel(env: Rc<String>) -> Element {
                     is_running: container.state.as_deref() == Some("running"),
                 }
                 ComposePanel { container: container.clone() }
+                ExecPermissionPanel {
+                    // Keyed by VM: the unlock window belongs to the instance, not
+                    // the container, so switching containers within one VM must not
+                    // remount the panel and restart its countdown.
+                    key: "{vm_name}",
+                    vm_url: vm_url.clone(),
+                    vm_name: vm_name.clone(),
+                }
                 LabelsPanel { container: container.clone() }
             }
         }

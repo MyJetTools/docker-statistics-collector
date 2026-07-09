@@ -21,8 +21,25 @@ label.
 
 `exec_in_container` runs a shell command inside a container (like `docker exec`,
 as `sh -c "<command>"`) and returns its stdout/stderr and exit code, auto-routed
-to the owning instance or peer. It runs arbitrary commands inside containers —
-use it deliberately.
+to the owning instance or peer.
+
+**`exec_in_container` is dangerous and is DISABLED by default.** Two rules govern it:
+
+1. **It must be unlocked by a human.** A person opens the Docker Statistics UI for
+   that VM and presses "Enable exec", which unlocks the tool on that VM only, for
+   10 minutes (`exec_unlock_duration_secs`), after which it locks itself again.
+   The unlock is enforced on the VM that owns the container, so unlocking one VM
+   never opens exec anywhere else. If the window is closed the tool returns an
+   error — do not retry it, tell the user to enable it first.
+2. **You must announce the commands before running them.** Before your first call,
+   write out in plain text the exact command(s) you intend to execute and what each
+   is for, and wait for the user to approve. Never execute a command the user has
+   not seen. Prefer read-only commands (`ls`, `cat`, `ps`, `env`); never run
+   destructive ones (`rm`, `kill`, writes, package installs) unless the user asked
+   for that exact command.
+
+The command runs under **POSIX `sh`, not bash** (busybox `ash` on Alpine images),
+so bashisms such as `[[ ]]`, arrays and `pipefail` will not work.
 
 `get_host_info` returns host-machine stats (NOT per-container) for this
 collector and every peer: RAM, logical CPU count, and physical disks

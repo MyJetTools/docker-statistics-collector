@@ -12,5 +12,7 @@ mod log_preview;
 pub use log_preview::*;
 mod compose;
 pub use compose::*;
+mod exec_permission;
+pub use exec_permission::*;
 mod panel;
 pub use panel::*;

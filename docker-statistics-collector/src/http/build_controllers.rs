@@ -31,6 +31,20 @@ pub fn build_controllers(app: &Arc<AppContext>) -> ControllersMiddleware {
         super::controllers::containers_controller::ExecAction::new(app.clone()),
     ));
 
+    // exec permission — time-limited unlock for the exec_in_container MCP tool
+
+    controllers_middleware.register_get_action(Arc::new(
+        super::controllers::exec_permission_controller::GetExecPermissionAction::new(app.clone()),
+    ));
+
+    controllers_middleware.register_post_action(Arc::new(
+        super::controllers::exec_permission_controller::EnableExecPermissionAction::new(app.clone()),
+    ));
+
+    controllers_middleware.register_post_action(Arc::new(
+        super::controllers::exec_permission_controller::DisableExecPermissionAction::new(app.clone()),
+    ));
+
     // metrics
 
     controllers_middleware.register_get_action(Arc::new(

@@ -20,6 +20,9 @@ pub struct SettingsModel {
     /// `/host/root`.
     pub host_root_path: Option<String>,
     pub ignore_disks: Option<Vec<String>>,
+    /// How long a single "enable exec" click keeps the `exec_in_container` MCP
+    /// tool unlocked on this instance. Defaults to 600 (10 minutes).
+    pub exec_unlock_duration_secs: Option<u64>,
 }
 
 impl SettingsModel {
@@ -60,6 +63,10 @@ impl SettingsModel {
             Some(path) => path,
             None => "/host/root",
         }
+    }
+
+    pub fn exec_unlock_duration(&self) -> Duration {
+        Duration::from_secs(self.exec_unlock_duration_secs.unwrap_or(600))
     }
 
     pub fn ignore_disks(&self) -> &[String] {

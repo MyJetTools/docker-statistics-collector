@@ -4,7 +4,7 @@ use rust_extensions::AppStates;
 
 use crate::settings::SettingsModel;
 
-use super::{MetricsCache, ServicesCache};
+use super::{ExecPermission, MetricsCache, ServicesCache};
 
 pub const APP_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 pub const APP_NAME: &'static str = env!("CARGO_PKG_NAME");
@@ -15,6 +15,10 @@ pub struct AppContext {
     pub cache: ServicesCache,
 
     pub metrics_cache: MetricsCache,
+
+    /// Time-limited unlock for the `exec_in_container` MCP tool. Starts disabled
+    /// on every boot; a human opens it from the UI for a few minutes.
+    pub exec_permission: ExecPermission,
 }
 
 impl AppContext {
@@ -24,6 +28,7 @@ impl AppContext {
             settings_model,
             cache: ServicesCache::new(),
             metrics_cache: MetricsCache::new(),
+            exec_permission: ExecPermission::new(),
         }
     }
 

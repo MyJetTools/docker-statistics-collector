@@ -5,7 +5,7 @@ use my_http_server::web_sockets::{
 };
 
 use crate::app::AppContext;
-use crate::peers_client::{fanout_exec, RouteExecResult};
+use crate::peers_client::{fanout_exec, ExecOrigin, RouteExecResult};
 
 /// Interactive "exec console" WebSocket. The client opens
 /// `ws://host/ws/exec?id=<container>` and sends one shell command per text
@@ -109,7 +109,8 @@ impl MyWebSocketCallback for ExecWsCallback {
         )
         .await;
 
-        match fanout_exec(&self.app, &container_id, &command).await {
+        // The console is a human surface behind the api's auth — not gated.
+        match fanout_exec(&self.app, &container_id, &command, ExecOrigin::Trusted).await {
             RouteExecResult::Ok(result) => {
                 if !result.output.is_empty() {
                     send_json(
@@ -133,6 +134,9 @@ impl MyWebSocketCallback for ExecWsCallback {
                     }),
                 )
                 .await;
+            }
+            RouteExecResult::Forbidden(msg) => {
+                send_json(&ws, &serde_json::json!({ "type": "error", "text": msg })).await;
             }
             RouteExecResult::PeerError(err) => {
                 send_json(

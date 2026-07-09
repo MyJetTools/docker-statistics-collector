@@ -11,3 +11,5 @@ mod processes;
 pub use processes::*;
 mod ssh_pass_key;
 pub use ssh_pass_key::*;
+mod exec_permission;
+pub use exec_permission::*;

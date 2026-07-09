@@ -33,6 +33,7 @@ chrono = "*"
 base64 = "*"
 flate2 = "1"
 ansi-to-html = "*"
+gloo-timers = { version = "*", features = ["futures"] }
 
 [profile]
 

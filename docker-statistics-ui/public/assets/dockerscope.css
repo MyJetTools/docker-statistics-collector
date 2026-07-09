@@ -935,6 +935,29 @@ button, input { font-family: inherit; color: inherit; }
 }
 .log-mini-tall { max-height: 360px; }
 
+/* MCP exec permission — the time-limited unlock control */
+.exec-perm-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.exec-perm-hint {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.exec-perm-hint code {
+  font-family: var(--mono);
+  color: var(--text-dim);
+}
+.exec-perm-actions { flex: 0 0 auto; }
+.btn.btn-danger {
+  border-color: rgba(239, 68, 68, .35);
+  color: var(--danger);
+}
+.btn.btn-danger:hover { background: rgba(239, 68, 68, .1); }
+
 /* Decoded docker-compose.yaml — reuse the log box chrome but keep the YAML
    verbatim (no wrapping) so indentation stays intact; box scrolls instead. */
 .compose-pre {

@@ -1,5 +1,5 @@
 use crate::app::AppContext;
-use crate::peers_client::{fanout_exec, RouteExecResult};
+use crate::peers_client::{fanout_exec, ExecOrigin, RouteExecResult};
 
 use my_http_server::{macros::MyHttpInput, HttpContext, HttpFailResult, HttpOkResult, HttpOutput};
 
@@ -40,7 +40,9 @@ async fn handle_request(
         ));
     }
 
-    match fanout_exec(&action.app, input_data.id.as_str(), command).await {
+    let origin = ExecOrigin::from_mcp_flag(input_data.mcp);
+
+    match fanout_exec(&action.app, input_data.id.as_str(), command, origin).await {
         RouteExecResult::Ok(result) => HttpOutput::as_json(ContainerExecHttpResponse {
             container_id: input_data.id,
             output: result.output,
@@ -55,6 +57,7 @@ async fn handle_request(
             ),
             false,
         )),
+        RouteExecResult::Forbidden(msg) => Err(HttpFailResult::as_forbidden(Some(msg))),
         RouteExecResult::PeerError(err) => Err(HttpFailResult::as_fatal_error(err)),
     }
 }
@@ -65,4 +68,6 @@ pub struct ExecHttpInput {
     pub id: String,
     #[http_query(description:"Command to run, executed as: sh -c \"<command>\"")]
     pub command: String,
+    #[http_query(description:"Internal: set by a peer collector when the call originated from the gated MCP tool")]
+    pub mcp: Option<bool>,
 }
