@@ -50,7 +50,7 @@ impl MyWebSocketCallback for LogsWsCallback {
             };
             let tail = query
                 .get_optional("tail")
-                .and_then(|v| v.from_str::<u32>().ok())
+                .and_then(|v| v.parse::<u32>().ok())
                 .unwrap_or(200);
             (id, tail)
         };

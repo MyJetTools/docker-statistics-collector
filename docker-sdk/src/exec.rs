@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use flurl::body::FlUrlBody;
+use flurl::body::HttpRequestBody;
 use flurl::IntoFlUrl;
 use serde::*;
 
@@ -67,7 +67,7 @@ pub async fn exec_in_container(
         .with_header("host", "docker")
         .with_header("connection", "close")
         .set_timeout(Duration::from_secs(60))
-        .post(FlUrlBody::as_json(&create_body))
+        .post(HttpRequestBody::as_json(&create_body))
         .await
         .map_err(|err| format!("exec create failed: {:?}", err))?;
 
@@ -99,7 +99,7 @@ pub async fn exec_in_container(
         .with_header("host", "docker")
         .with_header("connection", "close")
         .set_timeout(Duration::from_secs(60))
-        .post(FlUrlBody::as_json(&start_body))
+        .post(HttpRequestBody::as_json(&start_body))
         .await
         .map_err(|err| format!("exec start failed: {:?}", err))?;
 

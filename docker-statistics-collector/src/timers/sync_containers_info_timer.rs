@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
-use rust_extensions::{MyTimerTick, StopWatch};
+use rust_extensions::{MyTimerTick, RepeatTimerIteration, StopWatch};
 
 use crate::app::AppContext;
 
@@ -31,7 +31,7 @@ impl SyncContainersInfoTimer {
 
 #[async_trait::async_trait]
 impl MyTimerTick for SyncContainersInfoTimer {
-    async fn tick(&self) {
+    async fn tick(&self) -> RepeatTimerIteration {
         let sw = StopWatch::new();
 
         let list_of_containers = docker_sdk::list_of_containers::get_list_of_containers(
@@ -133,5 +133,7 @@ impl MyTimerTick for SyncContainersInfoTimer {
         }
 
         println!("Iteration is finished in {}", sw.duration_as_string());
+
+        RepeatTimerIteration::WithInterval
     }
 }

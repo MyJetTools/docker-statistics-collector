@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use rust_extensions::MyTimerTick;
+use rust_extensions::{MyTimerTick, RepeatTimerIteration};
 
 use crate::app::DataCache;
 use crate::APP_CTX;
@@ -9,7 +9,7 @@ pub struct UpdateMetricsCacheTimer;
 
 #[async_trait::async_trait]
 impl MyTimerTick for UpdateMetricsCacheTimer {
-    async fn tick(&self) {
+    async fn tick(&self) -> RepeatTimerIteration {
         let stop_watch = rust_extensions::StopWatch::new();
 
         let urls = APP_CTX.settings_reader.get_urls().await;
@@ -69,5 +69,7 @@ impl MyTimerTick for UpdateMetricsCacheTimer {
         }
 
         println!("UpdateMetricsCacheTimer took: {:?}", stop_watch.duration());
+
+        RepeatTimerIteration::WithInterval
     }
 }

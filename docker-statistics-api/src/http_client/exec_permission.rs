@@ -51,7 +51,7 @@ pub async fn exec_permission(
 
     let response = match action {
         ExecPermissionAction::Status => request.get().await,
-        _ => request.post(flurl::body::FlUrlBody::Empty).await,
+        _ => request.post(flurl::body::HttpRequestBody::Empty).await,
     };
 
     let mut response = match response {

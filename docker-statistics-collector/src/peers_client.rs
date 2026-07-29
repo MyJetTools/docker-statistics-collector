@@ -345,7 +345,7 @@ async fn fetch_exec_from_peer(
     let mut response = request
         .set_timeout(timeout)
         .do_not_reuse_connection()
-        .post(flurl::body::FlUrlBody::Empty)
+        .post(flurl::body::HttpRequestBody::Empty)
         .await
         .map_err(|err| format!("peer {}: request failed: {:?}", peer_url, err))?;
 
@@ -535,7 +535,7 @@ async fn fetch_exec_permission_from_peer(
 
     let mut response = match command {
         ExecPermissionCommand::Status => request.get().await,
-        _ => request.post(flurl::body::FlUrlBody::Empty).await,
+        _ => request.post(flurl::body::HttpRequestBody::Empty).await,
     }
     .map_err(|err| format!("peer {}: request failed: {:?}", peer_url, err))?;
 

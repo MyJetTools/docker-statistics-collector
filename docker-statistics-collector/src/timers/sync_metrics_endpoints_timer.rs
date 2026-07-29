@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use flurl::FlUrl;
-use rust_extensions::MyTimerTick;
+use rust_extensions::{MyTimerTick, RepeatTimerIteration};
 
 use crate::app::AppContext;
 
@@ -17,10 +17,10 @@ impl SyncMetricsEndpointsTimer {
 
 #[async_trait::async_trait]
 impl MyTimerTick for SyncMetricsEndpointsTimer {
-    async fn tick(&self) {
+    async fn tick(&self) -> RepeatTimerIteration {
         if let Some(disabled) = self.app.settings_model.disable_metics_collecting {
             if disabled {
-                return;
+                return RepeatTimerIteration::WithInterval;
             }
         }
 
@@ -74,6 +74,8 @@ impl MyTimerTick for SyncMetricsEndpointsTimer {
         let snapshot = self.app.metrics_cache.get_sizes().await;
 
         println!("{:#?}", snapshot);
+
+        RepeatTimerIteration::WithInterval
     }
 }
 

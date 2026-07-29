@@ -7,18 +7,22 @@ edition = "2021"
 
 [dependencies]
 
-my-http-server = { tag = "0.8.3", git = "https://github.com/MyJetTools/my-http-server.git", features = [
+my-http-server = { tag = "0.9.0", git = "https://github.com/MyJetTools/my-http-server.git", features = [
     "controllers",
     "macros",
     "websocket",
 ] }
 
-my-logger = { tag = "1.2.1", git = "https://github.com/MyJetTools/my-logger.git" }
-flurl = { tag = "0.6.1", git = "https://github.com/MyJetTools/fl-url.git" }
+my-http-utils = { tag = "0.1.0", git = "https://github.com/MyJetTools/my-http-utils.git", features = [
+    "server",
+] }
+
+my-logger = { tag = "1.3.0", git = "https://github.com/MyJetTools/my-logger.git" }
+flurl = { tag = "0.7.0", git = "https://github.com/MyJetTools/fl-url.git" }
 tokio-tungstenite = "*"
 futures = "*"
 
-my-settings-reader = { tag = "0.4.1", git = "https://github.com/MyJetTools/my-settings-reader.git" }
+my-settings-reader = { tag = "0.5.0", git = "https://github.com/MyJetTools/my-settings-reader.git" }
 
 tokio = { version = "*", features = ["full"] }
 tokio-util = "*"
@@ -33,7 +37,7 @@ serde_yaml = "*"
 base64 = "0.22"
 flate2 = "1"
 
-mcp-server-middleware = { tag = "0.8.3", git = "https://github.com/my-ai-utils/mcp-server-middleware.git" }
+mcp-server-middleware = { tag = "0.9.0", git = "https://github.com/my-ai-utils/mcp-server-middleware.git" }
 my-ai-agent = { tag = "0.1.0", git = "https://github.com/my-ai-utils/my-ai-agent.git", features = [
     "agent",
 ] }
