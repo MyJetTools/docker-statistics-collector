@@ -48,11 +48,19 @@ impl TopMetric {
         }
     }
 
-    /// CSS colour variable the board's bars use — matches the chart cards.
-    pub fn color_var(&self) -> &'static str {
+    /// Modifier class that colours the board's bars — matches the chart cards.
+    ///
+    /// A CLASS, never an inline `background: var(--…)`. An inline style carrying a
+    /// var()-bearing shorthand does not survive being REWRITTEN: the interpreter
+    /// saves the node's longhands around `setAttribute("style", …)`, a
+    /// pending-substitution longhand serializes as `""`, and restoring `""` is
+    /// spec'd to REMOVE the property — so the fill keeps its correct width and
+    /// silently loses its colour on every other poll. Same rule the VM memory bar
+    /// and the container MemBar already follow.
+    pub fn fill_class(&self) -> &'static str {
         match self {
-            TopMetric::Cpu => "var(--cpu)",
-            TopMetric::Mem => "var(--mem)",
+            TopMetric::Cpu => "cpu",
+            TopMetric::Mem => "mem",
         }
     }
 }

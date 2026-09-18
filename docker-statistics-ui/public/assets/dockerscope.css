@@ -1320,7 +1320,13 @@ button, input { font-family: inherit; color: inherit; }
   overflow: hidden;
   margin-top: 3px;
 }
+/* Fill colour comes from a modifier class so the inline `style` only carries
+   `width:` and never loses its background during a Dioxus style diff — the same
+   rule as `.vm-mem-bar-used` and `.mb-fill`. Inline it read as an empty grey
+   track on every other poll: the width stayed correct and only the colour went. */
 .tc-fill { height: 100%; border-radius: 3px; transition: width .25s ease; }
+.tc-fill.cpu { background: var(--cpu); }
+.tc-fill.mem { background: var(--mem); }
 
 .tc-val {
   display: flex; flex-direction: column; align-items: flex-end; gap: 2px;

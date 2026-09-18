@@ -127,7 +127,7 @@ fn TopRow(
     let row_class = format!("tc-row{}", heat);
     let state_cls = format!("state {}", row.state_class);
     let bar_width = (row.bar_pct(max) * 10.0).round() / 10.0;
-    let bar_color = metric.color_var();
+    let fill_class = format!("tc-fill {}", metric.fill_class());
     let bar_title = match (metric, mem_pct, row.mem_limit_is_declared) {
         (TopMetric::Mem, Some(p), true) => format!("{:.0}% of declared mem limit", p),
         (TopMetric::Mem, Some(p), false) => format!("{:.0}% of host RAM (no container limit)", p),
@@ -163,8 +163,9 @@ fn TopRow(
                 div { class: "image", "{row.image}" }
                 div { class: "tc-bar", title: "{bar_title}",
                     div {
-                        class: "tc-fill",
-                        style: "width: {bar_width:.1}%; background: {bar_color};",
+                        class: "{fill_class}",
+                        // Width ONLY — the colour is the class's. See `fill_class`.
+                        style: "width: {bar_width:.1}%;",
                     }
                 }
             }
