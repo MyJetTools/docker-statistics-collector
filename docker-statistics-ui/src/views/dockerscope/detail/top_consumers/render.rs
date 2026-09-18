@@ -110,12 +110,41 @@ fn TopRow(
         }
     };
 
-    let share = row
-        .share_pct(total)
-        .map(|p| format!("{:.1}% of total", p))
-        .unwrap_or_else(|| "idle".to_string());
-
     let mem_pct = row.mem_pct();
+
+    // What the percentage is measured AGAINST differs by metric, while the
+    // ordering never does — both boards rank on absolute consumption.
+    //
+    // CPU has no per-container ceiling to speak of, so its share of the ranked
+    // set is the useful figure. Memory does: the container was given a limit (or,
+    // unlimited, may claim the whole host), and "87% of what it may use" answers
+    // the question a share of the fleet total cannot. The bar tracks whichever
+    // percentage the row is labelled with, so the two never disagree.
+    let (share, bar_pct) = match metric {
+        TopMetric::Cpu => (
+            row.share_pct(total)
+                .map(|p| format!("{:.1}% of total", p))
+                .unwrap_or_else(|| "idle".to_string()),
+            row.bar_pct(max),
+        ),
+        TopMetric::Mem => match mem_pct {
+            Some(pct) => (
+                format!(
+                    "{:.1}% of {}",
+                    pct,
+                    if row.mem_limit_is_declared {
+                        "limit"
+                    } else {
+                        "host RAM"
+                    }
+                ),
+                pct.clamp(0.0, 100.0),
+            ),
+            // No declared limit and no host RAM reading: nothing to be a
+            // percentage OF, so fall back to the leader-relative bar.
+            None => ("no limit known".to_string(), row.bar_pct(max)),
+        },
+    };
 
     // Memory heat mirrors the container list so a hot row reads the same in
     // both columns — but only on the board that ranks by memory.
@@ -126,7 +155,7 @@ fn TopRow(
     };
     let row_class = format!("tc-row{}", heat);
     let state_cls = format!("state {}", row.state_class);
-    let bar_width = (row.bar_pct(max) * 10.0).round() / 10.0;
+    let bar_width = (bar_pct * 10.0).round() / 10.0;
     let fill_class = format!("tc-fill {}", metric.fill_class());
     let bar_title = match (metric, mem_pct, row.mem_limit_is_declared) {
         (TopMetric::Mem, Some(p), true) => format!("{:.0}% of declared mem limit", p),
