@@ -33,7 +33,11 @@ impl TopConsumerRow {
         } else {
             primary_name(&c.names).to_string()
         };
-        let cpu = c.cpu.usage.unwrap_or(0.0);
+        // Ranking and the share percentages are arithmetic, so a non-finite value
+        // has to be rejected at the boundary: a single NaN in the set makes `total`
+        // NaN and every row's share unreadable. A collector built after the fix in
+        // `get_cpu_usage` never sends one, but an older one in the fleet can.
+        let cpu = c.cpu.usage.filter(|v| v.is_finite()).unwrap_or(0.0);
         let mem_bytes = c.mem.usage.unwrap_or(0);
         let (effective_mem_limit, mem_limit_is_declared) = match c.mem.limit {
             Some(v) if v > 0 => (Some(v), true),
@@ -122,14 +126,12 @@ pub fn build_top_consumers(
     }
     let ranked = rows.len();
 
-    // Descending by metric; ties fall back to the name so the order doesn't
-    // jitter between polling ticks when several rows sit at 0.
-    rows.sort_by(|a, b| {
-        b.value
-            .partial_cmp(&a.value)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| a.name.cmp(&b.name))
-    });
+    // Descending by the NUMERIC metric — never by its rendered text, which would
+    // put 9% above 10% and 900MB above 1GB. The name is a tiebreak only, so the
+    // order doesn't jitter between polling ticks when several rows sit at 0.
+    // `total_cmp` rather than `partial_cmp`: it is a total order over f64, so the
+    // comparator stays consistent even if a non-finite value slipped through.
+    rows.sort_by(|a, b| b.value.total_cmp(&a.value).then_with(|| a.name.cmp(&b.name)));
 
     if top_n > 0 && rows.len() > top_n {
         rows.truncate(top_n);

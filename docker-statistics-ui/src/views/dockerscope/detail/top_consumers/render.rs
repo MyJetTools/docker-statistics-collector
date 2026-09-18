@@ -1,83 +1,69 @@
 use dioxus::prelude::*;
 
+use crate::models::MetricsByVm;
 use crate::router::AppRoute;
-use crate::states::{MainState, TopMetric, TOP_N_OPTIONS};
+use crate::states::{MainState, TopMetric};
 use crate::views::dockerscope::detail::{build_top_consumers, TopConsumerRow};
-use crate::views::dockerscope::helpers::{fmt_mem_pair, fmt_mem_short};
-use crate::views::dockerscope::icons::*;
+use crate::views::dockerscope::helpers::fmt_mem_pair;
+
+/// How many containers each board lists. Fixed rather than selectable: both
+/// rankings are on screen at once now, so the question the dropdowns answered
+/// ("which metric, how deep") no longer has to be asked.
+const TOP_N: usize = 10;
 
 /// Fills the detail column while a VM is selected but no container is: the
-/// heaviest containers of that VM ranked by CPU or memory, Top-N selectable.
+/// heaviest containers of that VM ranked by CPU on the left and by memory on
+/// the right, so the two can be read against each other at a glance.
 #[component]
 pub fn TopConsumersPanel() -> Element {
     let main_state = consume_context::<Signal<MainState>>();
     let cs_ra = main_state.read();
 
-    let all_selected = cs_ra.is_all_vms_selected();
-    let scope_title = if all_selected {
-        "All VMs".to_string()
-    } else {
-        cs_ra
-            .get_selected_vm_name()
-            .unwrap_or_else(|| "no vm".to_string())
-    };
-    let single_vm_name = if all_selected {
+    // In `/all` view each row carries its own VM; scoped to one VM the name is
+    // implicit and lives in the URL prefix instead.
+    let single_vm_name = if cs_ra.is_all_vms_selected() {
         None
     } else {
         cs_ra.get_selected_vm_name()
     };
 
-    let metric = cs_ra.get_top_metric();
-    let top_n = cs_ra.get_top_n();
-    let board = build_top_consumers(&cs_ra.get_containers(), metric, top_n);
+    let containers = cs_ra.get_containers();
 
-    let (total_mem_v, total_mem_u) = fmt_mem_pair(board.total_mem);
-    let shown = board.rows.len();
-    let summary = format!(
-        "{} of {} containers · CPU {:.2}% · MEM {} {}",
-        shown, board.ranked, board.total_cpu, total_mem_v, total_mem_u
-    );
+    rsx! {
+        div { class: "tc-boards",
+            {render_board(TopMetric::Cpu, &containers, single_vm_name.clone())}
+            {render_board(TopMetric::Mem, &containers, single_vm_name.clone())}
+        }
+    }
+}
 
+/// One board. A plain function rather than a `#[component]` so the ranked set
+/// can be passed by reference — it is rebuilt every poll and nothing is gained
+/// by making it a prop that has to be cloned and compared.
+fn render_board(
+    metric: TopMetric,
+    containers: &[&MetricsByVm],
+    single_vm_name: Option<String>,
+) -> Element {
+    let board = build_top_consumers(containers, metric, TOP_N);
+
+    let total = match metric {
+        TopMetric::Cpu => format!("{:.2}% total", board.total_cpu),
+        TopMetric::Mem => {
+            let (value, unit) = fmt_mem_pair(board.total_mem);
+            format!("{} {} total", value, unit)
+        }
+    };
+    let summary = format!("{} of {} · {}", board.rows.len(), board.ranked, total);
+
+    let title = format!("Top by {}", metric.label());
     let max = board.max;
-    let total = board.total;
+    let sum = board.total;
 
     rsx! {
         div { class: "panel top-consumers",
             div { class: "panel-head",
-                h3 { "Top consumers · {scope_title}" }
-                div { class: "tc-controls",
-                    select {
-                        class: "tc-select",
-                        title: "rank containers by",
-                        oninput: move |evt| {
-                            consume_context::<Signal<MainState>>()
-                                .write()
-                                .set_top_metric(TopMetric::parse(&evt.value()));
-                        },
-                        for m in [TopMetric::Cpu, TopMetric::Mem] {
-                            option {
-                                value: "{m.as_key()}",
-                                selected: m == metric,
-                                "{m.label()}"
-                            }
-                        }
-                    }
-                    select {
-                        class: "tc-select",
-                        title: "how many containers to show",
-                        oninput: move |evt| {
-                            let value = evt.value().parse::<usize>().unwrap_or(0);
-                            consume_context::<Signal<MainState>>().write().set_top_n(value);
-                        },
-                        for n in TOP_N_OPTIONS {
-                            option {
-                                value: "{n}",
-                                selected: n == top_n,
-                                {top_n_label(n)}
-                            }
-                        }
-                    }
-                }
+                h3 { "{title}" }
             }
 
             div { class: "tc-summary", "{summary}" }
@@ -92,7 +78,7 @@ pub fn TopConsumersPanel() -> Element {
                             row,
                             rank: idx + 1,
                             max,
-                            total,
+                            total: sum,
                             metric,
                             single_vm_name: single_vm_name.clone(),
                         }
@@ -100,14 +86,6 @@ pub fn TopConsumersPanel() -> Element {
                 }
             }
         }
-    }
-}
-
-fn top_n_label(n: usize) -> String {
-    if n == 0 {
-        "All".to_string()
-    } else {
-        format!("Top {}", n)
     }
 }
 
@@ -138,23 +116,9 @@ fn TopRow(
         .unwrap_or_else(|| "idle".to_string());
 
     let mem_pct = row.mem_pct();
-    let (alt, alt_icon) = match metric {
-        TopMetric::Cpu => {
-            let text = match row.effective_mem_limit {
-                Some(limit) => format!(
-                    "{} / {}",
-                    fmt_mem_short(row.mem_bytes),
-                    fmt_mem_short(limit)
-                ),
-                None => fmt_mem_short(row.mem_bytes),
-            };
-            (text, icon_memory())
-        }
-        TopMetric::Mem => (format!("{:.2}%", row.cpu), icon_cpu()),
-    };
 
     // Memory heat mirrors the container list so a hot row reads the same in
-    // both columns — but only when memory is what's being ranked.
+    // both columns — but only on the board that ranks by memory.
     let heat = match (metric, mem_pct) {
         (TopMetric::Mem, Some(p)) if p >= 90.0 => " mem-danger",
         (TopMetric::Mem, Some(p)) if p >= 80.0 => " mem-warn",
@@ -210,10 +174,6 @@ fn TopRow(
                     span { class: "u", "{unit}" }
                 }
                 span { class: "sub", "{share}" }
-                span { class: "alt",
-                    span { class: "aico", {alt_icon} }
-                    "{alt}"
-                }
             }
         }
     }

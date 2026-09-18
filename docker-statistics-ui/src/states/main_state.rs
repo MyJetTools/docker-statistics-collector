@@ -30,8 +30,9 @@ impl ContainerFilter {
     }
 }
 
-/// Metric the "Top consumers" board ranks by. The board replaces the empty
-/// detail panel when a VM (or the aggregate) is selected but no container is.
+/// Metric one Top consumers board ranks by. Two boards — CPU and memory — fill
+/// the detail panel when a VM (or the aggregate) is selected but no container is.
+/// Not stored on the state: both are always shown, so there is nothing to choose.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum TopMetric {
     #[default]
@@ -40,20 +41,6 @@ pub enum TopMetric {
 }
 
 impl TopMetric {
-    pub fn as_key(&self) -> &'static str {
-        match self {
-            TopMetric::Cpu => "cpu",
-            TopMetric::Mem => "mem",
-        }
-    }
-
-    pub fn parse(value: &str) -> Self {
-        match value {
-            "mem" => TopMetric::Mem,
-            _ => TopMetric::Cpu,
-        }
-    }
-
     pub fn label(&self) -> &'static str {
         match self {
             TopMetric::Cpu => "CPU",
@@ -69,10 +56,6 @@ impl TopMetric {
         }
     }
 }
-
-/// Selectable sizes of the Top-N board. `0` means "every container".
-pub const TOP_N_OPTIONS: [usize; 5] = [5, 10, 20, 50, 0];
-pub const DEFAULT_TOP_N: usize = 10;
 
 pub struct MainState {
     pub envs: EnvListState,
@@ -92,8 +75,6 @@ pub struct MainState {
 
     /// "Top consumers" board settings. They live here rather than in the
     /// component so switching to a container and back doesn't reset them.
-    top_metric: TopMetric,
-    top_n: usize,
 
     /// Age of the data currently on screen, as reported by the api.
     data_age_secs: Option<i64>,
@@ -116,8 +97,6 @@ impl MainState {
             container_filter: ContainerFilter::All,
             active_container_name: None,
             active_container_vm: None,
-            top_metric: TopMetric::default(),
-            top_n: DEFAULT_TOP_N,
             data_age_secs: None,
             state_no: 0,
             dialog_is_shown: false,
@@ -162,22 +141,6 @@ impl MainState {
 
     pub fn set_data_age_secs(&mut self, value: Option<i64>) {
         self.data_age_secs = value;
-    }
-
-    pub fn get_top_metric(&self) -> TopMetric {
-        self.top_metric
-    }
-
-    pub fn set_top_metric(&mut self, value: TopMetric) {
-        self.top_metric = value;
-    }
-
-    pub fn get_top_n(&self) -> usize {
-        self.top_n
-    }
-
-    pub fn set_top_n(&mut self, value: usize) {
-        self.top_n = value;
     }
 
     /// True once a VM (single or the aggregate) is selected — the detail column

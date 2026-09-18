@@ -1248,19 +1248,17 @@ button, input { font-family: inherit; color: inherit; }
   height: 100%;
 }
 
-/* ─── Top consumers board (detail column, no container selected) ─── */
-.top-consumers .panel-head { gap: 12px; }
-.top-consumers .tc-controls { display: flex; align-items: center; gap: 8px; }
-.tc-select {
-  background: var(--surface-2);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-md);
-  padding: 4px 8px;
-  font-family: var(--mono); font-size: 11px;
-  color: var(--text);
-  cursor: pointer;
+/* ─── Top consumers boards (detail column, no container selected) ─── */
+/* Two equal boards side by side — CPU left, memory right. `.app` enforces a
+   1280px floor and the detail column is the `1fr`, so each board gets ~330px
+   even at the narrowest supported window; no breakpoint is needed. */
+.tc-boards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: start;
 }
-.tc-select:hover { border-color: var(--accent); }
+.top-consumers { min-width: 0; }
 .tc-summary {
   font-family: var(--mono); font-size: 10.5px;
   color: var(--text-muted);
@@ -1326,7 +1324,7 @@ button, input { font-family: inherit; color: inherit; }
 
 .tc-val {
   display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
-  min-width: 104px;
+  min-width: 72px;
 }
 .tc-val .v {
   font-family: var(--mono); font-size: 14px; font-weight: 600;
@@ -1334,8 +1332,3 @@ button, input { font-family: inherit; color: inherit; }
 }
 .tc-val .v .u { font-size: 10px; color: var(--text-muted); margin-left: 2px; font-weight: 400; }
 .tc-val .sub { font-family: var(--mono); font-size: 10px; color: var(--text-muted); }
-.tc-val .alt {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-family: var(--mono); font-size: 10px; color: var(--text-dim);
-}
-.tc-val .alt .aico { display: inline-flex; align-items: center; opacity: .8; }

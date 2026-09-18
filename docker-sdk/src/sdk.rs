@@ -62,13 +62,28 @@ impl ContainerStatsJsonModel {
         self.cpu_stats.online_cpus
     }
 
+    /// CPU usage of the container. Always a finite number.
+    ///
+    /// On the FIRST stats read of a container Docker returns a zero-filled
+    /// `precpu_stats`, so the system delta is 0 and the naive division yields NaN
+    /// (0/0) or infinity. Either one poisons every aggregate computed downstream —
+    /// one NaN row makes the api's totals NaN and turns every share on the Top
+    /// consumers board into `NaN%` — so it is clamped here, at the source, rather
+    /// than defended against at each of the places that add these up.
     pub fn get_cpu_usage(&self) -> f64 {
-        let cpu_delta = self.cpu_delta() as f64;
-        let system_cpu_delta = self.system_cpu_delta() as f64;
+        let system_cpu_delta = self.system_cpu_delta();
+        if system_cpu_delta <= 0 {
+            return 0.0;
+        }
 
-        let result = (cpu_delta / system_cpu_delta) * self.number_cpus() as f64;
+        let result =
+            (self.cpu_delta() as f64 / system_cpu_delta as f64) * self.number_cpus() as f64;
 
-        result
+        if result.is_finite() && result > 0.0 {
+            result
+        } else {
+            0.0
+        }
     }
 
     /// Total received bytes across all interfaces (cumulative since container
