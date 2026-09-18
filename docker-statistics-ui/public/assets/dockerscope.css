@@ -1252,6 +1252,15 @@ button, input { font-family: inherit; color: inherit; }
 /* Two equal boards side by side — CPU left, memory right. `.app` enforces a
    1280px floor and the detail column is the `1fr`, so each board gets ~330px
    even at the narrowest supported window; no breakpoint is needed. */
+.tc-wrap { display: flex; flex-direction: column; gap: 10px; }
+.tc-head { display: flex; align-items: center; gap: 10px; }
+/* Narrower than the dialog's input group — it holds two or three digits, and the
+   browser's number spinners take the rest. */
+.tc-topn input { min-width: 46px; padding: 5px 8px; }
+.tc-topn .label { padding: 5px 9px; }
+.tc-hint {
+  font-family: var(--mono); font-size: 10.5px; color: var(--text-muted);
+}
 .tc-boards {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -6,11 +6,6 @@ use crate::states::{MainState, TopMetric};
 use crate::views::dockerscope::detail::{build_top_consumers, TopConsumerRow};
 use crate::views::dockerscope::helpers::fmt_mem_pair;
 
-/// How many containers each board lists. Fixed rather than selectable: both
-/// rankings are on screen at once now, so the question the dropdowns answered
-/// ("which metric, how deep") no longer has to be asked.
-const TOP_N: usize = 10;
-
 /// Fills the detail column while a VM is selected but no container is: the
 /// heaviest containers of that VM ranked by CPU on the left and by memory on
 /// the right, so the two can be read against each other at a glance.
@@ -28,11 +23,34 @@ pub fn TopConsumersPanel() -> Element {
     };
 
     let containers = cs_ra.get_containers();
+    let top_n = cs_ra.get_top_n();
+    let top_n_raw = cs_ra.get_top_n_raw().to_string();
 
     rsx! {
-        div { class: "tc-boards",
-            {render_board(TopMetric::Cpu, &containers, single_vm_name.clone())}
-            {render_board(TopMetric::Mem, &containers, single_vm_name.clone())}
+        div { class: "tc-wrap",
+            div { class: "tc-head",
+                div { class: "ds-input-group tc-topn",
+                    span { class: "label", "top" }
+                    input {
+                        r#type: "number",
+                        min: "0",
+                        value: "{top_n_raw}",
+                        title: "rows per board — 0 shows every container",
+                        // `oninput`, not `onchange`: nothing is fetched, so the
+                        // boards can follow each keystroke instead of waiting
+                        // for the field to lose focus.
+                        oninput: move |evt| {
+                            consume_context::<Signal<MainState>>().write().set_top_n(evt.value());
+                        },
+                    }
+                }
+                span { class: "tc-hint", "0 = all" }
+            }
+
+            div { class: "tc-boards",
+                {render_board(TopMetric::Cpu, &containers, top_n, single_vm_name.clone())}
+                {render_board(TopMetric::Mem, &containers, top_n, single_vm_name.clone())}
+            }
         }
     }
 }
@@ -43,9 +61,10 @@ pub fn TopConsumersPanel() -> Element {
 fn render_board(
     metric: TopMetric,
     containers: &[&MetricsByVm],
+    top_n: usize,
     single_vm_name: Option<String>,
 ) -> Element {
-    let board = build_top_consumers(containers, metric, TOP_N);
+    let board = build_top_consumers(containers, metric, top_n);
 
     let total = match metric {
         TopMetric::Cpu => format!("{:.2}% total", board.total_cpu),

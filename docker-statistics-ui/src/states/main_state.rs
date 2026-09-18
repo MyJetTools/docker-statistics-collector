@@ -30,6 +30,9 @@ impl ContainerFilter {
     }
 }
 
+/// How many rows each Top consumers board lists until the user types otherwise.
+pub const DEFAULT_TOP_N: usize = 10;
+
 /// Metric one Top consumers board ranks by. Two boards — CPU and memory — fill
 /// the detail panel when a VM (or the aggregate) is selected but no container is.
 /// Not stored on the state: both are always shown, so there is nothing to choose.
@@ -87,6 +90,12 @@ pub struct MainState {
     /// Age of the data currently on screen, as reported by the api.
     data_age_secs: Option<i64>,
 
+    /// Rows per Top consumers board, kept as the RAW typed text rather than a
+    /// number: the field is free-form, and a half-typed or cleared box has to be
+    /// a legal intermediate state instead of snapping to something. Parsed on
+    /// read by [`MainState::get_top_n`].
+    top_n: String,
+
     pub dialog_is_shown: bool,
     pub prompt_pass_key: bool,
     /// Identity reported by api from the `x-ssl-user` header.
@@ -106,6 +115,7 @@ impl MainState {
             active_container_name: None,
             active_container_vm: None,
             data_age_secs: None,
+            top_n: DEFAULT_TOP_N.to_string(),
             state_no: 0,
             dialog_is_shown: false,
             data_request_no: 0,
@@ -141,6 +151,22 @@ impl MainState {
 
     pub fn set_container_filter(&mut self, f: ContainerFilter) {
         self.container_filter = f;
+    }
+
+    /// What the Top-N box currently reads, verbatim — the input is bound to this.
+    pub fn get_top_n_raw(&self) -> &str {
+        self.top_n.as_str()
+    }
+
+    pub fn set_top_n(&mut self, value: String) {
+        self.top_n = value;
+    }
+
+    /// Rows per board. `0` means every container; anything unparseable (an empty
+    /// box mid-edit, a stray character) falls back to the default rather than to
+    /// `0`, so clearing the field cannot dump the whole fleet on screen.
+    pub fn get_top_n(&self) -> usize {
+        self.top_n.trim().parse::<usize>().unwrap_or(DEFAULT_TOP_N)
     }
 
     pub fn get_data_age_secs(&self) -> Option<i64> {
