@@ -178,6 +178,32 @@ button, input { font-family: inherit; color: inherit; }
   text-overflow: ellipsis;
 }
 
+/* Which zone every timestamp in the app is rendered in. Purely token-driven, so the
+   `:root[data-theme="light"]` override recolours it with no second rule. */
+.topbar .tz-chip {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--text-muted);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 3px 9px;
+  white-space: nowrap;
+  letter-spacing: .04em;
+}
+
+/* Shown only when the data behind the page has actually gone behind — see topbar.rs.
+   Token-driven like the rest, so the light theme recolours it with no second rule. */
+.topbar .stale-chip {
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  color: var(--warn);
+  background: var(--warn-soft);
+  border: 1px solid var(--warn);
+  border-radius: 99px;
+  padding: 3px 9px;
+  white-space: nowrap;
+  letter-spacing: .04em;
+}
+
 /* ─── VM rail ─── */
 .vm-rail {
   border-right: 1px solid var(--border);
@@ -1221,3 +1247,95 @@ button, input { font-family: inherit; color: inherit; }
   font-family: var(--mono); font-size: 13px;
   height: 100%;
 }
+
+/* ─── Top consumers board (detail column, no container selected) ─── */
+.top-consumers .panel-head { gap: 12px; }
+.top-consumers .tc-controls { display: flex; align-items: center; gap: 8px; }
+.tc-select {
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  padding: 4px 8px;
+  font-family: var(--mono); font-size: 11px;
+  color: var(--text);
+  cursor: pointer;
+}
+.tc-select:hover { border-color: var(--accent); }
+.tc-summary {
+  font-family: var(--mono); font-size: 10.5px;
+  color: var(--text-muted);
+  padding: 0 8px 8px;
+}
+.tc-empty {
+  padding: 28px 8px; text-align: center;
+  font-family: var(--mono); font-size: 11.5px; color: var(--text-muted);
+}
+
+.tc-row {
+  display: grid;
+  grid-template-columns: 22px 8px 1fr auto;
+  column-gap: 10px;
+  align-items: center;
+  padding: 9px 8px;
+  border-radius: var(--r-sm);
+  color: inherit;
+  /* The row is an <a>; without this it keeps the UA underline in its resting state.
+     `:visited` cannot supply it — browsers restrict that selector to colour props. */
+  text-decoration: none;
+}
+.tc-row:hover, .tc-row:focus, .tc-row:visited { text-decoration: none; }
+.tc-row + .tc-row { border-top: 1px dashed var(--border); }
+/* Heat first, hover second: these have equal specificity, so on a tie the LATER rule
+   wins — declared the other way round a hot row would lose its hover feedback
+   entirely. Same order as `.cont-row` in the container column. */
+.tc-row.mem-warn   { background: linear-gradient(90deg, var(--warn-soft),   transparent 60%); }
+.tc-row.mem-danger { background: linear-gradient(90deg, var(--danger-soft), transparent 60%); }
+.tc-row:hover { background: var(--surface-1); }
+
+.tc-row .rank {
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  color: var(--text-muted); text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.tc-row .state {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 8px var(--accent);
+}
+.tc-row .state.exited { background: var(--text-muted); box-shadow: none; }
+.tc-row .state.restarting { background: var(--warn); animation: pulse 1s infinite; }
+.tc-row .state.unhealthy { background: var(--danger); animation: pulse 1s infinite; }
+
+.tc-row .info { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.tc-row .name {
+  font-family: var(--mono); font-size: 12px; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tc-row:hover .name { color: var(--accent); }
+.tc-row .name .vm { color: var(--text-muted); font-size: 10px; margin-left: 7px; }
+.tc-row .image {
+  font-family: var(--mono); font-size: 10.5px; color: var(--text-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tc-bar {
+  height: 6px; border-radius: 3px;
+  background: var(--surface-2);
+  overflow: hidden;
+  margin-top: 3px;
+}
+.tc-fill { height: 100%; border-radius: 3px; transition: width .25s ease; }
+
+.tc-val {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+  min-width: 104px;
+}
+.tc-val .v {
+  font-family: var(--mono); font-size: 14px; font-weight: 600;
+  color: var(--text); font-variant-numeric: tabular-nums;
+}
+.tc-val .v .u { font-size: 10px; color: var(--text-muted); margin-left: 2px; font-weight: 400; }
+.tc-val .sub { font-family: var(--mono); font-size: 10px; color: var(--text-muted); }
+.tc-val .alt {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--mono); font-size: 10px; color: var(--text-dim);
+}
+.tc-val .alt .aico { display: inline-flex; align-items: center; opacity: .8; }

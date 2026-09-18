@@ -49,6 +49,7 @@ pub async fn get_container_state(url: String, container_id: String) -> Option<Co
         .append_path_segment(container_id)
         .append_path_segment("json")
         .set_timeout(Duration::from_secs(5))
+        .set_response_body_timeout(Duration::from_secs(5))
         .get()
         .await
         .ok()?;
@@ -72,6 +73,36 @@ pub async fn get_container_state(url: String, container_id: String) -> Option<Co
         pid,
         started_at_unix_seconds,
     })
+}
+
+/// Whether this daemon owns the container.
+///
+/// Distinguishes the two answers `get_container_state` folds into `None`:
+/// `Ok(false)` means Docker said 404 — the container genuinely lives elsewhere —
+/// while `Err` means the daemon did not answer at all. Ownership routing must not
+/// treat the second as the first, or a busy daemon disowns its own containers and
+/// the request is fanned out to peers that will all refuse it.
+pub async fn container_exists(url: String, container_id: String) -> Result<bool, String> {
+    let response = url
+        .as_str()
+        .with_header("host", "localhost")
+        .append_path_segment("containers")
+        .append_path_segment(container_id.as_str())
+        .append_path_segment("json")
+        .set_timeout(Duration::from_secs(5))
+        .set_response_body_timeout(Duration::from_secs(5))
+        .get()
+        .await
+        .map_err(|err| format!("docker inspect {}: request failed: {:?}", container_id, err))?;
+
+    match response.get_status_code() {
+        200 => Ok(true),
+        404 => Ok(false),
+        status => Err(format!(
+            "docker inspect {}: status {}",
+            container_id, status
+        )),
+    }
 }
 
 /// Returns the host PID of a container's main process. Thin wrapper over

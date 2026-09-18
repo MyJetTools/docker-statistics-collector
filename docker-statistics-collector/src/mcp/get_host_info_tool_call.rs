@@ -126,7 +126,11 @@ impl McpToolCall<GetHostInfoInputData, GetHostInfoResponse> for GetHostInfoHandl
             raw.push(HostMemEntryHttpModel::from_snapshot(instance, snap, disks));
         }
 
-        // Peers — their already-collected host entries (memory + disks).
+        // Peers — host memory + disks. This rides on `/api/containers/local`, which
+        // performs the peer's full live scan; the host block is a by-product of it.
+        // A dedicated host-only peer endpoint would be cheaper, but the api already
+        // triggers exactly this scan every few seconds, so the marginal cost is one
+        // extra pass at most — usually zero, since the peer single-flights it.
         for (_peer_instance, _peer_containers, peer_hosts) in
             crate::peers_client::fanout_local_containers(&self.app).await
         {

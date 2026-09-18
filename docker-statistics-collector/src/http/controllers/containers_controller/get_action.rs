@@ -30,8 +30,27 @@ async fn handle_request(
     action: &GetContainersAction,
     _ctx: &mut HttpContext,
 ) -> Result<HttpOkResult, HttpFailResult> {
-    let local = action.app.cache.get_snapshot().await;
     let local_instance = action.app.get_env_info();
+
+    // Local host memory + physical disks (host-level, not per-container).
+    let proc_base = action.app.settings_model.host_proc_path().to_string();
+    let root_base = action.app.settings_model.host_root_path().to_string();
+    let ignore_disks = action.app.settings_model.ignore_disks().to_vec();
+
+    // All three are independent and each costs a full live Docker scan on some host.
+    // Awaiting them in sequence used to add the local scan to every peer's, roughly
+    // doubling the wall-clock of the api's poll for no reason.
+    let (local, local_host, peers) = tokio::join!(
+        action.app.live.get_snapshot(&action.app.disk_sizes),
+        tokio::task::spawn_blocking(move || {
+            let mem = crate::host_mem::read(&proc_base);
+            let disks = crate::host_disks::read(&proc_base, &root_base, &ignore_disks);
+            (mem, disks)
+        }),
+        crate::peers_client::fanout_local_containers(&action.app),
+    );
+
+    let local = local.map_err(HttpFailResult::as_fatal_error)?;
 
     let mut containers: Vec<ContainerJsonModel> = local
         .into_iter()
@@ -40,18 +59,7 @@ async fn handle_request(
 
     let mut hosts: Vec<HostMemEntryHttpModel> = Vec::new();
 
-    // Local host memory + physical disks (host-level, not per-container).
-    let proc_base = action.app.settings_model.host_proc_path().to_string();
-    let root_base = action.app.settings_model.host_root_path().to_string();
-    let ignore_disks = action.app.settings_model.ignore_disks().to_vec();
-    let local_host = tokio::task::spawn_blocking(move || {
-        let mem = crate::host_mem::read(&proc_base);
-        let disks = crate::host_disks::read(&proc_base, &root_base, &ignore_disks);
-        (mem, disks)
-    })
-    .await
-    .ok();
-    if let Some((Some(snap), disks)) = local_host {
+    if let Ok((Some(snap), disks)) = local_host {
         hosts.push(HostMemEntryHttpModel::from_snapshot(
             local_instance.clone(),
             snap,
@@ -60,9 +68,7 @@ async fn handle_request(
     }
 
     // Peers — containers + their host memory.
-    for (peer_instance, peer_containers, peer_hosts) in
-        crate::peers_client::fanout_local_containers(&action.app).await
-    {
+    for (peer_instance, peer_containers, peer_hosts) in peers {
         for itm in peer_containers {
             containers.push(ContainerJsonModel::new(itm, peer_instance.clone()));
         }

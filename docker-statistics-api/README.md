@@ -6,7 +6,15 @@ Backend REST + WebSocket service for the `docker-statistics-ui` client-side WASM
 
 - Reads its `envs` config from `~/.docker-statistics-api`
 - Polls each env's master `docker-statistics-collector` every 3 seconds via `GET /api/containers`
-- Keeps a per-env in-memory cache of container metrics + history
+- Keeps a per-env in-memory cache of container metrics + history. **The collector stores
+  nothing** — it answers every request from a live Docker scan — so this service is the
+  only side that remembers anything, and a restart starts from an empty cache.
+- **Derives network throughput.** The collector ships raw cumulative `rx_bytes`/`tx_bytes`
+  plus the instant they were read; `NetSample::rate_to` turns two consecutive readings
+  into the `in_mbps`/`out_mbps` the UI shows. This requires a collector built after the
+  stateless refactor — pointed at an older one, the Network column stays blank.
+- **Does NOT measure disk sizes.** The collector runs its own background timer for
+  those and ships the result in every payload; this service just stores what arrives.
 - Enforces per-user access to envs via the `x-ssl-user` header set by the upstream reverse proxy
 - Exposes endpoints consumed by the WASM UI:
   - `GET  /api/envs` — list envs visible to the current user

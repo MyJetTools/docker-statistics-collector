@@ -22,11 +22,18 @@ async fn handle_request(
     action: &GetMetricsAction,
     _ctx: &mut HttpContext,
 ) -> Result<HttpOkResult, HttpFailResult> {
-    let content = action.app.metrics_cache.get_aggregated_metrics().await;
+    // Scraped on demand — nothing is kept between calls.
+    let scraped = crate::metrics_scraper::scrape_all(&action.app).await;
+
+    let total: usize = scraped.iter().map(|itm| itm.content.len()).sum();
+    let mut content = Vec::with_capacity(total);
+    for itm in scraped {
+        content.extend_from_slice(itm.content.as_slice());
+    }
 
     HttpOutput::Content {
         status_code: 200,
-        content: content,
+        content,
         headers: WebContentType::Text.into(),
     }
     .into_ok_result(false)

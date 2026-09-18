@@ -43,20 +43,21 @@ impl ContainerJsonModel {
     }
 
     pub fn is_running(&self) -> bool {
-        let result = self.state == "running";
-
-        if !result {
-            eprintln!(
-                "Container {} is not running. State is: {}",
-                self.image, self.state
-            );
-        }
-
-        result
+        // No logging here: this is called twice per container on every live scan,
+        // which is now the HTTP request path. A fleet with dozens of stopped
+        // containers would bury the peer/daemon errors that stderr is actually for.
+        self.state == "running"
     }
 }
 
-pub async fn get_list_of_containers(url: String) -> Vec<ContainerJsonModel> {
+/// Lists containers. `Err` carries a human-readable reason.
+///
+/// This runs on the HTTP request path now that the collector is stateless, so it
+/// must never panic: a daemon hiccup has to surface as a 500 on one request, not
+/// take the process (or the whole env's cached view) with it.
+pub async fn get_list_of_containers(
+    url: String,
+) -> Result<Vec<ContainerJsonModel>, String> {
     let mut result = url
         .as_str()
         .with_header("host", "localhost")
@@ -64,26 +65,31 @@ pub async fn get_list_of_containers(url: String) -> Vec<ContainerJsonModel> {
         .append_path_segment("json")
         .append_query_param("all", Some("true"))
         .set_timeout(Duration::from_secs(5))
+        // `set_timeout` bounds request→headers only; fl-url leaves the body read
+        // unbounded by default, so a daemon that answers 200 and then stalls
+        // mid-body would hang this call forever.
+        .set_response_body_timeout(Duration::from_secs(5))
         .do_not_reuse_connection()
         .get()
         .await
-        .unwrap();
+        .map_err(|err| format!("docker {}: list request failed: {:?}", url, err))?;
 
     let status_code = result.get_status_code();
 
     if status_code != 200 {
-        println!("url: {}", url);
-        println!("Status code: {}", status_code);
-        println!("Headers: {:#?}", result.get_headers());
-        let body = result.get_body_as_slice().await.unwrap();
-        println!("Body Len: {}", body.len());
-        println!("Body: {:?}", std::str::from_utf8(body));
-        println!("BodyAsBytes: {:?}", body);
-        panic!("Docker returned non-200 status: {}", status_code);
+        return Err(format!(
+            "docker {}: list returned status {}",
+            url, status_code
+        ));
     }
 
-    let body = result.get_body_as_slice().await.unwrap();
-    serde_json::from_slice(body).unwrap()
+    let body = result
+        .get_body_as_slice()
+        .await
+        .map_err(|err| format!("docker {}: list body read failed: {:?}", url, err))?;
+
+    serde_json::from_slice(body)
+        .map_err(|err| format!("docker {}: list parse failed: {}", url, err))
 }
 
 #[derive(Deserialize)]
@@ -107,6 +113,7 @@ pub async fn get_container_size(url: String, container_id: &str) -> (Option<i64>
         .append_path_segment("json")
         .append_query_param("size", Some("true"))
         .set_timeout(Duration::from_secs(30))
+        .set_response_body_timeout(Duration::from_secs(30))
         .do_not_reuse_connection()
         .get()
         .await;

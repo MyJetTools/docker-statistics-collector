@@ -51,7 +51,7 @@ pub struct ContainerSummary {
     #[property(description = "Value of the com.docker.compose.service label, or empty string if absent.")]
     pub compose_service: String,
 
-    #[property(description = "Latest CPU usage from the cache.")]
+    #[property(description = "CPU usage as of this call.")]
     pub cpu_usage: Option<f64>,
 
     #[property(description = "Latest memory usage in bytes.")]
@@ -146,7 +146,12 @@ impl McpToolCall<FindContainersInputData, FindContainersResponse> for FindContai
 
         let only_running = model.only_running.unwrap_or(true);
 
-        let local = self.app.cache.get_snapshot().await;
+        let local = self
+            .app
+            .live
+            .get_snapshot(&self.app.disk_sizes)
+            .await
+            .map_err(|err| format!("{}: {}", "find_containers", err))?;
         let local_instance = self.app.get_env_info();
 
         let mut containers: Vec<ContainerSummary> = local

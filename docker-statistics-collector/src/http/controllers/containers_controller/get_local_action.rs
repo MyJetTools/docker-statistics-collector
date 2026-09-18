@@ -30,7 +30,12 @@ async fn handle_request(
     action: &GetLocalContainersAction,
     _ctx: &mut HttpContext,
 ) -> Result<HttpOkResult, HttpFailResult> {
-    let containers = action.app.cache.get_snapshot().await;
+    let containers = action
+        .app
+        .live
+        .get_snapshot(&action.app.disk_sizes)
+        .await
+        .map_err(HttpFailResult::as_fatal_error)?;
     let instance = action.app.get_env_info();
     let proc_base = action.app.settings_model.host_proc_path().to_string();
     let root_base = action.app.settings_model.host_root_path().to_string();

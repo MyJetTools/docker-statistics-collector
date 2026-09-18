@@ -2,6 +2,9 @@ use std::sync::Arc;
 
 use app::AppCtx;
 
+#[global_allocator]
+static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 mod app;
 mod auth;
 mod background;

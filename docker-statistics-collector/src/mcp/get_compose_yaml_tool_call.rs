@@ -62,11 +62,16 @@ impl McpToolCall<GetComposeYamlInputData, GetComposeYamlResponse> for GetCompose
         }
 
         let local_instance = self.app.get_env_info();
-        let local = self.app.cache.get_snapshot().await;
+        let local = self
+            .app
+            .live
+            .get_list()
+            .await
+            .map_err(|err| format!("{}: {}", "get_compose_yaml", err))?;
 
-        // Labels (including the compose blob) already live in the cached
-        // snapshot, so resolving the container locally — then across peers —
-        // is enough; no extra Docker/peer round-trip is needed.
+        // Labels (including the compose blob) come with the container listing,
+        // so resolving the container locally — then across peers — is enough;
+        // no extra Docker/peer round-trip is needed.
         let mut found = local
             .into_iter()
             .find(|c| matches_id(c, id))

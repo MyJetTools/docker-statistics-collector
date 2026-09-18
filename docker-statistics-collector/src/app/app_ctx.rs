@@ -4,7 +4,7 @@ use rust_extensions::AppStates;
 
 use crate::settings::SettingsModel;
 
-use super::{ExecPermission, MetricsCache, ServicesCache};
+use super::{DiskSizesCache, ExecPermission, LiveContainers};
 
 pub const APP_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 pub const APP_NAME: &'static str = env!("CARGO_PKG_NAME");
@@ -12,9 +12,16 @@ pub const APP_NAME: &'static str = env!("CARGO_PKG_NAME");
 pub struct AppContext {
     pub states: Arc<AppStates>,
     pub settings_model: Arc<SettingsModel>,
-    pub cache: ServicesCache,
 
-    pub metrics_cache: MetricsCache,
+    /// On-demand reader of the local Docker host. The collector stores no
+    /// container data of its own — every request is served from a fresh scan,
+    /// and whoever asks (the API service) is the one that keeps history.
+    pub live: LiveContainers,
+
+    /// The one piece of state the collector keeps. Sizing a container costs Docker a
+    /// walk of the storage layers, so a timer measures one at a time in the background
+    /// and every payload carries the latest known values — see [`DiskSizesCache`].
+    pub disk_sizes: DiskSizesCache,
 
     /// Time-limited unlock for the `exec_in_container` MCP tool. Starts disabled
     /// on every boot; a human opens it from the UI for a few minutes.
@@ -25,9 +32,9 @@ impl AppContext {
     pub fn new(settings_model: Arc<SettingsModel>) -> Self {
         AppContext {
             states: Arc::new(AppStates::create_initialized()),
+            live: LiveContainers::new(settings_model.clone()),
+            disk_sizes: DiskSizesCache::new(),
             settings_model,
-            cache: ServicesCache::new(),
-            metrics_cache: MetricsCache::new(),
             exec_permission: ExecPermission::new(),
         }
     }

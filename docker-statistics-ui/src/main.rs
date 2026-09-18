@@ -10,6 +10,7 @@ use dioxus_utils::*;
 
 mod models;
 
+mod local_time;
 mod router;
 mod selected_vm;
 mod utils;
@@ -123,6 +124,9 @@ pub fn read_loop(mut main_state: Signal<MainState>) {
     spawn(async move {
         loop {
             dioxus_utils::js::sleep(Duration::from_secs(1)).await;
+            // Keeps the cached offset honest on a tab left open across a DST
+            // change. Legal here because it is inside a `spawn`, not a render body.
+            crate::local_time::refresh();
             let (env, selected_vm) = { main_state.read().get_selected_vm() };
 
             let selected_vm = match selected_vm {
@@ -135,6 +139,7 @@ pub fn read_loop(mut main_state: Signal<MainState>) {
             match result {
                 Ok(result) => {
                     let mut write_state = main_state.write();
+                    write_state.set_data_age_secs(result.data_age_secs);
                     write_state.vms_state = result.vms;
                     if let Some(metrics) = result.metrics {
                         write_state.set_containers(metrics);

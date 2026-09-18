@@ -82,7 +82,12 @@ impl McpToolCall<ListServersAndServicesInputData, ListServersAndServicesResponse
     ) -> Result<ListServersAndServicesResponse, String> {
         let only_running = model.only_running.unwrap_or(true);
 
-        let local = self.app.cache.get_snapshot().await;
+        let local = self
+            .app
+            .live
+            .get_list()
+            .await
+            .map_err(|err| format!("{}: {}", "list_servers_and_services", err))?;
         let local_instance = self.app.get_env_info();
 
         let mut servers = vec![build_entry(&local_instance, &local, only_running)];

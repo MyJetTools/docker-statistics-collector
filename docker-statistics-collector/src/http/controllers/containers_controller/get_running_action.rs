@@ -30,7 +30,12 @@ async fn handle_request(
     action: &GetRunningContainersAction,
     _ctx: &mut HttpContext,
 ) -> Result<HttpOkResult, HttpFailResult> {
-    let local = action.app.cache.get_snapshot().await;
+    let local = action
+        .app
+        .live
+        .get_snapshot(&action.app.disk_sizes)
+        .await
+        .map_err(HttpFailResult::as_fatal_error)?;
     let local_instance = action.app.get_env_info();
 
     let mut containers: Vec<ContainerJsonModel> = local

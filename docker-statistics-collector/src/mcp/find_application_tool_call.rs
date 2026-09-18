@@ -95,7 +95,12 @@ impl McpToolCall<FindApplicationInputData, FindApplicationResponse> for FindAppl
 
         let mut applications = Vec::new();
 
-        let local = self.app.cache.get_snapshot().await;
+        let local = self
+            .app
+            .live
+            .get_snapshot(&self.app.disk_sizes)
+            .await
+            .map_err(|err| format!("{}: {}", "find_application", err))?;
         let local_instance = self.app.get_env_info();
         for c in local.into_iter().filter(|c| !only_running || c.running) {
             if let Some(m) = match_application(&c, &regex, &local_instance) {

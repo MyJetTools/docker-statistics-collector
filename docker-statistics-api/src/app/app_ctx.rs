@@ -12,6 +12,10 @@ use super::{DataCacheByEnv, SshPrivateKeyResolver};
 use crate::background::UpdateMetricsCacheTimer;
 use rust_extensions::MyTimer;
 
+/// Must exceed the master's worst case: its own live scan plus the peer fan-out
+/// (`peers_request_timeout_secs`, default 30).
+const MASTER_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(45);
+
 pub struct AppCtx {
     pub data_cache_by_env: Mutex<DataCacheByEnv>,
     pub app_states: Arc<AppStates>,
@@ -23,14 +27,14 @@ impl AppCtx {
     pub fn new() -> Self {
         let app_states = Arc::new(AppStates::create_initialized());
 
-        let mut timer_5s = MyTimer::new(std::time::Duration::from_secs(3));
+        let mut timer_3s = MyTimer::new(std::time::Duration::from_secs(3));
 
-        timer_5s.register_timer(
+        timer_3s.register_timer(
             "MetricsUpdate",
             std::sync::Arc::new(UpdateMetricsCacheTimer),
         );
 
-        timer_5s.start(app_states.clone(), my_logger::LOGGER.clone());
+        timer_3s.start(app_states.clone(), my_logger::LOGGER.clone());
 
         let settings_reader = Arc::new(AppSettingsReader::new());
 
@@ -61,6 +65,13 @@ impl AppCtx {
     }
 
     pub fn create_fl_url(&self, url: &str) -> FlUrl {
-        FlUrl::new(url).set_ssh_security_credentials_resolver(self.ssh_private_key_resolver.clone())
+        FlUrl::new(url)
+            .set_ssh_security_credentials_resolver(self.ssh_private_key_resolver.clone())
+            // Explicit rather than FlUrl's 10s default: the master's answer is no longer
+            // a cache read but its own live Docker scan plus a peer fan-out, and the
+            // peer budget alone is 30s.
+            .set_timeout(MASTER_REQUEST_TIMEOUT)
+            .set_response_body_timeout(MASTER_REQUEST_TIMEOUT)
     }
+
 }

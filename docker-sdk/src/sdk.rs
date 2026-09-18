@@ -72,7 +72,9 @@ impl ContainerStatsJsonModel {
     }
 
     /// Total received bytes across all interfaces (cumulative since container
-    /// start). Rate is derived in the collector from the delta between polls.
+    /// start). Rate is derived by docker-statistics-api from the delta between two
+    /// consecutive collector readings; the collector only forwards the raw counter
+    /// plus its sample timestamp.
     pub fn total_rx_bytes(&self) -> i64 {
         match self.networks.as_ref() {
             Some(nets) => nets.values().map(|n| n.rx_bytes).sum(),
@@ -113,38 +115,64 @@ pub struct CpuUsageJsonModel {
     pub total_usage: i64,
 }
 
+/// Stats for one container. `None` on any failure — a container that cannot be read is
+/// simply left without a usage reading.
+///
+/// Nothing here may panic: this now runs on the HTTP request path (the collector is
+/// stateless), where a panic costs the whole scan rather than one timer tick.
 pub async fn get_container_stats(
     url: String,
     container_id: String,
 ) -> Option<ContainerStatsJsonModel> {
-    let mut response = url
+    let mut response = match url
         .as_str()
         .append_path_segment("containers")
-        .append_path_segment(container_id)
+        .append_path_segment(container_id.as_str())
         .append_path_segment("stats")
         .with_header("host", "localhost")
         .append_query_param("stream", Some("false"))
         .set_timeout(Duration::from_secs(5))
+        .set_response_body_timeout(Duration::from_secs(5))
         .get()
         .await
-        .unwrap();
+    {
+        Ok(response) => response,
+        Err(err) => {
+            eprintln!(
+                "get_container_stats {}: request failed: {:?}",
+                container_id, err
+            );
+            return None;
+        }
+    };
 
-    if response.get_status_code() != 200 {
-        println!("url: {}", url);
-        println!("Status code: {}", response.get_status_code());
-        println!("Headers: {:#?}", response.get_headers());
-    }
-
-    let response = response.get_body_as_slice().await.unwrap();
-    let result = serde_json::from_slice(response);
-
-    if let Err(err) = &result {
-        println!("Err:{}", err);
-        println!("{}", std::str::from_utf8(response).unwrap());
+    let status_code = response.get_status_code();
+    if status_code != 200 {
+        eprintln!(
+            "get_container_stats {}: docker returned status {}",
+            container_id, status_code
+        );
         return None;
     }
 
-    Some(result.unwrap())
+    let body = match response.get_body_as_slice().await {
+        Ok(body) => body,
+        Err(err) => {
+            eprintln!(
+                "get_container_stats {}: body read failed: {:?}",
+                container_id, err
+            );
+            return None;
+        }
+    };
+
+    match serde_json::from_slice(body) {
+        Ok(result) => Some(result),
+        Err(err) => {
+            eprintln!("get_container_stats {}: parse failed: {}", container_id, err);
+            None
+        }
+    }
 }
 
 pub async fn get_container_logs(url: &str, container_id: &str, last_lines_number: u32) -> Vec<u8> {
@@ -159,6 +187,7 @@ pub async fn get_container_logs(url: &str, container_id: &str, last_lines_number
         .with_header(HOST.as_str(), "docker")
         .with_header(CONNECTION.as_str(), "close")
         .set_timeout(Duration::from_secs(5))
+        .set_response_body_timeout(Duration::from_secs(5))
         //  .print_input_request()
         .get()
         .await;

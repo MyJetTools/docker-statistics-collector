@@ -67,6 +67,7 @@ pub async fn exec_in_container(
         .with_header("host", "docker")
         .with_header("connection", "close")
         .set_timeout(Duration::from_secs(60))
+        .set_response_body_timeout(Duration::from_secs(60))
         .post(HttpRequestBody::as_json(&create_body))
         .await
         .map_err(|err| format!("exec create failed: {:?}", err))?;
@@ -99,6 +100,7 @@ pub async fn exec_in_container(
         .with_header("host", "docker")
         .with_header("connection", "close")
         .set_timeout(Duration::from_secs(60))
+        .set_response_body_timeout(Duration::from_secs(60))
         .post(HttpRequestBody::as_json(&start_body))
         .await
         .map_err(|err| format!("exec start failed: {:?}", err))?;
@@ -118,6 +120,7 @@ pub async fn exec_in_container(
         .with_header("host", "docker")
         .with_header("connection", "close")
         .set_timeout(Duration::from_secs(5))
+        .set_response_body_timeout(Duration::from_secs(5))
         .get()
         .await
     {

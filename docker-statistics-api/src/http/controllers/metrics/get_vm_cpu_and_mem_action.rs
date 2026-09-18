@@ -63,6 +63,7 @@ async fn handle_request(
         None => RequestApiModel {
             vms: BTreeMap::new(),
             metrics: None,
+            data_age_secs: None,
         },
         Some(cache) => {
             let vms = cache.get_vm_cpu_and_mem();
@@ -86,7 +87,17 @@ async fn handle_request(
                 metrics = Some(result);
             }
 
-            RequestApiModel { vms, metrics }
+            let data_age_secs = cache.last_successful_poll_at().map(|at| {
+                (rust_extensions::date_time::DateTimeAsMicroseconds::now().unix_microseconds
+                    - at.unix_microseconds)
+                    / 1_000_000
+            });
+
+            RequestApiModel {
+                vms,
+                metrics,
+                data_age_secs,
+            }
         }
     };
 

@@ -13,9 +13,18 @@ pub fn DetailPanel(env: Rc<String>) -> Element {
     let cs_ra = main_state.read();
 
     let Some(item) = cs_ra.find_active_container() else {
+        // No container picked yet: with a VM selected, rank its heaviest
+        // containers instead of showing an empty column.
+        if cs_ra.has_selected_vm() {
+            return rsx! {
+                main { class: "detail",
+                    TopConsumersPanel {}
+                }
+            };
+        }
         return rsx! {
             main { class: "detail",
-                div { class: "detail-empty", "select a container" }
+                div { class: "detail-empty", "select a VM" }
             }
         };
     };

@@ -230,10 +230,14 @@ async fn run_stream(mut cs: Signal<LogPreviewState>, env: Rc<String>, container_
             Ok(Message::Text(text)) => {
                 received += 1;
                 if let Ok(parsed) = serde_json::from_str::<WsLogPayload>(&text) {
+                    // Localised once, on arrival — `render_body` re-clones every buffered
+                    // line on each frame, so a per-render conversion would be 500 parses
+                    // per frame for a string that never changes.
+                    let line = crate::local_time::localize_log_line(&parsed.line);
                     let mut w = cs.write();
                     w.lines.push(LogLineHttpModel {
                         tp: parsed.tp,
-                        line: parsed.line,
+                        line,
                     });
                     while w.lines.len() > LINE_BUFFER_CAP {
                         w.lines.remove(0);

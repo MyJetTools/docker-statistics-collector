@@ -28,7 +28,13 @@ async fn handle_request(
     action: &GetListOfServicesWithMetrics,
     _ctx: &mut HttpContext,
 ) -> Result<HttpOkResult, HttpFailResult> {
-    let containers = action.app.metrics_cache.get_list_of_services().await;
+    // Same live scrape as `/metrics`, reporting only the services that actually
+    // answered with Prometheus content — same meaning the cached list had.
+    let services: Vec<String> = crate::metrics_scraper::scrape_all(&action.app)
+        .await
+        .into_iter()
+        .map(|itm| itm.service_name)
+        .collect();
 
-    HttpOutput::as_json(containers).into_ok_result(false).into()
+    HttpOutput::as_json(services).into_ok_result(false).into()
 }

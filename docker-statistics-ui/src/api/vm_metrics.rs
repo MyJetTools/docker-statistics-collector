@@ -10,6 +10,11 @@ use super::{get_base_url, url_encode};
 pub struct RequestApiModel {
     pub vms: BTreeMap<String, VmModel>,
     pub metrics: Option<Vec<MetricsByVm>>,
+    /// Seconds since the api last got a usable answer out of the master collector.
+    /// Every reading is a live Docker scan now, so a poll that times out silently
+    /// leaves the previous snapshot on screen — this is what tells them apart.
+    #[serde(default)]
+    pub data_age_secs: Option<i64>,
 }
 
 pub async fn get_vm_cpu_and_mem(

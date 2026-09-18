@@ -53,6 +53,7 @@ async fn fetch_one_peer(
         .append_path_segment("containers")
         .append_path_segment("local")
         .set_timeout(timeout)
+        .set_response_body_timeout(timeout)
         .do_not_reuse_connection()
         .get()
         .await
@@ -129,11 +130,30 @@ pub async fn fanout_logs(
 }
 
 async fn container_owned_locally(app: &AppContext, container_id: &str) -> bool {
-    app.cache
-        .get_snapshot()
-        .await
-        .iter()
-        .any(|c| c.id == container_id)
+    // A single inspect instead of a full live scan. `container_exists` separates
+    // Docker's 404 ("lives elsewhere") from "the daemon did not answer" — folding the
+    // two together makes a busy host disown its own containers and fan the request out
+    // to peers that will all refuse it.
+    match docker_sdk::container_inspect::container_exists(
+        app.settings_model.docker_url.to_string(),
+        container_id.to_string(),
+    )
+    .await
+    {
+        Ok(exists) => exists,
+        Err(err) => {
+            // Do NOT claim it. On a master most containers belong to peers, so
+            // claiming everything whenever the local daemon hiccups would break peer
+            // routing wholesale — far worse than the mislabelled error it would avoid.
+            // Falling through to the peers keeps routing intact; the log line is what
+            // stops the local failure being invisible.
+            eprintln!(
+                "peers_client::container_owned_locally: local daemon did not answer for {},                  falling through to peers: {}",
+                container_id, err
+            );
+            false
+        }
+    }
 }
 
 /// Outcome of routing a per-process file-descriptor request.
@@ -344,6 +364,7 @@ async fn fetch_exec_from_peer(
 
     let mut response = request
         .set_timeout(timeout)
+        .set_response_body_timeout(timeout)
         .do_not_reuse_connection()
         .post(flurl::body::HttpRequestBody::Empty)
         .await
@@ -531,6 +552,7 @@ async fn fetch_exec_permission_from_peer(
         .append_query_param("no_forward", Some("true"))
         .append_query_param("by", Some(by_user.as_str()))
         .set_timeout(timeout)
+        .set_response_body_timeout(timeout)
         .do_not_reuse_connection();
 
     let mut response = match command {
@@ -573,6 +595,7 @@ async fn fetch_processes_from_peer(
         .append_path_segment("processes")
         .append_query_param("id", Some(container_id.as_str()))
         .set_timeout(timeout)
+        .set_response_body_timeout(timeout)
         .do_not_reuse_connection()
         .get()
         .await
@@ -610,6 +633,7 @@ async fn fetch_logs_from_peer(
         .append_query_param("id", Some(container_id.as_str()))
         .append_query_param("lines_number", Some(lines.to_string()))
         .set_timeout(timeout)
+        .set_response_body_timeout(timeout)
         .get()
         .await
         .map_err(|err| format!("peer {}: request failed: {:?}", peer_url, err))?;

@@ -48,6 +48,9 @@ pub fn Topbar() -> Element {
 
     let totals = compute_fleet_totals(&cs_ra);
     let current_user = cs_ra.current_user.clone();
+    // Only surfaced once it is genuinely behind: the api polls every 3s, so anything
+    // under ~10s is the normal cadence and a permanent badge would just be noise.
+    let stale_secs = cs_ra.get_data_age_secs().filter(|secs| *secs >= 10);
 
     rsx! {
         header { class: "topbar",
@@ -105,6 +108,18 @@ pub fn Topbar() -> Element {
                         span { class: "swatch", style: "background: var(--danger);" }
                         "issues" b { "{totals.issues}" }
                     }
+                }
+                if let Some(secs) = stale_secs {
+                    span {
+                        class: "stale-chip",
+                        title: "The api has not had a usable answer from the master collector for {secs}s — what you see is the last good snapshot, not live data.",
+                        "⚠ stale {secs}s"
+                    }
+                }
+                span {
+                    class: "tz-chip",
+                    title: "All timestamps in this UI are shown in your browser's local timezone",
+                    "{crate::local_time::zone_label()}"
                 }
                 if !current_user.is_empty() {
                     span {

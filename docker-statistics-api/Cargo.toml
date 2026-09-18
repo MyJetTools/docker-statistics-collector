@@ -36,3 +36,4 @@ futures = "*"
 chrono = "*"
 base64 = "*"
 lazy_static = "*"
+mimalloc = { version = "*" }

@@ -35,6 +35,7 @@ pub async fn get_container_processes(
         .append_path_segment(container_id)
         .append_path_segment("top")
         .set_timeout(Duration::from_secs(5))
+        .set_response_body_timeout(Duration::from_secs(5))
         .get()
         .await
         .ok()?;

@@ -95,7 +95,7 @@ pub struct ContainerJsonModel {
     #[serde(default)]
     pub files: FilesUsageJsonMode,
     #[serde(default)]
-    pub net: NetUsageJsonMode,
+    pub net: NetCountersJsonModel,
     #[serde(default)]
     pub disk: DiskUsageJsonMode,
     pub ports: Vec<PortHttpModel>,
@@ -121,9 +121,10 @@ impl ContainerJsonModel {
                 open: itm.open_files,
                 limit: itm.fd_limit,
             },
-            net: NetUsageJsonMode {
-                in_mbps: itm.net_in_mbps,
-                out_mbps: itm.net_out_mbps,
+            net: NetCountersJsonModel {
+                rx_bytes: itm.net_rx_bytes,
+                tx_bytes: itm.net_tx_bytes,
+                sampled_at_unix_ms: itm.net_sampled_at_unix_ms,
             },
             disk: DiskUsageJsonMode {
                 size_rw: itm.size_rw,
@@ -181,11 +182,9 @@ impl ContainerJsonModel {
             mem_limit: self.mem.limit,
             mem_usage: self.mem.usage,
             cpu_usage: self.cpu.usage,
-            net_in_mbps: self.net.in_mbps,
-            net_out_mbps: self.net.out_mbps,
-            prev_rx_bytes: None,
-            prev_tx_bytes: None,
-            prev_net_at: None,
+            net_rx_bytes: self.net.rx_bytes,
+            net_tx_bytes: self.net.tx_bytes,
+            net_sampled_at_unix_ms: self.net.sampled_at_unix_ms,
             open_files: self.files.open,
             fd_limit: self.files.limit,
             size_rw: self.disk.size_rw,
@@ -238,18 +237,25 @@ pub struct FilesUsageJsonMode {
     pub limit: Option<i64>,
 }
 
-// Network throughput in MB/s, derived from rx/tx byte deltas between polls.
-// None until two samples are collected.
+// Raw cumulative network counters as Docker reported them, plus the instant
+// they were read (unix milliseconds). Throughput needs two samples, and the
+// collector keeps no state between requests — the API service holds the
+// previous reading and derives MB/s from the pair.
 #[derive(Serialize, Deserialize, MyHttpObjectStructure, Default)]
-pub struct NetUsageJsonMode {
-    pub in_mbps: Option<f64>,
-    pub out_mbps: Option<f64>,
+pub struct NetCountersJsonModel {
+    pub rx_bytes: Option<i64>,
+    pub tx_bytes: Option<i64>,
+    // Defaulted because this same struct DESERIALIZES peer responses: during a rolling
+    // upgrade a not-yet-updated peer sends no such field, and without this the whole
+    // peer parse fails and its containers vanish from the fleet for the rollout.
+    #[serde(default)]
+    pub sampled_at_unix_ms: i64,
 }
 
-// Per-container disk usage in bytes (refreshed on a slow cadence by the
-// collector). `size_rw` — writable layer (the container's own data on top of
-// the image). `size_root_fs` — total including image layers. None until the
-// first size pass.
+// Per-container disk usage in bytes, measured by the background disk-size timer and
+// carried in every payload. `size_rw` — writable layer (the container's own data on top
+// of the image). `size_root_fs` — total including image layers. Both are None until the
+// timer's rotation has reached that container.
 #[derive(Serialize, Deserialize, MyHttpObjectStructure, Default)]
 pub struct DiskUsageJsonMode {
     pub size_rw: Option<i64>,

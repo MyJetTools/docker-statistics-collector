@@ -112,11 +112,26 @@ impl MyWebSocketCallback for LogsWsCallback {
 }
 
 async fn is_local(app: &AppContext, container_id: &str) -> bool {
-    app.cache
-        .get_snapshot()
-        .await
-        .iter()
-        .any(|c| c.id == container_id)
+    // One inspect rather than a full live scan. Same rule as
+    // `peers_client::container_owned_locally`: only Docker's own 404 means "lives
+    // elsewhere". A daemon that did not answer is logged and treated as not-ours, so
+    // the request still reaches the peer that may own it.
+    match docker_sdk::container_inspect::container_exists(
+        app.settings_model.docker_url.to_string(),
+        container_id.to_string(),
+    )
+    .await
+    {
+        Ok(exists) => exists,
+        Err(err) => {
+            eprintln!(
+                "logs_ws_callback::is_local: local daemon did not answer for {}, \
+                 falling through to peers: {}",
+                container_id, err
+            );
+            false
+        }
+    }
 }
 
 async fn stream_local_logs_to_ws(

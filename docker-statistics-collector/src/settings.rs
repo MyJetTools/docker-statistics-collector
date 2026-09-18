@@ -26,6 +26,13 @@ pub struct SettingsModel {
 }
 
 impl SettingsModel {
+    /// When true, `/metrics` and the metrics endpoints answer empty without
+    /// touching any service. The collector scrapes on demand now, so this is
+    /// a switch on the request path rather than on a background timer.
+    pub fn metrics_collecting_disabled(&self) -> bool {
+        self.disable_metics_collecting.unwrap_or(false)
+    }
+
     pub fn ignore_service(&self, service: &str) -> bool {
         let Some(services_to_ignore) = self.services_to_ignore.as_ref() else {
             return false;
@@ -47,8 +54,13 @@ impl SettingsModel {
         }
     }
 
+    /// Budget for one peer request. It has to exceed the peer's WORST-CASE full live
+    /// Docker scan, not a cache read: `/api/containers/local` walks the daemon on every
+    /// request now, and a peer that misses this deadline vanishes from the fleet view
+    /// for that tick. 5s was right when peers answered from memory; it is a hair
+    /// trigger against a live scan.
     pub fn peers_request_timeout(&self) -> Duration {
-        Duration::from_secs(self.peers_request_timeout_secs.unwrap_or(5))
+        Duration::from_secs(self.peers_request_timeout_secs.unwrap_or(30))
     }
 
     pub fn host_proc_path(&self) -> &str {

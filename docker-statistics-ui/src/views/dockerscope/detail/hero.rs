@@ -1,25 +1,11 @@
 use dioxus::prelude::*;
 use rust_extensions::date_time::DateTimeAsMicroseconds;
 
-/// Format a unix-microseconds-or-seconds timestamp coming from `container.created`
-/// (which is stored as seconds in the Docker world; rust-extensions' `from`
-/// treats it as seconds via the `i64 -> DateTime` impl).
-fn format_ts(c: i64) -> String {
-    let t = DateTimeAsMicroseconds::from(c).to_rfc3339();
-    t[..19].to_string()
-}
-
-/// Same but for unix-seconds (what the collector emits for `started_at`).
-fn format_ts_unix_seconds(s: i64) -> String {
-    let mut dt = DateTimeAsMicroseconds::new(0);
-    dt.unix_microseconds = s * 1_000_000;
-    let t = dt.to_rfc3339();
-    t[..19].to_string()
-}
-
 fn unix_us_to_hours_ago(c: i64) -> f64 {
     let then_us = DateTimeAsMicroseconds::from(c).unix_microseconds;
-    let now_us = dioxus_utils::now_date_time().unix_microseconds;
+    // UTC on both sides — an age is offset-invariant, and using the LOCAL clock here
+    // would shift every freshness decision by the viewer's offset.
+    let now_us = DateTimeAsMicroseconds::now().unix_microseconds;
     (now_us - then_us) as f64 / 1_000_000.0 / 3600.0
 }
 
@@ -72,7 +58,7 @@ pub fn Hero(container: ContainerModel, vm_url: String, vm_name: String) -> Eleme
         .created
         .map(|c| {
             let then = DateTimeAsMicroseconds::from(c);
-            let now = dioxus_utils::now_date_time();
+            let now = DateTimeAsMicroseconds::now();
             now.duration_since(then).to_string()
         })
         .unwrap_or_else(|| "—".to_string());
@@ -120,18 +106,26 @@ pub fn Hero(container: ContainerModel, vm_url: String, vm_name: String) -> Eleme
     // when it hasn't been restarted yet.
     let created_str = container
         .created
-        .map(format_ts)
+        .map(crate::local_time::local_from_docker_epoch)
         .unwrap_or_else(|| "—".to_string());
+    let created_utc = container
+        .created
+        .map(crate::local_time::utc_from_docker_epoch)
+        .unwrap_or_default();
     let started_str = container
         .started_at
-        .map(format_ts_unix_seconds)
+        .map(crate::local_time::local_from_unix_seconds)
         .unwrap_or_else(|| "—".to_string());
+    let started_utc = container
+        .started_at
+        .map(crate::local_time::utc_from_unix_seconds)
+        .unwrap_or_default();
 
     let created_style = fresh_style(container.created.map(unix_us_to_hours_ago));
     let started_style = fresh_style(
         container
             .started_at
-            .map(|s| (dioxus_utils::now_date_time().unix_microseconds / 1_000_000 - s) as f64 / 3600.0),
+            .map(|s| (DateTimeAsMicroseconds::now().unix_microseconds / 1_000_000 - s) as f64 / 3600.0),
     );
 
     rsx! {
@@ -196,13 +190,21 @@ pub fn Hero(container: ContainerModel, vm_url: String, vm_name: String) -> Eleme
                 span {
                     span { class: "k", "created" }
                     " "
-                    span { style: "{created_style}", "{created_str}" }
+                    span {
+                        style: "{created_style}",
+                        title: "{created_utc}",
+                        "{created_str}"
+                    }
                 }
                 span { class: "sep", "·" }
                 span {
                     span { class: "k", "started" }
                     " "
-                    span { style: "{started_style}", "{started_str}" }
+                    span {
+                        style: "{started_style}",
+                        title: "{started_utc}",
+                        "{started_str}"
+                    }
                 }
             }
         }

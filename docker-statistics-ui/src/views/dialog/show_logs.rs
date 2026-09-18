@@ -15,7 +15,18 @@ pub fn show_logs(env: String, url: String, container_id: String) -> Element {
                 dialog_state.write().data.set_loading();
                 let result = get_logs(env, url, container_id, lines_amount_value).await;
                 match result {
-                    Ok(result) => dialog_state.write().data.set_loaded(result),
+                    Ok(result) => {
+                        // Same helper as the live tail — the two views must agree about
+                        // what time a line happened, since one opens the other.
+                        let result = result
+                            .into_iter()
+                            .map(|mut l| {
+                                l.line = crate::local_time::localize_log_line(&l.line);
+                                l
+                            })
+                            .collect();
+                        dialog_state.write().data.set_loaded(result)
+                    }
                     Err(err) => dialog_state.write().data.set_error(err.to_string()),
                 }
             });

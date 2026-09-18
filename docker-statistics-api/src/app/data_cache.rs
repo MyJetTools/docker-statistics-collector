@@ -1,7 +1,12 @@
 use std::collections::{BTreeMap, HashMap};
 
+use rust_extensions::date_time::DateTimeAsMicroseconds;
+
 use crate::{
-    models::{ContainerJsonModel, ContainerModel, DiskModel, HostMemEntryModel, MetricsByVm, VmModel},
+    models::{
+        ContainerJsonModel, ContainerModel, DiskModel, HostMemEntryModel, MetricsByVm,
+        NetSample, NetUsageJsonMode, VmModel,
+    },
     selected_vm::SelectedVm,
 };
 
@@ -43,38 +48,67 @@ pub struct ContainersWrapper {
     pub host_mem: Option<HostMemSnapshot>,
 }
 
-impl Into<ContainerModel> for ContainerJsonModel {
-    fn into(self) -> ContainerModel {
-        ContainerModel {
-            id: self.id,
-            image: self.image,
-            names: self.names,
-            labels: self.labels,
-            enabled: self.enabled,
-            created: self.created,
-            started_at: self.started_at,
-            state: self.state,
-            status: self.status,
-            instance: self.instance,
-            cpu: self.cpu,
-            mem: self.mem,
-            files: self.files,
-            net: self.net,
-            disk: self.disk,
-            cpu_usage_history: None,
-            mem_usage_history: None,
-            open_files_history: None,
-            net_in_history: None,
-            net_out_history: None,
-            ports: self.ports,
-            volumes: self.volumes,
-        }
+/// First sighting of a container in a VM bucket. `net` is the throughput this service
+/// derived — still `None` on the very first poll, since one sample cannot be a rate.
+fn to_container_model(src: ContainerJsonModel, net: NetUsageJsonMode) -> ContainerModel {
+    let net_prev = src.net.as_sample();
+    let started_at = src.started_at_or_none();
+    ContainerModel {
+        id: src.id,
+        image: src.image,
+        names: src.names,
+        labels: src.labels,
+        enabled: src.enabled,
+        created: src.created,
+        started_at,
+        state: src.state,
+        status: src.status,
+        instance: src.instance,
+        cpu: src.cpu,
+        mem: src.mem,
+        files: src.files,
+        net,
+        net_prev,
+        disk: src.disk,
+        cpu_usage_history: None,
+        mem_usage_history: None,
+        open_files_history: None,
+        net_in_history: None,
+        net_out_history: None,
+        ports: src.ports,
+        volumes: src.volumes,
     }
+}
+
+/// How many consecutive ticks a VM may be missing from the master's answer before its
+/// bucket is dropped. A peer now has to complete a full live Docker scan inside the
+/// master's peer timeout, so a single miss is a routine blip rather than evidence the
+/// host is gone — and dropping the bucket takes the whole VM off the operator's screen
+/// during exactly the incident they opened the page for.
+const MISSING_TICKS_BEFORE_PRUNE: u32 = 4;
+
+/// Per-container state that must outlive its VM bucket.
+///
+/// `net_prev` is the anchor the next throughput reading is derived from, and it exists
+/// nowhere else — the collector forwards raw counters and remembers nothing. A bucket
+/// that is pruned and re-created would otherwise lose a net sample per container.
+/// (`disk` needs no such treatment: the collector measures it on its own timer and
+/// every payload carries it, so a re-created bucket is repopulated on the next poll.)
+#[derive(Clone, Default)]
+struct ContainerSideState {
+    net_prev: Option<NetSample>,
 }
 
 pub struct DataCache {
     containers: BTreeMap<String, ContainersWrapper>,
     pub metrics_history: HashMap<String, MetricsHistoryWrapper>,
+    /// Keyed by container id, independent of which VM bucket currently holds it.
+    side_state: HashMap<String, ContainerSideState>,
+    /// Consecutive ticks each known VM has been absent from the master's answer.
+    missing_ticks: HashMap<String, u32>,
+    /// When this env last produced a usable answer. Nothing recorded staleness before,
+    /// so a frozen dashboard was indistinguishable from a quiet fleet.
+    last_successful_poll_at: Option<DateTimeAsMicroseconds>,
 }
 
 impl DataCache {
@@ -82,14 +116,25 @@ impl DataCache {
         Self {
             containers: BTreeMap::new(),
             metrics_history: HashMap::new(),
+            side_state: HashMap::new(),
+            missing_ticks: HashMap::new(),
+            last_successful_poll_at: None,
         }
     }
 
-    /// Replace this env's view with the freshly fanned-out master response.
+    /// Unix microseconds of the last successful poll of this env, for staleness display.
+    pub fn last_successful_poll_at(&self) -> Option<DateTimeAsMicroseconds> {
+        self.last_successful_poll_at
+    }
+
+    /// Merge the freshly fanned-out master response into this env's view.
     /// `containers_by_instance` already groups containers by their `instance`
     /// field (the source ENV_INFO of the collector each container comes from).
-    /// Behaviour: VM buckets not present in this tick are pruned, so a peer
-    /// that's currently down on the master simply disappears from the sidebar.
+    ///
+    /// A VM missing from this tick is NOT dropped straight away — see
+    /// [`MISSING_TICKS_BEFORE_PRUNE`]. It keeps its last known containers so a peer
+    /// that merely answered slowly stays on the rail, and only a host that is
+    /// persistently absent disappears.
     pub fn update_from_master(
         &mut self,
         containers_by_instance: BTreeMap<String, Vec<ContainerJsonModel>>,
@@ -98,12 +143,41 @@ impl DataCache {
     ) {
         let active: std::collections::HashSet<String> =
             containers_by_instance.keys().cloned().collect();
-        self.containers.retain(|vm, _| active.contains(vm));
+
+        let mut to_prune = Vec::new();
+        for vm in self.containers.keys() {
+            if active.contains(vm) {
+                continue;
+            }
+            let missed = self.missing_ticks.entry(vm.clone()).or_insert(0);
+            *missed += 1;
+            if *missed >= MISSING_TICKS_BEFORE_PRUNE {
+                to_prune.push(vm.clone());
+            }
+        }
+
+        for vm in to_prune {
+            if let Some(wrapper) = self.containers.remove(&vm) {
+                // The host really is gone — now the side state for its containers is
+                // dead weight rather than something worth preserving.
+                for id in wrapper.containers.keys() {
+                    self.side_state.remove(id);
+                    self.metrics_history.remove(id);
+                }
+            }
+            self.missing_ticks.remove(&vm);
+        }
+
+        for instance in active.iter() {
+            self.missing_ticks.remove(instance);
+        }
 
         for (instance, containers) in containers_by_instance {
             let host_mem = host_mem_by_instance.get(&instance).cloned();
             self.update_one_vm(&instance, containers, host_mem, master_url.clone());
         }
+
+        self.last_successful_poll_at = Some(DateTimeAsMicroseconds::now());
     }
 
     fn update_one_vm(
@@ -134,11 +208,33 @@ impl DataCache {
             w.host_mem = host_mem;
         }
 
+        let mut gone: Vec<String> = Vec::new();
         let by_vm = self.containers.get_mut(vm).unwrap();
 
+        // A container gone from a VM that DID answer is genuinely gone — drop its side
+        // state now rather than leaking it. (A VM that failed to answer never reaches
+        // here, so a blip cannot trigger this.)
+        for id in by_vm.containers.keys() {
+            if !src.contains_key(id) {
+                gone.push(id.clone());
+            }
+        }
         remove_not_used_keys_keys(&mut by_vm.containers, &src);
 
         for (id, container) in src {
+            // The collector ships raw counters; the rate lives here, where the previous
+            // reading is remembered. The anchor comes from the side state rather than
+            // the bucket, so it survives a VM that blipped out for a tick.
+            let side = self.side_state.entry(id.clone()).or_default();
+            let net = derive_net_rate(side.net_prev.as_ref(), &container);
+            // Only overwrite with a USABLE reading. When the collector could not read a
+            // container's stats it ships no counters, and clearing the anchor on that
+            // would mean a container whose /stats fails every other poll never shows
+            // throughput at all — a rate across a longer gap is still a correct rate.
+            if let Some(sample) = container.net.as_sample() {
+                side.net_prev = Some(sample);
+            }
+
             if let Some(usage) = container.cpu.usage {
                 if !self.metrics_history.contains_key(&id) {
                     self.metrics_history
@@ -167,24 +263,31 @@ impl DataCache {
                     .add(open);
             }
 
-            // Network throughput history — recorded whenever the collector
-            // has a rate (i.e. after its second sample for the container).
-            if container.net.in_mbps.is_some() || container.net.out_mbps.is_some() {
+            // Network throughput history — recorded once a rate exists, i.e.
+            // from the second poll of a container onwards.
+            if net.in_mbps.is_some() || net.out_mbps.is_some() {
                 if !self.metrics_history.contains_key(&id) {
                     self.metrics_history
                         .insert(id.to_string(), MetricsHistoryWrapper::new());
                 }
                 let wrapper = self.metrics_history.get_mut(&id).unwrap();
-                wrapper.net_in.add(container.net.in_mbps.unwrap_or(0.0));
-                wrapper.net_out.add(container.net.out_mbps.unwrap_or(0.0));
+                wrapper.net_in.add(net.in_mbps.unwrap_or(0.0));
+                wrapper.net_out.add(net.out_mbps.unwrap_or(0.0));
             }
 
             if !by_vm.containers.contains_key(&id) {
-                by_vm.containers.insert(id.clone(), container.into());
+                by_vm
+                    .containers
+                    .insert(id.clone(), to_container_model(container, net));
             } else {
                 let by_id = by_vm.containers.get_mut(&id).unwrap();
-                by_id.update(container);
+                by_id.update(container, net);
             }
+        }
+
+        for id in gone {
+            self.side_state.remove(&id);
+            self.metrics_history.remove(&id);
         }
     }
 
@@ -331,6 +434,16 @@ impl DataCache {
             },
         }
     }
+}
+
+/// Turn the collector's raw counters into MB/s using the reading kept from the
+/// previous poll. `None`/`None` until two readings exist for the container.
+fn derive_net_rate(previous: Option<&NetSample>, incoming: &ContainerJsonModel) -> NetUsageJsonMode {
+    let (Some(prev), Some(next)) = (previous, incoming.net.as_sample()) else {
+        return NetUsageJsonMode::default();
+    };
+
+    prev.rate_to(&next).unwrap_or_default()
 }
 
 fn remove_not_used_keys_keys<TValue, TValue2>(

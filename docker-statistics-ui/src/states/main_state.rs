@@ -30,6 +30,50 @@ impl ContainerFilter {
     }
 }
 
+/// Metric the "Top consumers" board ranks by. The board replaces the empty
+/// detail panel when a VM (or the aggregate) is selected but no container is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum TopMetric {
+    #[default]
+    Cpu,
+    Mem,
+}
+
+impl TopMetric {
+    pub fn as_key(&self) -> &'static str {
+        match self {
+            TopMetric::Cpu => "cpu",
+            TopMetric::Mem => "mem",
+        }
+    }
+
+    pub fn parse(value: &str) -> Self {
+        match value {
+            "mem" => TopMetric::Mem,
+            _ => TopMetric::Cpu,
+        }
+    }
+
+    pub fn label(&self) -> &'static str {
+        match self {
+            TopMetric::Cpu => "CPU",
+            TopMetric::Mem => "Memory",
+        }
+    }
+
+    /// CSS colour variable the board's bars use — matches the chart cards.
+    pub fn color_var(&self) -> &'static str {
+        match self {
+            TopMetric::Cpu => "var(--cpu)",
+            TopMetric::Mem => "var(--mem)",
+        }
+    }
+}
+
+/// Selectable sizes of the Top-N board. `0` means "every container".
+pub const TOP_N_OPTIONS: [usize; 5] = [5, 10, 20, 50, 0];
+pub const DEFAULT_TOP_N: usize = 10;
+
 pub struct MainState {
     pub envs: EnvListState,
     pub vms_state: BTreeMap<String, VmModel>,
@@ -45,6 +89,14 @@ pub struct MainState {
     /// it's also populated (with the selected VM) — `find_active_container`
     /// degrades gracefully when row.vm is None.
     active_container_vm: Option<String>,
+
+    /// "Top consumers" board settings. They live here rather than in the
+    /// component so switching to a container and back doesn't reset them.
+    top_metric: TopMetric,
+    top_n: usize,
+
+    /// Age of the data currently on screen, as reported by the api.
+    data_age_secs: Option<i64>,
 
     pub dialog_is_shown: bool,
     pub prompt_pass_key: bool,
@@ -64,6 +116,9 @@ impl MainState {
             container_filter: ContainerFilter::All,
             active_container_name: None,
             active_container_vm: None,
+            top_metric: TopMetric::default(),
+            top_n: DEFAULT_TOP_N,
+            data_age_secs: None,
             state_no: 0,
             dialog_is_shown: false,
             data_request_no: 0,
@@ -99,6 +154,36 @@ impl MainState {
 
     pub fn set_container_filter(&mut self, f: ContainerFilter) {
         self.container_filter = f;
+    }
+
+    pub fn get_data_age_secs(&self) -> Option<i64> {
+        self.data_age_secs
+    }
+
+    pub fn set_data_age_secs(&mut self, value: Option<i64>) {
+        self.data_age_secs = value;
+    }
+
+    pub fn get_top_metric(&self) -> TopMetric {
+        self.top_metric
+    }
+
+    pub fn set_top_metric(&mut self, value: TopMetric) {
+        self.top_metric = value;
+    }
+
+    pub fn get_top_n(&self) -> usize {
+        self.top_n
+    }
+
+    pub fn set_top_n(&mut self, value: usize) {
+        self.top_n = value;
+    }
+
+    /// True once a VM (single or the aggregate) is selected — the detail column
+    /// shows the Top consumers board instead of the "pick a VM" placeholder.
+    pub fn has_selected_vm(&self) -> bool {
+        self.selected_vm.is_some()
     }
 
     pub fn get_active_container_name(&self) -> Option<&str> {

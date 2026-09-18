@@ -19,6 +19,15 @@ pub struct EnvsHttpModel {
 pub struct RequestApiModel {
     pub vms: BTreeMap<String, VmModel>,
     pub metrics: Option<Vec<MetricsByVm>>,
+    /// Seconds since this env last produced a usable answer from its master collector.
+    /// `None` before the first successful poll.
+    ///
+    /// Every reading is now a live Docker scan that can time out at three layers
+    /// (api → master, master → peer, collector → daemon), and a failed poll leaves the
+    /// previous snapshot in place. Without this the UI cannot tell a quiet fleet from a
+    /// frozen one — which is exactly the distinction that matters during an incident.
+    #[serde(default)]
+    pub data_age_secs: Option<i64>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

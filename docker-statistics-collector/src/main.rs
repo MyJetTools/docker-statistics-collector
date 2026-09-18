@@ -2,18 +2,23 @@ use std::{sync::Arc, time::Duration};
 
 use rust_extensions::MyTimer;
 use settings::SettingsModel;
-use timers::{SyncContainersInfoTimer, SyncMetricsEndpointsTimer};
+use timers::SyncDiskSizesTimer;
+
+#[global_allocator]
+static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 mod app;
 mod host_disks;
 mod host_mem;
 mod http;
 mod mcp;
+mod metrics_scraper;
 mod peers_client;
 mod proc_fd;
 mod settings;
 mod timers;
 mod ws;
+
 #[tokio::main]
 async fn main() {
     match std::env::var("ENV_INFO") {
@@ -42,17 +47,15 @@ async fn main() {
         app_ctx.get_env_info()
     );
 
-    let mut timer_5s =
-        MyTimer::new_with_execute_timeout(Duration::from_secs(5), Duration::from_secs(60 * 5));
+    // Container state is read live per request and never stored. Disk size is the one
+    // exception: Docker walks the storage layers to answer, which is far too slow for
+    // the request path, so this timer measures one container per tick in the background
+    // and parks the result in memory for the payload to carry.
+    let mut timer_5s = MyTimer::new(Duration::from_secs(5));
 
     timer_5s.register_timer(
-        "Containers reader",
-        Arc::new(SyncContainersInfoTimer::new(app_ctx.clone())),
-    );
-
-    timer_5s.register_timer(
-        "Sync metrics",
-        Arc::new(SyncMetricsEndpointsTimer::new(app_ctx.clone())),
+        "Disk sizes",
+        Arc::new(SyncDiskSizesTimer::new(app_ctx.clone())),
     );
 
     timer_5s.start(app_ctx.states.clone(), my_logger::LOGGER.clone());

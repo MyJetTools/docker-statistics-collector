@@ -87,7 +87,12 @@ impl McpToolCall<ListExposedPortsInputData, ListExposedPortsResponse> for ListEx
     ) -> Result<ListExposedPortsResponse, String> {
         let only_running = model.only_running.unwrap_or(false);
 
-        let local = self.app.cache.get_snapshot().await;
+        let local = self
+            .app
+            .live
+            .get_list()
+            .await
+            .map_err(|err| format!("{}: {}", "list_exposed_ports", err))?;
         let local_instance = self.app.get_env_info();
 
         let mut hosts = vec![build_entry(&local_instance, &local, only_running)];

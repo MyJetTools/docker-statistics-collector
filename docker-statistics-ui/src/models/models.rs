@@ -125,7 +125,7 @@ pub struct FilesUsageJsonMode {
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 pub struct DiskUsageJsonMode {
     /// Writable-layer size in bytes (the container's own data on top of the
-    /// image). `None` until the collector's first slow size pass.
+    /// image). `None` until the api's slow disk-size rotation has measured it.
     pub size_rw: Option<i64>,
     /// Total size in bytes including the image layers.
     pub size_root_fs: Option<i64>,
