@@ -30,6 +30,46 @@ impl ContainerFilter {
     }
 }
 
+/// What the memory board ranks by — and, inseparably, what its percentages are
+/// measured against. The two always move together: a row's headline figure is
+/// the same number it was sorted on, so the ranking can never disagree with
+/// what the row says about itself.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum MemBasis {
+    /// Absolute bytes consumed. The percentage is this container's share of the
+    /// memory the whole ranked set is using — "who is eating the machine".
+    #[default]
+    Total,
+    /// Percentage of what the container was ALLOWED: its declared limit, or the
+    /// host's RAM when it was given none. Answers "who is close to their
+    /// ceiling", which absolute bytes cannot — a 200 MB container on a 256 MB
+    /// limit is in more trouble than a 4 GB one with 32 GB to play with.
+    Reserved,
+}
+
+impl MemBasis {
+    pub fn as_key(&self) -> &'static str {
+        match self {
+            MemBasis::Total => "total",
+            MemBasis::Reserved => "reserved",
+        }
+    }
+
+    pub fn parse(value: &str) -> Self {
+        match value {
+            "reserved" => MemBasis::Reserved,
+            _ => MemBasis::Total,
+        }
+    }
+
+    pub fn label(&self) -> &'static str {
+        match self {
+            MemBasis::Total => "by total",
+            MemBasis::Reserved => "by reserved",
+        }
+    }
+}
+
 /// How many rows each Top consumers board lists until the user types otherwise.
 pub const DEFAULT_TOP_N: usize = 10;
 
@@ -90,6 +130,11 @@ pub struct MainState {
     /// Age of the data currently on screen, as reported by the api.
     data_age_secs: Option<i64>,
 
+    /// Which basis the memory board ranks on. CPU has no equivalent — nothing in
+    /// the payload says what a container was allowed of it — so this is scoped to
+    /// the one board where "reserved" means something.
+    mem_basis: MemBasis,
+
     /// Rows per Top consumers board, kept as the RAW typed text rather than a
     /// number: the field is free-form, and a half-typed or cleared box has to be
     /// a legal intermediate state instead of snapping to something. Parsed on
@@ -115,6 +160,7 @@ impl MainState {
             active_container_name: None,
             active_container_vm: None,
             data_age_secs: None,
+            mem_basis: MemBasis::default(),
             top_n: DEFAULT_TOP_N.to_string(),
             state_no: 0,
             dialog_is_shown: false,
@@ -151,6 +197,14 @@ impl MainState {
 
     pub fn set_container_filter(&mut self, f: ContainerFilter) {
         self.container_filter = f;
+    }
+
+    pub fn get_mem_basis(&self) -> MemBasis {
+        self.mem_basis
+    }
+
+    pub fn set_mem_basis(&mut self, value: MemBasis) {
+        self.mem_basis = value;
     }
 
     /// What the Top-N box currently reads, verbatim — the input is bound to this.

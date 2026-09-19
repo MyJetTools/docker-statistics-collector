@@ -2,9 +2,9 @@ use dioxus::prelude::*;
 
 use crate::models::MetricsByVm;
 use crate::router::AppRoute;
-use crate::states::{MainState, TopMetric};
+use crate::states::{MainState, MemBasis, TopMetric};
 use crate::views::dockerscope::detail::{build_top_consumers, TopConsumerRow};
-use crate::views::dockerscope::helpers::fmt_mem_pair;
+use crate::views::dockerscope::helpers::{fmt_mem_pair, fmt_mem_short};
 
 /// Fills the detail column while a VM is selected but no container is: the
 /// heaviest containers of that VM ranked by CPU on the left and by memory on
@@ -23,6 +23,7 @@ pub fn TopConsumersPanel() -> Element {
     };
 
     let containers = cs_ra.get_containers();
+    let mem_basis = cs_ra.get_mem_basis();
     let top_n = cs_ra.get_top_n();
     let top_n_raw = cs_ra.get_top_n_raw().to_string();
 
@@ -48,8 +49,8 @@ pub fn TopConsumersPanel() -> Element {
             }
 
             div { class: "tc-boards",
-                {render_board(TopMetric::Cpu, &containers, top_n, single_vm_name.clone())}
-                {render_board(TopMetric::Mem, &containers, top_n, single_vm_name.clone())}
+                {render_board(TopMetric::Cpu, &containers, mem_basis, top_n, single_vm_name.clone())}
+                {render_board(TopMetric::Mem, &containers, mem_basis, top_n, single_vm_name.clone())}
             }
         }
     }
@@ -61,10 +62,11 @@ pub fn TopConsumersPanel() -> Element {
 fn render_board(
     metric: TopMetric,
     containers: &[&MetricsByVm],
+    mem_basis: MemBasis,
     top_n: usize,
     single_vm_name: Option<String>,
 ) -> Element {
-    let board = build_top_consumers(containers, metric, top_n);
+    let board = build_top_consumers(containers, metric, mem_basis, top_n);
 
     let total = match metric {
         TopMetric::Cpu => format!("{:.2}% total", board.total_cpu),
@@ -83,6 +85,27 @@ fn render_board(
         div { class: "panel top-consumers",
             div { class: "panel-head",
                 h3 { "{title}" }
+                // Only memory has a "reserved" to be measured against — the
+                // payload carries no CPU quota, so the CPU board has no choice
+                // to offer and is not given a dead control.
+                if metric == TopMetric::Mem {
+                    select {
+                        class: "tc-select",
+                        title: "total — rank by bytes used; reserved — rank by how full the container's limit is",
+                        oninput: move |evt| {
+                            consume_context::<Signal<MainState>>()
+                                .write()
+                                .set_mem_basis(MemBasis::parse(&evt.value()));
+                        },
+                        for basis in [MemBasis::Total, MemBasis::Reserved] {
+                            option {
+                                value: "{basis.as_key()}",
+                                selected: basis == mem_basis,
+                                "{basis.label()}"
+                            }
+                        }
+                    }
+                }
             }
 
             div { class: "tc-summary", "{summary}" }
@@ -99,6 +122,7 @@ fn render_board(
                             max,
                             total: sum,
                             metric,
+                            mem_basis,
                             single_vm_name: single_vm_name.clone(),
                         }
                     }
@@ -115,53 +139,73 @@ fn TopRow(
     max: f64,
     total: f64,
     metric: TopMetric,
+    mem_basis: MemBasis,
     single_vm_name: Option<String>,
 ) -> Element {
     // Effective VM of this row: per-row vm in /all view, the selected VM in
     // single-VM view (where row.vm is None).
     let row_vm = row.vm.clone().or_else(|| single_vm_name.clone());
 
-    let (value, unit) = match metric {
-        TopMetric::Cpu => (format!("{:.2}", row.cpu), "%".to_string()),
-        TopMetric::Mem => {
-            let (v, u) = fmt_mem_pair(row.mem_bytes);
-            (v, u.to_string())
-        }
-    };
-
     let mem_pct = row.mem_pct();
 
-    // What the percentage is measured AGAINST differs by metric, while the
-    // ordering never does — both boards rank on absolute consumption.
-    //
-    // CPU has no per-container ceiling to speak of, so its share of the ranked
-    // set is the useful figure. Memory does: the container was given a limit (or,
-    // unlimited, may claim the whole host), and "87% of what it may use" answers
-    // the question a share of the fleet total cannot. The bar tracks whichever
-    // percentage the row is labelled with, so the two never disagree.
-    let (share, bar_pct) = match metric {
-        TopMetric::Cpu => (
+    // The headline figure is always the number the row was RANKED on, and the
+    // bar always tracks that same figure — so a row can never be sorted by one
+    // quantity while appearing to report another.
+    let (value, unit, share, bar_pct) = match (metric, mem_basis) {
+        (TopMetric::Cpu, _) => (
+            format!("{:.2}", row.cpu),
+            "%".to_string(),
             row.share_pct(total)
                 .map(|p| format!("{:.1}% of total", p))
                 .unwrap_or_else(|| "idle".to_string()),
             row.bar_pct(max),
         ),
-        TopMetric::Mem => match mem_pct {
-            Some(pct) => (
-                format!(
-                    "{:.1}% of {}",
-                    pct,
-                    if row.mem_limit_is_declared {
-                        "limit"
-                    } else {
-                        "host RAM"
-                    }
-                ),
-                pct.clamp(0.0, 100.0),
+        // Ranked on bytes: bytes lead, and the percentage is this container's
+        // share of what the whole ranked set is using.
+        (TopMetric::Mem, MemBasis::Total) => {
+            let (v, u) = fmt_mem_pair(row.mem_bytes);
+            (
+                v,
+                u.to_string(),
+                row.share_pct(total)
+                    .map(|p| format!("{:.1}% of total", p))
+                    .unwrap_or_else(|| "idle".to_string()),
+                row.bar_pct(max),
+            )
+        }
+        // Ranked on how full the allowance is: the percentage leads, and the
+        // bytes move underneath it as "used of allowed" — the pair a person
+        // needs to judge whether a high percentage actually matters.
+        (TopMetric::Mem, MemBasis::Reserved) => match mem_pct {
+            Some(pct) => {
+                let of = match row.effective_mem_limit {
+                    Some(limit) => format!(
+                        "{} of {}{}",
+                        fmt_mem_short(row.mem_bytes),
+                        fmt_mem_short(limit),
+                        if row.mem_limit_is_declared {
+                            ""
+                        } else {
+                            " host RAM"
+                        }
+                    ),
+                    None => fmt_mem_short(row.mem_bytes),
+                };
+                (
+                    format!("{:.1}", pct),
+                    "%".to_string(),
+                    of,
+                    pct.clamp(0.0, 100.0),
+                )
+            }
+            // Neither a declared limit nor a host RAM reading — there is no
+            // percentage to show, so say so rather than print a made-up 0%.
+            None => (
+                "—".to_string(),
+                String::new(),
+                format!("{} · no limit known", fmt_mem_short(row.mem_bytes)),
+                0.0,
             ),
-            // No declared limit and no host RAM reading: nothing to be a
-            // percentage OF, so fall back to the leader-relative bar.
-            None => ("no limit known".to_string(), row.bar_pct(max)),
         },
     };
 

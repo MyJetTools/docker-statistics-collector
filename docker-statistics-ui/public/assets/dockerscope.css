@@ -1261,6 +1261,18 @@ button, input { font-family: inherit; color: inherit; }
 .tc-hint {
   font-family: var(--mono); font-size: 10.5px; color: var(--text-muted);
 }
+/* Basis picker in the memory board's head. `.panel-head` is already
+   space-between, so it sits opposite the title with no extra wrapper. */
+.tc-select {
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  padding: 3px 7px;
+  font-family: var(--mono); font-size: 10.5px;
+  color: var(--text);
+  cursor: pointer;
+}
+.tc-select:hover { border-color: var(--accent); }
 .tc-boards {
   display: grid;
   grid-template-columns: 1fr 1fr;

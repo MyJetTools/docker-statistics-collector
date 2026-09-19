@@ -1,5 +1,5 @@
 use crate::models::MetricsByVm;
-use crate::states::{primary_name, TopMetric};
+use crate::states::{primary_name, MemBasis, TopMetric};
 use crate::views::dockerscope::helpers::{shorten_id, state_class_for};
 
 /// One ranked container of the Top consumers board — everything the row needs,
@@ -21,12 +21,14 @@ pub struct TopConsumerRow {
     /// Whether `effective_mem_limit` came from `mem.limit` (true) or fell back
     /// to host RAM (false). Drives the tooltip wording.
     pub mem_limit_is_declared: bool,
-    /// The value this row was ranked by: CPU percent, or memory bytes as f64.
+    /// The value this row was ranked by — CPU percent, memory bytes, or memory
+    /// percent-of-limit, depending on the board and its basis. Whatever it is,
+    /// it is the same number the row displays as its headline.
     pub value: f64,
 }
 
 impl TopConsumerRow {
-    fn from(m: &MetricsByVm, metric: TopMetric) -> Self {
+    fn from(m: &MetricsByVm, metric: TopMetric, mem_basis: MemBasis) -> Self {
         let c = &m.container;
         let name = if c.names.is_empty() {
             shorten_id(&c.id, 12).to_string()
@@ -43,6 +45,16 @@ impl TopConsumerRow {
             Some(v) if v > 0 => (Some(v), true),
             _ => (m.host_mem_total, false),
         };
+        // Percent of what this container was allowed. Computed here rather than
+        // through `mem_pct()` because the ranking needs it before the row exists.
+        let reserved_pct = match effective_mem_limit {
+            Some(limit) if limit > 0 => (mem_bytes as f64 / limit as f64) * 100.0,
+            // Neither a declared limit nor a host RAM reading: there is nothing to
+            // be a percentage of, so the row sorts to the bottom rather than
+            // claiming a figure nobody measured.
+            _ => 0.0,
+        };
+
         Self {
             id: c.id.clone(),
             name,
@@ -55,7 +67,10 @@ impl TopConsumerRow {
             mem_limit_is_declared,
             value: match metric {
                 TopMetric::Cpu => cpu,
-                TopMetric::Mem => mem_bytes as f64,
+                TopMetric::Mem => match mem_basis {
+                    MemBasis::Total => mem_bytes as f64,
+                    MemBasis::Reserved => reserved_pct,
+                },
             },
         }
     }
@@ -104,14 +119,18 @@ pub struct TopConsumers {
 /// Rank the currently visible containers by `metric`, keeping the top `top_n`
 /// (`0` keeps all). Input is the already filtered list, so the board follows
 /// the search box and the state chips of the container column.
+///
+/// `mem_basis` only bites on the memory board; the CPU board ignores it, since
+/// nothing in the payload says what a container was allowed of the CPU.
 pub fn build_top_consumers(
     containers: &[&MetricsByVm],
     metric: TopMetric,
+    mem_basis: MemBasis,
     top_n: usize,
 ) -> TopConsumers {
     let mut rows: Vec<TopConsumerRow> = containers
         .iter()
-        .map(|m| TopConsumerRow::from(*m, metric))
+        .map(|m| TopConsumerRow::from(*m, metric, mem_basis))
         .collect();
 
     let mut total = 0.0;
