@@ -45,7 +45,9 @@ jobs:
           cd ${DIR}
           FILE_NAME="https://jetdev.eu/file/${DELIVER_NAME}-build.zip"
           echo $FILE_NAME
-          apt install zip
+          # Refresh the index first: the build image ships a snapshot of it, and once
+          # Debian rotates the zip package that snapshot points at a 404.
+          apt-get update && apt-get install -y zip
           zip -r data.zip ./target/dx/${APP_NAME}/release/web ./Dockerfile
           curl -X 'POST' $FILE_NAME -H 'accept: */*' -H 'Content-Type: multipart/form-data' -F 'file=@data.zip;type=application/zip'
 
