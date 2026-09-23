@@ -58,7 +58,8 @@ async fn handle_request(
     let fl_url = action
         .app
         .get_fl_url(input_data.env.as_str(), input_data.url.as_str())
-        .await;
+        .await
+        .map_err(HttpFailResult::as_fatal_error)?;
 
     let result = crate::http_client::get_processes(fl_url, input_data.id)
         .await

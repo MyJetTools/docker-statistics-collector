@@ -15,7 +15,6 @@ The UI talks to **one** federated [`docker-statistics-collector`](../docker-stat
 - Port, label, state, status, and "created" age visualization.
 - Logs viewer dialog per container — the master auto-routes the log fetch to whichever peer owns the container.
 - Optional per-user environment access control.
-- Optional interactive SSH pass-phrase prompt on startup (when reaching the master through an SSH tunnel).
 
 ## Architecture
 
@@ -46,7 +45,7 @@ The UI talks to **one** federated [`docker-statistics-collector`](../docker-stat
 
 Settings are loaded from `~/.docker-statistics-ui` (YAML).
 
-Top-level keys: `envs`, `ssh_private_keys`, `prompt_pass_phrase`, `users`, `user_groups`.
+Top-level keys: `envs`, `users`, `user_groups`.
 
 ### Plain HTTP(S) endpoints
 
@@ -71,49 +70,6 @@ peers:
 ```
 
 The peer collectors (`10.0.0.3`, `10.0.0.4`) need only their own `docker_url`; they do **not** need to know about each other or about the master.
-
-### SSH tunneling
-
-The url scheme `ssh:user@host:port->http://target:port` opens an SSH tunnel to the master. With one URL per env, the SSH config collapses to one tunnel per env:
-
-```yaml
-envs:
-  prod:
-    url: ssh:gateway@10.0.0.0:22->http://10.0.0.2:7999
-  staging:
-    url: ssh:gateway@10.0.0.1:22->http://10.0.1.2:7999
-
-ssh_private_keys:
-  "gateway@10.0.0.0:22":
-    cert_path: /root/cert-1
-    cert_pass_prase: password
-  "gateway@10.0.0.1:22":
-    cert_path: /root/cert-2
-    cert_pass_prase: password
-```
-
-A single shared key is also supported by using the `"*"` wildcard:
-
-```yaml
-ssh_private_keys:
-  "*":
-    cert_path: /root/cert
-    cert_pass_prase: password
-```
-
-`ssh_private_keys` can be omitted entirely — in that case the running SSH agent is used.
-
-### Prompting for SSH pass-phrase at startup
-
-If you prefer not to store the private-key pass-phrase in the settings file, set `prompt_pass_phrase: true`. On first request the UI asks for the pass-phrase and holds it in memory for the lifetime of the process.
-
-```yaml
-prompt_pass_phrase: true
-
-ssh_private_keys:
-  "*":
-    cert_path: /root/cert
-```
 
 ### Per-user environment access control
 

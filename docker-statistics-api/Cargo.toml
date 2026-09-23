@@ -18,11 +18,10 @@ my-http-utils = { tag = "0.1.0", git = "https://github.com/MyJetTools/my-http-ut
 tokio-tungstenite = "*"
 
 flurl = { tag = "0.7.0", git = "https://github.com/MyJetTools/fl-url.git", features = [
-    "with-ssh",
+    "with-ring-tls",
 ] }
 my-logger = { tag = "1.3.0", git = "https://github.com/MyJetTools/my-logger.git" }
 my-settings-reader = { tag = "0.5.0", git = "https://github.com/MyJetTools/my-settings-reader.git" }
-my-ssh = { tag = "0.1.2", git = "https://github.com/MyJetTools/my-ssh.git" }
 rust-extensions = { tag = "0.1.5", git = "https://github.com/MyJetTools/rust-extensions.git", features = [
     "with-tokio",
 ] }

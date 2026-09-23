@@ -21,7 +21,6 @@ Backend REST + WebSocket service for the `docker-statistics-ui` client-side WASM
   - `GET  /api/vm_cpu_and_mem?env&selected_vm` — VM aggregates + optional per-container details
   - `GET  /api/logs?env&url&id&lines_amount` — one-shot proxy of container logs from the env's master collector
   - `GET  /api/processes?env&url&id` — one-shot proxy of container processes
-  - `POST /api/pass_phrase` — submit SSH private-key passphrase (kept in process memory only)
   - `WS   /ws/logs?env&id&tail=N` — live log stream proxied from the collector's `/ws/logs?id` endpoint
 
 Listens on `0.0.0.0:8000`.
@@ -38,14 +37,6 @@ envs:
     url: http://collector-master-staging:8080
   dev:
     url: http://collector-master-dev:8080
-
-# Optional: ask the UI for the SSH key passphrase on first connect
-prompt_pass_phrase: false
-
-# Optional: per-host SSH config for flurl SSH tunnels to a collector
-ssh_private_keys:
-  "*":
-    cert_path: ~/.ssh/id_rsa
 
 # ── RBAC (optional) ─────────────────────────────────────────────────────────
 # If `users` is omitted entirely → no RBAC, every caller sees every env (dev).

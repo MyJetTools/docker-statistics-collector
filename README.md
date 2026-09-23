@@ -95,7 +95,7 @@ Settings are read from `~/.docker-statistics-collector` (YAML). See
 | `metrics_port`               | `u16`          | Port on which each service exposes its Prometheus `/metrics` endpoint.            |
 | `disable_metics_collecting`  | `bool?`        | If `true`, the metrics endpoints answer empty without scraping anything.           |
 | `services_to_ignore`         | `list<string>?`| Optional. `com.docker.compose.service` values to skip during scraping.            |
-| `peers`                      | `list<string>?`| Optional. Base URLs of peer collector instances to federate with (see below).     |
+| `peers`                      | `list<string>?`| Optional. Base URLs of peer collector instances to federate with. `http://` and `https://` both work, and a peer can be pinned to a known IP with `https://name@ip:port` — see [Peer addresses](#peer-addresses). |
 | `peers_request_timeout_secs` | `u64?`         | Optional. Per-peer request timeout. Default `30`. **Must exceed a peer's worst-case full live Docker scan** — a peer that misses it drops out of the fleet view for that tick. |
 | `host_proc_path`             | `string?`      | Optional. Path inside the collector container where the host `/proc` is mounted. Used to read per-container open file descriptors and `nofile` limits. Default `/host/proc`. See [File descriptor statistics](#file-descriptor-statistics). |
 | `host_root_path`             | `string?`      | Optional. Path inside the collector container where the host root filesystem is bind-mounted (`-v /:/host/root:ro`). Used to `statvfs` each host mount point for physical-disk usage. Default `/host/root`. See [Host disk statistics](#host-disk-statistics). |
@@ -112,7 +112,9 @@ services_to_ignore:
   - redis
 peers:
   - http://collector-b:8000
-  - http://collector-c:8000
+  - https://collector-c.example.com:8443
+  # Known IP, no DNS: connect to 10.0.0.7, but send Host / TLS SNI as collector-d.
+  - https://collector-d.example.com@10.0.0.7:8443
 peers_request_timeout_secs: 30
 # Path where the host `/proc` is mounted inside the collector container.
 # Default is `/host/proc` — see "File descriptor statistics" below for the
@@ -332,6 +334,35 @@ request.
 - The `/mcp` tools behave the same way — searches and log retrieval span the
   fleet through the master.
 - `/metrics` aggregation across peers is **not** federated in this version.
+
+### Peer addresses
+
+Each `peers` entry is a URL handed straight to [FlUrl](https://github.com/MyJetTools/fl-url),
+so it accepts every form FlUrl does:
+
+| form | example | what happens |
+| --- | --- | --- |
+| plain | `http://collector-b:8000` | DNS-resolves the host, plain HTTP |
+| TLS | `https://collector-c.example.com:8443` | DNS-resolves the host, TLS verified against it |
+| known IP | `https://collector-d.example.com@10.0.0.7:8443` | connects straight to `10.0.0.7`, no DNS lookup |
+
+The **known IP** form is `scheme://<server-name>@<ip>[:port]`. The socket goes to
+the ip, while everything the peer sees still names `server-name`: the `Host`
+header, the TLS SNI, and the name the certificate is checked against. It is the
+way to reach a peer whose name does not resolve from the master — a private
+address, a host missing from DNS — without giving up certificate verification.
+
+- The part after `@` **must be an IP**, not a host name — a name there would need
+  exactly the DNS lookup this form exists to skip. IPv6 goes in brackets:
+  `https://collector-d.example.com@[2001:db8::7]:8443`.
+- The part before `@` is a bare server name: no port, no `user:password`.
+- The port is written after the ip and applies to both, so the `Host` header
+  becomes `collector-d.example.com:8443`.
+- An entry that breaks these rules is not a peer FlUrl can open — it will not
+  appear in the fleet, and the reason goes to stderr.
+
+TLS is backed by rustls with the `ring` crypto provider (fl-url's
+`with-ring-tls` feature).
 
 ## MCP endpoint
 

@@ -1,14 +1,11 @@
 use std::{collections::{BTreeMap, HashMap}, sync::Arc};
 
 use my_settings_reader::SettingsReader;
-use my_ssh::ssh_settings::SshPrivateKeySettingsModel;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SettingsModel {
     pub envs: BTreeMap<String, VmSettingsModel>,
-    pub ssh_private_keys: Option<HashMap<String, SshPrivateKeySettingsModel>>,
-    pub prompt_pass_phrase: Option<bool>,
     /// `user_id (== x-ssl-user header) -> group name`. Group `*` means
     /// "every env". A user that is not listed here gets nothing.
     pub users: Option<HashMap<String, String>>,

@@ -72,7 +72,6 @@ pub fn AppShell() -> Element {
                     Ok(envs) => {
                         let mut w = main_state.write();
                         w.envs.set_items(envs.envs);
-                        w.prompt_pass_key = envs.request_pass_key;
                         w.current_user = envs.user_id;
                     }
                     Err(err) => {
@@ -90,10 +89,6 @@ pub fn AppShell() -> Element {
             let msg = format!("Error loading environments. Err: {}", err);
             return rsx! { div { class: "ds-error", "{msg}" } };
         }
-    }
-
-    if main_state_ra.prompt_pass_key {
-        return rsx! { PromptSshPassKey {} };
     }
 
     let env = main_state_ra.envs.get_selected_env();

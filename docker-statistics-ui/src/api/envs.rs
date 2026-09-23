@@ -7,7 +7,6 @@ use super::get_base_url;
 #[derive(Serialize, Deserialize)]
 pub struct EnvsHttpModel {
     pub envs: Vec<String>,
-    pub request_pass_key: bool,
     #[serde(default)]
     pub user_id: String,
 }

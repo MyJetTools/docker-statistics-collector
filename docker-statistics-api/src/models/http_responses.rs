@@ -7,7 +7,6 @@ use super::{MetricsByVm, VmModel};
 #[derive(Serialize, Deserialize)]
 pub struct EnvsHttpModel {
     pub envs: Vec<String>,
-    pub request_pass_key: bool,
     /// Identity from the `x-ssl-user` header, empty when the reverse proxy
     /// didn't inject one. UI shows this so the operator knows under whose
     /// principal the page is actually scoped.

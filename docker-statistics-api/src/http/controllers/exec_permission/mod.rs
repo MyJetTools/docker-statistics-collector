@@ -46,7 +46,8 @@ pub async fn handle_exec_permission(
 
     let fl_url = app
         .get_fl_url(input_data.env.as_str(), input_data.url.as_str())
-        .await;
+        .await
+        .map_err(HttpFailResult::as_fatal_error)?;
 
     let result =
         crate::http_client::exec_permission(fl_url, input_data.instance, user_id, action)

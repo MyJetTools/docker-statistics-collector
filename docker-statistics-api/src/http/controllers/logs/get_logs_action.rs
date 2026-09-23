@@ -62,7 +62,8 @@ async fn handle_request(
     let fl_url = action
         .app
         .get_fl_url(input_data.env.as_str(), input_data.url.as_str())
-        .await;
+        .await
+        .map_err(HttpFailResult::as_fatal_error)?;
 
     let payload = crate::http_client::get_logs(fl_url, input_data.id, input_data.lines_amount)
         .await

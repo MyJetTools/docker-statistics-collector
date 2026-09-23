@@ -1,4 +1,3 @@
-use core::panic;
 use std::sync::Arc;
 
 use flurl::FlUrl;
@@ -7,7 +6,7 @@ use tokio::sync::Mutex;
 
 use crate::settings_reader::AppSettingsReader;
 
-use super::{DataCacheByEnv, SshPrivateKeyResolver};
+use super::DataCacheByEnv;
 
 use crate::background::UpdateMetricsCacheTimer;
 use rust_extensions::MyTimer;
@@ -20,7 +19,6 @@ pub struct AppCtx {
     pub data_cache_by_env: Mutex<DataCacheByEnv>,
     pub app_states: Arc<AppStates>,
     pub settings_reader: Arc<AppSettingsReader>,
-    pub ssh_private_key_resolver: Arc<SshPrivateKeyResolver>,
 }
 
 impl AppCtx {
@@ -39,34 +37,43 @@ impl AppCtx {
         let settings_reader = Arc::new(AppSettingsReader::new());
 
         Self {
-            ssh_private_key_resolver: SshPrivateKeyResolver::new(settings_reader.clone()).into(),
             data_cache_by_env: Mutex::new(DataCacheByEnv::new()),
             app_states,
             settings_reader,
         }
     }
 
-    pub async fn get_fl_url(&self, env: &str, url: &str) -> FlUrl {
+    /// Request-handler path — runs inline on an HTTP request, not in a spawned task.
+    /// The env and url come from the caller's query and the address from settings,
+    /// so an unknown env, an unknown url or an address FlUrl cannot parse is the
+    /// caller's error to be answered, not a reason to panic the request.
+    pub async fn get_fl_url(&self, env: &str, url: &str) -> Result<FlUrl, String> {
         let settings = self.settings_reader.get_settings().await;
 
-        let env_settings = settings.envs.get(env);
+        let Some(env_settings) = settings.envs.get(env) else {
+            return Err(format!("env {env} not found"));
+        };
 
-        if env_settings.is_none() {
-            panic!("Env {env} not found");
+        if !env_settings.url.contains(url) {
+            return Err(format!("url {url} not found in env {env}"));
         }
 
-        let env_settings = env_settings.unwrap();
+        let fl_url = FlUrl::try_new(env_settings.url.as_str()).map_err(|err| {
+            format!("env {env}: cannot parse url {}: {:?}", env_settings.url, err)
+        })?;
 
-        if env_settings.url.contains(url) {
-            return self.create_fl_url(env_settings.url.as_str());
-        }
-
-        panic!("Url {url} not found in env {env}");
+        Ok(self.configure_fl_url(fl_url))
     }
 
+    /// Polling-timer path. It runs inside `tokio::spawn`, where a panic costs one
+    /// tick of one env and the runtime logs it — so `FlUrl::new` is enough, and
+    /// there is nothing to gain from threading an error out.
     pub fn create_fl_url(&self, url: &str) -> FlUrl {
-        FlUrl::new(url)
-            .set_ssh_security_credentials_resolver(self.ssh_private_key_resolver.clone())
+        self.configure_fl_url(FlUrl::new(url))
+    }
+
+    fn configure_fl_url(&self, fl_url: FlUrl) -> FlUrl {
+        fl_url
             // Explicit rather than FlUrl's 10s default: the master's answer is no longer
             // a cache read but its own live Docker scan plus a peer fan-out, and the
             // peer budget alone is 30s.

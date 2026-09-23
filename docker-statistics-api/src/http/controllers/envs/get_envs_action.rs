@@ -9,7 +9,7 @@ use crate::models::EnvsHttpModel;
     method: "GET",
     route: "/api/envs",
     controller: "Envs",
-    description: "Lists configured environments and indicates whether the server still needs the SSH passphrase",
+    description: "Lists the environments visible to the calling user, and who the caller is",
     summary: "List environments",
     result:[
         {status_code: 200, description: "List of envs + pass-key flag"},
@@ -34,18 +34,7 @@ async fn handle_request(
     let user_id = crate::auth::user_from_http(ctx);
     let envs = settings.get_envs_for_user(&user_id);
 
-    let mut request_pass_key = false;
-    if settings.prompt_pass_phrase.unwrap_or(false)
-        && !action.app.ssh_private_key_resolver.private_key_is_loaded()
-    {
-        request_pass_key = true;
-    }
-
-    let response = EnvsHttpModel {
-        envs,
-        request_pass_key,
-        user_id,
-    };
+    let response = EnvsHttpModel { envs, user_id };
 
     HttpOutput::as_json(response)
         .with_compression(1024)

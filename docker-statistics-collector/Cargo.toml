@@ -18,7 +18,9 @@ my-http-utils = { tag = "0.1.0", git = "https://github.com/MyJetTools/my-http-ut
 ] }
 
 my-logger = { tag = "1.3.0", git = "https://github.com/MyJetTools/my-logger.git" }
-flurl = { tag = "0.7.0", git = "https://github.com/MyJetTools/fl-url.git" }
+flurl = { tag = "0.7.0", git = "https://github.com/MyJetTools/fl-url.git", features = [
+    "with-ring-tls",
+] }
 tokio-tungstenite = "*"
 futures = "*"
 
