@@ -73,14 +73,16 @@ impl MemBasis {
 /// How many rows each Top consumers board lists until the user types otherwise.
 pub const DEFAULT_TOP_N: usize = 10;
 
-/// Metric one Top consumers board ranks by. Two boards — CPU and memory — fill
-/// the detail panel when a VM (or the aggregate) is selected but no container is.
-/// Not stored on the state: both are always shown, so there is nothing to choose.
+/// Metric one Top consumers board ranks by. Three boards — CPU, memory and disk —
+/// fill the detail panel when a VM (or the aggregate) is selected but no container
+/// is. Not stored on the state: all are always shown, so there is nothing to choose.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum TopMetric {
     #[default]
     Cpu,
     Mem,
+    /// The container's writable layer — what it wrote on top of its image.
+    Disk,
 }
 
 impl TopMetric {
@@ -88,6 +90,7 @@ impl TopMetric {
         match self {
             TopMetric::Cpu => "CPU",
             TopMetric::Mem => "Memory",
+            TopMetric::Disk => "Disk",
         }
     }
 
@@ -104,6 +107,7 @@ impl TopMetric {
         match self {
             TopMetric::Cpu => "cpu",
             TopMetric::Mem => "mem",
+            TopMetric::Disk => "disk",
         }
     }
 }

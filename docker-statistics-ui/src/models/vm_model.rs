@@ -47,3 +47,14 @@ pub struct DiskModel {
     pub used: i64,
     pub available: i64,
 }
+
+impl DiskModel {
+    /// Percent of the filesystem in use, 0..100. Defined once, here, so the VM
+    /// rail and the Host disks board cannot show the same disk at two fill levels.
+    pub fn used_pct(&self) -> f64 {
+        if self.total <= 0 {
+            return 0.0;
+        }
+        (self.used as f64 / self.total as f64 * 100.0).clamp(0.0, 100.0)
+    }
+}

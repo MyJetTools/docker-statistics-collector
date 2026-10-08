@@ -165,15 +165,7 @@ fn ContainerRow(
     let net_in_str = fmt_throughput(row.net_in_mbps);
     let net_out_str = fmt_throughput(row.net_out_mbps);
     let disk_str = row.size_rw.map(fmt_mem_short);
-    let disk_title = match (row.size_rw, row.size_root_fs) {
-        (Some(rw), Some(root)) => format!(
-            "writable layer {} · total with image {}",
-            fmt_mem_short(rw),
-            fmt_mem_short(root)
-        ),
-        (Some(rw), _) => format!("writable layer {}", fmt_mem_short(rw)),
-        _ => "disk size not measured yet".to_string(),
-    };
+    let disk_title = disk_size_title(row.size_rw, row.size_root_fs);
     let mem_title = match (pct, row.mem_limit_is_declared) {
         (Some(p), true) => format!("{:.0}% of declared mem limit", p),
         (Some(p), false) => format!("{:.0}% of host RAM (no container limit)", p),

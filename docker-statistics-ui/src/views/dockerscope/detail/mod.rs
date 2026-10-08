@@ -14,6 +14,8 @@ mod compose;
 pub use compose::*;
 mod exec_permission;
 pub use exec_permission::*;
+mod host_disks;
+pub use host_disks::*;
 mod top_consumers;
 pub use top_consumers::*;
 mod panel;

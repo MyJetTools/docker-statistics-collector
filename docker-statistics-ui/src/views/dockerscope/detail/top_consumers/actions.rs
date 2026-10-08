@@ -21,9 +21,17 @@ pub struct TopConsumerRow {
     /// Whether `effective_mem_limit` came from `mem.limit` (true) or fell back
     /// to host RAM (false). Drives the tooltip wording.
     pub mem_limit_is_declared: bool,
-    /// The value this row was ranked by — CPU percent, memory bytes, or memory
-    /// percent-of-limit, depending on the board and its basis. Whatever it is,
-    /// it is the same number the row displays as its headline.
+    /// Writable-layer size in bytes — what the container wrote on top of its
+    /// image, and the figure the disk board ranks on. `None` until the
+    /// collector's slow size pass has reached the container.
+    pub disk_bytes: Option<i64>,
+    /// Size including the image layers. Tooltip only: containers share those
+    /// layers, so ranking or summing on it would count the same bytes once per
+    /// container.
+    pub disk_root_fs: Option<i64>,
+    /// The value this row was ranked by — CPU percent, memory bytes, memory
+    /// percent-of-limit, or disk bytes, depending on the board and its basis.
+    /// Whatever it is, it is the same number the row displays as its headline.
     pub value: f64,
 }
 
@@ -54,6 +62,7 @@ impl TopConsumerRow {
             // claiming a figure nobody measured.
             _ => 0.0,
         };
+        let disk_bytes = c.disk.size_rw;
 
         Self {
             id: c.id.clone(),
@@ -65,12 +74,18 @@ impl TopConsumerRow {
             mem_bytes,
             effective_mem_limit,
             mem_limit_is_declared,
+            disk_bytes,
+            disk_root_fs: c.disk.size_root_fs,
             value: match metric {
                 TopMetric::Cpu => cpu,
                 TopMetric::Mem => match mem_basis {
                     MemBasis::Total => mem_bytes as f64,
                     MemBasis::Reserved => reserved_pct,
                 },
+                // A size nobody has measured yet ranks as zero, so the row sorts to
+                // the bottom — but it keeps its `None`, and is shown as unknown
+                // rather than as a container that wrote nothing.
+                TopMetric::Disk => disk_bytes.unwrap_or(0) as f64,
             },
         }
     }
@@ -114,6 +129,12 @@ pub struct TopConsumers {
     pub total_cpu: f64,
     /// Total memory bytes across the ranked set (header summary).
     pub total_mem: i64,
+    /// Total writable-layer bytes across the ranked set (header summary). Covers
+    /// only the containers that have been measured — see `disk_unmeasured`.
+    pub total_disk: i64,
+    /// Containers whose disk size the collector has not measured yet. They count
+    /// towards `ranked` and add nothing to `total_disk`.
+    pub disk_unmeasured: usize,
 }
 
 /// Rank the currently visible containers by `metric`, keeping the top `top_n`
@@ -121,7 +142,8 @@ pub struct TopConsumers {
 /// the search box and the state chips of the container column.
 ///
 /// `mem_basis` only bites on the memory board; the CPU board ignores it, since
-/// nothing in the payload says what a container was allowed of the CPU.
+/// nothing in the payload says what a container was allowed of the CPU, and so
+/// does the disk board, which has a single size to rank on.
 pub fn build_top_consumers(
     containers: &[&MetricsByVm],
     metric: TopMetric,
@@ -136,11 +158,17 @@ pub fn build_top_consumers(
     let mut total = 0.0;
     let mut total_cpu = 0.0;
     let mut total_mem = 0i64;
+    let mut total_disk = 0i64;
+    let mut disk_unmeasured = 0usize;
     let mut max = 0.0f64;
     for row in rows.iter() {
         total += row.value;
         total_cpu += row.cpu;
         total_mem += row.mem_bytes;
+        match row.disk_bytes {
+            Some(bytes) => total_disk += bytes,
+            None => disk_unmeasured += 1,
+        }
         max = max.max(row.value);
     }
     let ranked = rows.len();
@@ -163,5 +191,87 @@ pub fn build_top_consumers(
         ranked,
         total_cpu,
         total_mem,
+        total_disk,
+        disk_unmeasured,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const MIB: i64 = 1024 * 1024;
+
+    fn container(name: &str, size_rw: Option<i64>) -> MetricsByVm {
+        serde_json::from_value(serde_json::json!({
+            "vm": null,
+            "url": "",
+            "container": {
+                "id": name,
+                "image": "img",
+                "names": [format!("/{}", name)],
+                "enabled": true,
+                "state": "running",
+                "cpu": { "usage": 1.0 },
+                "mem": { "usage": 10 },
+                "disk": { "size_rw": size_rw, "size_root_fs": size_rw.map(|v| v + 100 * MIB) },
+            },
+        }))
+        .unwrap()
+    }
+
+    fn disk_board(containers: &[MetricsByVm], top_n: usize) -> TopConsumers {
+        let refs: Vec<&MetricsByVm> = containers.iter().collect();
+        build_top_consumers(&refs, TopMetric::Disk, MemBasis::Total, top_n)
+    }
+
+    fn names(board: &TopConsumers) -> Vec<&str> {
+        board.rows.iter().map(|row| row.name.as_str()).collect()
+    }
+
+    #[test]
+    fn the_disk_board_ranks_by_writable_layer_bytes() {
+        let containers = [
+            container("small", Some(MIB)),
+            container("big", Some(300 * MIB)),
+            container("mid", Some(100 * MIB)),
+        ];
+        let board = disk_board(&containers, 0);
+
+        assert_eq!(names(&board), vec!["big", "mid", "small"]);
+        assert_eq!(board.total_disk, 401 * MIB);
+        assert_eq!(board.rows[0].bar_pct(board.max), 100.0);
+        // The image layers are carried for the tooltip, and stay out of the ranking.
+        assert_eq!(board.rows[0].disk_root_fs, Some(400 * MIB));
+        assert_eq!(board.rows[0].value, (300 * MIB) as f64);
+    }
+
+    #[test]
+    fn an_unmeasured_container_sorts_last_and_is_not_passed_off_as_zero() {
+        let containers = [
+            container("pending", None),
+            container("writer", Some(5 * MIB)),
+        ];
+        let board = disk_board(&containers, 0);
+
+        assert_eq!(names(&board), vec!["writer", "pending"]);
+        assert_eq!(board.rows[1].disk_bytes, None);
+        assert_eq!(board.disk_unmeasured, 1);
+        assert_eq!(board.total_disk, 5 * MIB);
+        assert_eq!(board.ranked, 2);
+    }
+
+    #[test]
+    fn the_cut_does_not_shrink_the_disk_total() {
+        let containers = [
+            container("a", Some(3 * MIB)),
+            container("b", Some(2 * MIB)),
+            container("c", Some(MIB)),
+        ];
+        let board = disk_board(&containers, 1);
+
+        assert_eq!(names(&board), vec!["a"]);
+        assert_eq!(board.total_disk, 6 * MIB);
+        assert_eq!(board.rows[0].share_pct(board.total), Some(50.0));
     }
 }

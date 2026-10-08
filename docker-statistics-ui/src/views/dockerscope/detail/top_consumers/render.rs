@@ -3,12 +3,18 @@ use dioxus::prelude::*;
 use crate::models::MetricsByVm;
 use crate::router::AppRoute;
 use crate::states::{MainState, MemBasis, TopMetric};
-use crate::views::dockerscope::detail::{build_top_consumers, TopConsumerRow};
-use crate::views::dockerscope::helpers::{fmt_mem_pair, fmt_mem_short};
+use crate::views::dockerscope::detail::{
+    build_top_consumers, render_host_disks_board, TopConsumerRow,
+};
+use crate::views::dockerscope::helpers::{
+    disk_size_title, fmt_disk_pair, fmt_mem_pair, fmt_mem_short,
+};
 
 /// Fills the detail column while a VM is selected but no container is: the
 /// heaviest containers of that VM ranked by CPU on the left and by memory on
-/// the right, so the two can be read against each other at a glance.
+/// the right, so the two can be read against each other at a glance. The row
+/// under them does the same for storage — the containers ranked by what they
+/// wrote, next to the disks of the host they are writing to.
 #[component]
 pub fn TopConsumersPanel() -> Element {
     let main_state = consume_context::<Signal<MainState>>();
@@ -36,7 +42,7 @@ pub fn TopConsumersPanel() -> Element {
                         r#type: "number",
                         min: "0",
                         value: "{top_n_raw}",
-                        title: "rows per board — 0 shows every container",
+                        title: "rows per board — 0 shows every row",
                         // `oninput`, not `onchange`: nothing is fetched, so the
                         // boards can follow each keystroke instead of waiting
                         // for the field to lose focus.
@@ -51,6 +57,8 @@ pub fn TopConsumersPanel() -> Element {
             div { class: "tc-boards",
                 {render_board(TopMetric::Cpu, &containers, mem_basis, top_n, single_vm_name.clone())}
                 {render_board(TopMetric::Mem, &containers, mem_basis, top_n, single_vm_name.clone())}
+                {render_board(TopMetric::Disk, &containers, mem_basis, top_n, single_vm_name.clone())}
+                {render_host_disks_board(&cs_ra.vms_state, single_vm_name.as_deref(), top_n)}
             }
         }
     }
@@ -74,8 +82,21 @@ fn render_board(
             let (value, unit) = fmt_mem_pair(board.total_mem);
             format!("{} {} total", value, unit)
         }
+        TopMetric::Disk => {
+            let (value, unit) = fmt_disk_pair(board.total_disk);
+            format!("{} {} total", value, unit)
+        }
     };
     let summary = format!("{} of {} · {}", board.rows.len(), board.ranked, total);
+    // A size the collector has not measured yet is not a zero: say how many
+    // containers the total is still missing rather than pass a partial sum off
+    // as the whole.
+    let summary = match (metric, board.disk_unmeasured) {
+        (TopMetric::Disk, missing) if missing > 0 => {
+            format!("{} · {} not measured yet", summary, missing)
+        }
+        _ => summary,
+    };
 
     let title = format!("Top by {}", metric.label());
     let max = board.max;
@@ -104,6 +125,15 @@ fn render_board(
                                 "{basis.label()}"
                             }
                         }
+                    }
+                }
+                // "Disk" on its own is ambiguous for a container, so the board
+                // names the one size it ranks on — and what that leaves out.
+                if metric == TopMetric::Disk {
+                    span {
+                        class: "tc-hint",
+                        title: "what the container wrote on top of its image — volumes and the image's own layers are not counted",
+                        "writable layer"
                     }
                 }
             }
@@ -207,6 +237,28 @@ fn TopRow(
                 0.0,
             ),
         },
+        // Ranked on bytes, the same way as memory on its `Total` basis.
+        (TopMetric::Disk, _) => match row.disk_bytes {
+            Some(bytes) => {
+                let (v, u) = fmt_disk_pair(bytes);
+                (
+                    v,
+                    u.to_string(),
+                    row.share_pct(total)
+                        .map(|p| format!("{:.1}% of total", p))
+                        .unwrap_or_else(|| "nothing written".to_string()),
+                    row.bar_pct(max),
+                )
+            }
+            // The size pass has not reached this container — a dash, never a
+            // made-up zero.
+            None => (
+                "—".to_string(),
+                String::new(),
+                "not measured yet".to_string(),
+                0.0,
+            ),
+        },
     };
 
     // Memory heat mirrors the container list so a hot row reads the same in
@@ -223,6 +275,7 @@ fn TopRow(
     let bar_title = match (metric, mem_pct, row.mem_limit_is_declared) {
         (TopMetric::Mem, Some(p), true) => format!("{:.0}% of declared mem limit", p),
         (TopMetric::Mem, Some(p), false) => format!("{:.0}% of host RAM (no container limit)", p),
+        (TopMetric::Disk, _, _) => disk_size_title(row.disk_bytes, row.disk_root_fs),
         _ => format!("{} {} — {}", value, unit, share),
     };
 

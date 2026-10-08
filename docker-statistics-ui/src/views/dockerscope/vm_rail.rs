@@ -163,24 +163,14 @@ fn VmCard(
                 disks
                     .iter()
                     .map(|d| {
-                        let pct = if d.total > 0 {
-                            (d.used as f64 / d.total as f64 * 100.0).clamp(0.0, 100.0)
-                        } else {
-                            0.0
-                        };
+                        let pct = d.used_pct();
                         DiskRow {
                             mount_point: d.mount_point.clone(),
                             device: d.device.clone(),
                             fs_type: d.fs_type.clone(),
                             amount: format!("{} / {}", fmt_mem_short(d.used), fmt_mem_short(d.total)),
                             pct,
-                            color_cls: if pct >= 90.0 {
-                                "col-danger"
-                            } else if pct >= 75.0 {
-                                "col-warn"
-                            } else {
-                                ""
-                            },
+                            color_cls: DiskSeverity::from_used_pct(pct).fill_class(),
                         }
                     })
                     .collect()

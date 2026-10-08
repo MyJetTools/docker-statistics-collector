@@ -102,6 +102,66 @@ pub fn fmt_mem_pair(bytes: i64) -> (String, &'static str) {
     }
 }
 
+/// [`fmt_mem_pair`] with one more step down, for disk sizes. Memory never needs
+/// it, but a container's writable layer is routinely a few kilobytes — in MiB a
+/// board of them reads `0` against bars of visibly different lengths.
+pub fn fmt_disk_pair(bytes: i64) -> (String, &'static str) {
+    if bytes >= 1024 * 1024 {
+        return fmt_mem_pair(bytes);
+    }
+    (format!("{:.0}", bytes.max(0) as f64 / 1024.0), "KiB")
+}
+
+/// Tooltip spelling out both disk figures of a container. Shared by the container
+/// list and the disk board, so the two cannot word the same numbers differently.
+pub fn disk_size_title(size_rw: Option<i64>, size_root_fs: Option<i64>) -> String {
+    match (size_rw, size_root_fs) {
+        (Some(rw), Some(root)) => format!(
+            "writable layer {} · total with image {}",
+            fmt_mem_short(rw),
+            fmt_mem_short(root)
+        ),
+        (Some(rw), _) => format!("writable layer {}", fmt_mem_short(rw)),
+        _ => "disk size not measured yet".to_string(),
+    }
+}
+
+/// Fill level, in percent, from which a host disk is [`DiskSeverity::Warn`].
+pub const DISK_WARN_PCT: f64 = 75.0;
+/// Fill level, in percent, from which a host disk is [`DiskSeverity::Danger`].
+pub const DISK_DANGER_PCT: f64 = 90.0;
+
+/// Host-disk severity by fill level. One definition for the VM rail and the Host
+/// disks board, so a filesystem cannot be amber in one column and calm in the other.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DiskSeverity {
+    Ok,
+    Warn,
+    Danger,
+}
+
+impl DiskSeverity {
+    pub fn from_used_pct(used_pct: f64) -> Self {
+        if used_pct >= DISK_DANGER_PCT {
+            DiskSeverity::Danger
+        } else if used_pct >= DISK_WARN_PCT {
+            DiskSeverity::Warn
+        } else {
+            DiskSeverity::Ok
+        }
+    }
+
+    /// Modifier class for the bar's fill — `.vm-disk-bar-used` and `.tc-fill` both
+    /// style these two names. `Ok` adds nothing: the bar keeps its own colour.
+    pub fn fill_class(&self) -> &'static str {
+        match self {
+            DiskSeverity::Danger => "col-danger",
+            DiskSeverity::Warn => "col-warn",
+            DiskSeverity::Ok => "",
+        }
+    }
+}
+
 /// Auto-scale a byte count into a `(value, unit)` pair, mirroring MyNoSqlServer's
 /// `format_bytes` convention (TypeScript/Utils.ts): binary (1024) steps, 2-decimal
 /// precision and short `b / Kb / Mb / Gb / Tb` suffixes.
@@ -227,5 +287,39 @@ pub fn aggregate_all_vms(vms: &BTreeMap<String, VmModel>) -> VmModel {
         host_cpu_count,
         // Aggregate "All VMs" card intentionally hides per-disk usage.
         host_disks: None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn disk_sizes_step_down_to_kib_and_match_memory_above_it() {
+        assert_eq!(fmt_disk_pair(0), ("0".to_string(), "KiB"));
+        assert_eq!(fmt_disk_pair(12 * 1024), ("12".to_string(), "KiB"));
+        assert_eq!(fmt_disk_pair(340 * 1024 * 1024), ("340".to_string(), "MiB"));
+        assert_eq!(
+            fmt_disk_pair(3 * 1024 * 1024 * 1024 / 2),
+            fmt_mem_pair(3 * 1024 * 1024 * 1024 / 2)
+        );
+    }
+
+    #[test]
+    fn disk_severity_turns_at_the_two_thresholds() {
+        assert_eq!(DiskSeverity::from_used_pct(74.9), DiskSeverity::Ok);
+        assert_eq!(DiskSeverity::from_used_pct(DISK_WARN_PCT), DiskSeverity::Warn);
+        assert_eq!(DiskSeverity::from_used_pct(89.9), DiskSeverity::Warn);
+        assert_eq!(DiskSeverity::from_used_pct(DISK_DANGER_PCT), DiskSeverity::Danger);
+    }
+
+    #[test]
+    fn a_disk_tooltip_only_claims_what_was_measured() {
+        assert_eq!(
+            disk_size_title(Some(2 * 1024 * 1024), Some(5 * 1024 * 1024)),
+            "writable layer 2M · total with image 5M"
+        );
+        assert_eq!(disk_size_title(Some(2 * 1024 * 1024), None), "writable layer 2M");
+        assert_eq!(disk_size_title(None, None), "disk size not measured yet");
     }
 }

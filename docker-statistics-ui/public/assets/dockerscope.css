@@ -16,6 +16,7 @@
   --cpu: #4ade80;
   --mem: #60a5fa;
   --mem-soft: rgba(96,165,250,.14);
+  --disk: #0d9488;
   --net: #f59e0b;
   --danger: #ef4444;
   --danger-soft: rgba(239,68,68,.10);
@@ -60,6 +61,7 @@
   --cpu: #15803d;
   --mem: #2563eb;
   --mem-soft: rgba(37,99,235,.14);
+  --disk: #0891b2;
   --net: #d97706;
   --danger: #dc2626;
   --danger-soft: rgba(220,38,38,.12);
@@ -1248,9 +1250,10 @@ button, input { font-family: inherit; color: inherit; }
 }
 
 /* ─── Top consumers boards (detail column, no container selected) ─── */
-/* Two equal boards side by side — CPU left, memory right. `.app` enforces a
-   1280px floor and the detail column is the `1fr`, so each board gets ~330px
-   even at the narrowest supported window; no breakpoint is needed. */
+/* Equal boards, two to a row — CPU and memory on the first, containers by disk
+   and the host's own disks on the second. `.app` enforces a 1280px floor and
+   the detail column is the `1fr`, so each board gets ~330px even at the
+   narrowest supported window; no breakpoint is needed. */
 .tc-wrap { display: flex; flex-direction: column; gap: 10px; }
 .tc-head { display: flex; align-items: center; gap: 10px; }
 /* Narrower than the dialog's input group — it holds two or three digits, and the
@@ -1278,7 +1281,14 @@ button, input { font-family: inherit; color: inherit; }
   gap: 12px;
   align-items: start;
 }
+/* The boards are `.panel`s that are siblings in a grid, so the stacked-panel
+   rule (`.panel + .panel`) would push every board but the first 16px down. */
+.tc-boards > .panel { margin-top: 0; }
 .top-consumers { min-width: 0; }
+/* Only the memory board carries a control in its head. Without a floor the
+   other heads come out shorter, and the rows of two boards side by side stop
+   lining up. 35px = the select (24) + the head's own padding and rule (11). */
+.top-consumers .panel-head { min-height: 35px; }
 .tc-summary {
   font-family: var(--mono); font-size: 10.5px;
   color: var(--text-muted);
@@ -1303,12 +1313,22 @@ button, input { font-family: inherit; color: inherit; }
 }
 .tc-row:hover, .tc-row:focus, .tc-row:visited { text-decoration: none; }
 .tc-row + .tc-row { border-top: 1px dashed var(--border); }
-/* Heat first, hover second: these have equal specificity, so on a tie the LATER rule
-   wins — declared the other way round a hot row would lose its hover feedback
-   entirely. Same order as `.cont-row` in the container column. */
-.tc-row.mem-warn   { background: linear-gradient(90deg, var(--warn-soft),   transparent 60%); }
-.tc-row.mem-danger { background: linear-gradient(90deg, var(--danger-soft), transparent 60%); }
-.tc-row:hover { background: var(--surface-1); }
+/* Heat first, hover second — a hot row still has to answer the pointer, as
+   `.cont-row` does in the container column. Hover is scoped to `a`: a host-disk
+   row is a link only in the fleet view, and scoped to one VM it leads nowhere,
+   so there it must not light up as if it did. */
+.tc-row.mem-warn,   .tc-row.disk-warn   { background: linear-gradient(90deg, var(--warn-soft),   transparent 60%); }
+.tc-row.mem-danger, .tc-row.disk-danger { background: linear-gradient(90deg, var(--danger-soft), transparent 60%); }
+a.tc-row:hover { background: var(--surface-1); }
+/* Host-disk row: a drive glyph where a container row has its state dot, and a
+   value column of fixed width — the bar is a share of the disk itself, not of
+   the leader, so the tracks have to be equally long for two rows to compare. */
+.tc-row.tc-disk-row { grid-template-columns: 22px 12px 1fr auto; }
+.tc-row .dico {
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-muted);
+}
+.tc-disk-row .tc-val { min-width: 116px; }
 
 .tc-row .rank {
   font-family: var(--mono); font-size: 11px; font-weight: 600;
@@ -1328,7 +1348,7 @@ button, input { font-family: inherit; color: inherit; }
   font-family: var(--mono); font-size: 12px; color: var(--text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.tc-row:hover .name { color: var(--accent); }
+a.tc-row:hover .name { color: var(--accent); }
 .tc-row .name .vm { color: var(--text-muted); font-size: 10px; margin-left: 7px; }
 .tc-row .image {
   font-family: var(--mono); font-size: 10.5px; color: var(--text-muted);
@@ -1347,6 +1367,12 @@ button, input { font-family: inherit; color: inherit; }
 .tc-fill { height: 100%; border-radius: 3px; transition: width .25s ease; }
 .tc-fill.cpu { background: var(--cpu); }
 .tc-fill.mem { background: var(--mem); }
+.tc-fill.disk { background: var(--disk); }
+/* Host disks only: the fill level overrides the board's own colour, under the
+   same two names the VM rail's disk bars use. Declared after `.disk` — the
+   specificity is equal, so it is the later rule that wins. */
+.tc-fill.col-warn   { background: var(--warn); }
+.tc-fill.col-danger { background: var(--danger); }
 
 .tc-val {
   display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
