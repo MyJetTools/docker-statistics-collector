@@ -12,6 +12,12 @@ descriptors) and the Prometheus metrics of containers running under
 - [docker-statistics-collector/](docker-statistics-collector/) — the collector
   service: an HTTP/Swagger API over the local Docker host, plus an MCP
   (Model Context Protocol) endpoint at `/mcp`.
+- [docker-statistics-api/](docker-statistics-api/) — the backend of the UI: polls
+  the collectors and keeps the cache and history. It is the only service that
+  writes to disk, and only into its one
+  [data folder](docker-statistics-api/README.md#data-folder) — a file per kind
+  of data, so anything stored later is one more file there.
+- [docker-statistics-ui/](docker-statistics-ui/) — the Dioxus (WASM) frontend.
 
 ## How it works
 

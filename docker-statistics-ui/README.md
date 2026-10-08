@@ -15,6 +15,7 @@ The UI talks to **one** federated [`docker-statistics-collector`](../docker-stat
 - Port, label, state, status, and "created" age visualization.
 - Logs viewer dialog per container — the master auto-routes the log fetch to whichever peer owns the container.
 - Optional per-user environment access control.
+- Host disks can be named: click a disk's icon in the VM rail and give it a title, shown in place of the mount point. Titles are kept by the api — see its [Disk titles](../docker-statistics-api/README.md#disk-titles).
 
 ## Architecture
 

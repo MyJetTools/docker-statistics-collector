@@ -393,11 +393,15 @@ button, input { font-family: inherit; color: inherit; }
   display: inline-flex; align-items: center;
   color: var(--text-muted); opacity: .75;
 }
+/* The glyph doubles as the handle for naming the disk. */
+.vm-card .vm-disk-head .dico { cursor: pointer; }
+.vm-card .vm-disk-head .dico:hover { color: var(--accent); opacity: 1; }
 .vm-card .vm-disk-head .mp {
   flex: 1 1 auto; min-width: 0;
   color: var(--text-muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.vm-card .vm-disk-head .mp.titled { color: var(--text-dim); }
 .vm-card .vm-disk-head .amt {
   flex: 0 0 auto; margin-left: auto;
   color: var(--text); white-space: nowrap;
@@ -1119,6 +1123,14 @@ button, input { font-family: inherit; color: inherit; }
   color: var(--text); letter-spacing: .04em;
 }
 .ds-modal-body { padding: 16px; }
+/* A one-field form, not a log viewer. */
+.ds-modal.ds-modal-sm { width: min(90vw, 440px); }
+.disk-title-form { display: flex; flex-direction: column; gap: 10px; }
+.disk-title-target, .disk-title-hint {
+  font-family: var(--mono); font-size: 11px; color: var(--text-muted);
+}
+.disk-title-hint code { color: var(--text-dim); }
+.disk-title-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .ds-modal-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
 .ds-modal-scroll {
   background: var(--log-bg);

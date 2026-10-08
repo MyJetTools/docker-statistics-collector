@@ -66,7 +66,12 @@ async fn handle_request(
             data_age_secs: None,
         },
         Some(cache) => {
-            let vms = cache.get_vm_cpu_and_mem();
+            let mut vms = cache.get_vm_cpu_and_mem();
+            action
+                .app
+                .disk_titles
+                .apply(input_data.env.as_str(), &mut vms)
+                .await;
 
             let mut metrics = None;
             if !input_data.selected_vm.is_empty() {

@@ -11,3 +11,5 @@ mod processes;
 pub use processes::*;
 mod exec_permission;
 pub use exec_permission::*;
+mod disk_titles;
+pub use disk_titles::*;

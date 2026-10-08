@@ -84,6 +84,18 @@ fn HostDiskRowView(row: HostDiskRow, rank: usize, fleet_view: bool) -> Element {
 
     let used_pct = format!("{:.1}", row.used_pct);
     let free = fmt_mem_short(row.available);
+    // A titled disk leads with its title, and the mount point it replaced joins
+    // the detail line — the path is still what the disk is on the host.
+    let (label, detail) = match row.title.as_deref() {
+        Some(title) => (
+            title,
+            format!("{} · {} · {} · {} free", row.mount_point, row.device, row.fs_type, free),
+        ),
+        None => (
+            row.mount_point.as_str(),
+            format!("{} · {} · {} free", row.device, row.fs_type, free),
+        ),
+    };
     let amount = format!("{} of {}", fmt_mem_short(row.used), fmt_mem_short(row.total));
     let bar_title = format!("{}% used — {} available", used_pct, free);
 
@@ -92,12 +104,12 @@ fn HostDiskRowView(row: HostDiskRow, rank: usize, fleet_view: bool) -> Element {
         span { class: "dico", {icon_disk()} }
         div { class: "info",
             div { class: "name",
-                "{row.mount_point}"
+                "{label}"
                 if fleet_view {
                     span { class: "vm", "{row.vm}" }
                 }
             }
-            div { class: "image", "{row.device} · {row.fs_type} · {free} free" }
+            div { class: "image", "{detail}" }
             div { class: "tc-bar", title: "{bar_title}",
                 div {
                     class: "{fill_class}",

@@ -11,6 +11,14 @@ impl fmt::Display for RequestError {
     }
 }
 
+impl From<flurl::FlUrlError> for RequestError {
+    fn from(err: flurl::FlUrlError) -> Self {
+        Self {
+            message: err.to_string(),
+        }
+    }
+}
+
 impl From<reqwest::Error> for RequestError {
     fn from(err: reqwest::Error) -> Self {
         Self {

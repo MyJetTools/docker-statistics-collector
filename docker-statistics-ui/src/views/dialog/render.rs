@@ -1,12 +1,13 @@
 use dioxus::prelude::*;
 
 use crate::{
-    states::{DialogState, DialogType},
+    states::{DialogState, DialogType, MainState},
     views::dialog::*,
 };
 
 pub fn render_dialog() -> Element {
     let dialog = consume_context::<Signal<DialogState>>();
+    let main_state = consume_context::<Signal<MainState>>();
     let dialog_ra = dialog.read();
 
     match dialog_ra.as_ref() {
@@ -34,12 +35,24 @@ pub fn render_dialog() -> Element {
                         container_id: container_id.clone(),
                     }
                 },
+                DialogType::EditDiskTitle(model) => {
+                    let model_to_save = model.clone();
+                    rsx! {
+                        edit_disk_title {
+                            model: model.clone(),
+                            on_submit: move |title: String| {
+                                save_disk_title(dialog, main_state, model_to_save.clone(), title);
+                            },
+                        }
+                    }
+                }
             };
             let header = header.clone();
+            let modal_class = dialog_type.modal_class();
 
             rsx! {
                 div { id: "dialog-pad",
-                    div { class: "ds-modal",
+                    div { class: "{modal_class}",
                         div { class: "ds-modal-head",
                             h5 { "{header}" }
                             button {

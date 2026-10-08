@@ -13,6 +13,7 @@ dioxus-utils = { tag = "0.7.0", git = "https://github.com/MyJetTools/dioxus-util
     "web",
 ] }
 reqwest = { version = "*", features = ["json"] }
+flurl = { tag = "0.7.0", git = "https://github.com/MyJetTools/fl-url.git" }
 reqwasm = "*"
 futures = "*"
 web-sys = { version = "*", features = [

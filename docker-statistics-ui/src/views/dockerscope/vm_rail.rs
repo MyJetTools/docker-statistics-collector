@@ -1,15 +1,22 @@
 use dioxus::prelude::*;
 
 use crate::router::AppRoute;
-use crate::states::MainState;
+use crate::states::{DialogState, EditDiskTitleModel, MainState};
 use crate::views::dockerscope::helpers::*;
 use crate::views::dockerscope::icons::*;
 
 /// One pre-rendered host-disk row for a VM card (left rail).
 struct DiskRow {
+    /// What the row is called: the disk's title, or its mount point without one.
+    label: String,
+    /// Modifier for a titled row — a name somebody chose reads a step brighter
+    /// than a bare mount point.
+    label_cls: &'static str,
+    /// Where the mount point goes once a title has taken its place.
+    tooltip: String,
     mount_point: String,
     device: String,
-    fs_type: String,
+    title: Option<String>,
     amount: String,
     pct: f64,
     color_cls: &'static str,
@@ -165,9 +172,15 @@ fn VmCard(
                     .map(|d| {
                         let pct = d.used_pct();
                         DiskRow {
+                            label: d.label().to_string(),
+                            label_cls: if d.title.is_some() { "titled" } else { "" },
+                            tooltip: match d.title {
+                                Some(_) => format!("{} · {} · {}", d.mount_point, d.device, d.fs_type),
+                                None => format!("{} · {}", d.device, d.fs_type),
+                            },
                             mount_point: d.mount_point.clone(),
                             device: d.device.clone(),
-                            fs_type: d.fs_type.clone(),
+                            title: d.title.clone(),
                             amount: format!("{} / {}", fmt_mem_short(d.used), fmt_mem_short(d.total)),
                             pct,
                             color_cls: DiskSeverity::from_used_pct(pct).fill_class(),
@@ -230,10 +243,32 @@ fn VmCard(
                     for row in disk_rows.iter() {
                         div {
                             class: "vm-disk",
-                            title: "{row.device} · {row.fs_type}",
+                            title: "{row.tooltip}",
                             div { class: "vm-disk-head",
-                                span { class: "dico", {icon_disk()} }
-                                span { class: "mp", "{row.mount_point}" }
+                                span {
+                                    class: "dico",
+                                    title: "name this disk",
+                                    onclick: {
+                                        let vm = name.clone();
+                                        let mount_point = row.mount_point.clone();
+                                        let device = row.device.clone();
+                                        let title = row.title.clone();
+                                        move |evt: MouseEvent| {
+                                            // The whole card is a link to the VM. Without
+                                            // both of these the click would open it too.
+                                            evt.prevent_default();
+                                            evt.stop_propagation();
+                                            open_disk_title_dialog(
+                                                vm.clone(),
+                                                mount_point.clone(),
+                                                device.clone(),
+                                                title.clone(),
+                                            );
+                                        }
+                                    },
+                                    {icon_disk()}
+                                }
+                                span { class: "mp {row.label_cls}", "{row.label}" }
                                 span { class: "amt", "{row.amount}" }
                             }
                             div { class: "vm-disk-bar",
@@ -248,4 +283,28 @@ fn VmCard(
             }
         }
     }
+}
+
+/// Open the dialog that names a host disk. The env is read here, at the click,
+/// rather than carried through every card as a prop.
+fn open_disk_title_dialog(vm: String, mount_point: String, device: String, title: Option<String>) {
+    let Some(env) = consume_context::<Signal<MainState>>()
+        .read()
+        .envs
+        .get_selected_env()
+    else {
+        return;
+    };
+
+    consume_context::<Signal<DialogState>>()
+        .write()
+        .edit_disk_title(EditDiskTitleModel {
+            env,
+            vm,
+            mount_point,
+            device,
+            title,
+            saving: false,
+            error: None,
+        });
 }

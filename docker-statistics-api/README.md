@@ -9,6 +9,9 @@ Backend REST + WebSocket service for the `docker-statistics-ui` client-side WASM
 - Keeps a per-env in-memory cache of container metrics + history. **The collector stores
   nothing** — it answers every request from a live Docker scan — so this service is the
   only side that remembers anything, and a restart starts from an empty cache.
+- Keeps on disk only what cannot be read back from a collector — today the names
+  operators give to host disks. All of it lives in one [data folder](#data-folder),
+  a file per kind of data.
 - **Derives network throughput.** The collector ships raw cumulative `rx_bytes`/`tx_bytes`
   plus the instant they were read; `NetSample::rate_to` turns two consecutive readings
   into the `in_mbps`/`out_mbps` the UI shows. This requires a collector built after the
@@ -21,6 +24,7 @@ Backend REST + WebSocket service for the `docker-statistics-ui` client-side WASM
   - `GET  /api/vm_cpu_and_mem?env&selected_vm` — VM aggregates + optional per-container details
   - `GET  /api/logs?env&url&id&lines_amount` — one-shot proxy of container logs from the env's master collector
   - `GET  /api/processes?env&url&id` — one-shot proxy of container processes
+  - `POST /api/disk-title` — name a host disk (JSON body: `env`, `vm`, `disk`, `title`); see [Disk titles](#disk-titles)
   - `WS   /ws/logs?env&id&tail=N` — live log stream proxied from the collector's `/ws/logs?id` endpoint
 
 Listens on `0.0.0.0:8000`.
@@ -61,6 +65,57 @@ user_groups:
   dev-only: [dev]
 ```
 
+## Data folder
+
+`~/.docker-statistics-api-data` is the one folder this service writes to. Mount
+it as a volume (see [Deployment](#deployment-docker-compose)) and everything the
+service keeps survives the container; nothing else needs mounting for that.
+
+Each kind of data is a **file of its own** in the folder. Keeping something new
+later means one more file here — the mount stays as it is.
+
+| File               | What it holds                                                        |
+| ------------------ | -------------------------------------------------------------------- |
+| `disk-titles.yaml` | Names given to host disks in the UI — see [Disk titles](#disk-titles) |
+
+**Storing something new** — the rule for whoever changes this service next: do
+not add a mount, a second folder, or a section to a file that is about something
+else. Give the data a file name of its own and take that file from `DataFolder`
+([data_folder.rs](src/app/data_folder.rs)), the way `DiskTitles`
+([disk_titles.rs](src/app/disk_titles.rs)) does; create the store next to it in
+`AppCtx::new`, and add a row to the table above.
+
+The folder is created on the first write. A file is replaced atomically — written
+beside itself and renamed — which is why the folder is mounted and not a single
+file: a rename onto a file that is itself a mount point is refused. Without the
+mount the files live in the container's own filesystem and are gone when the
+container is recreated.
+
+## Disk titles
+
+A host disk can be given a name in the UI — click its icon in the VM rail. The
+title is shown in place of the mount point, there and on the Host disks board.
+Everything else this service holds is a cache of what the collectors report; a
+title somebody typed is not, so it is kept in the [data folder](#data-folder).
+
+`disk-titles.yaml`:
+
+```yaml
+# env -> vm -> mount point -> title
+prod:
+  vm-prod-db-01:
+    /var/lib/postgresql: Postgres data
+```
+
+- A disk is identified by its **mount point**, not its device: `/dev/sdX` can
+  move when a volume is re-attached, the mount point does not.
+- `POST /api/disk-title` sets a title; an empty (or absent) `title` removes it.
+  Titles are trimmed, single-line and at most 48 characters. The caller needs
+  access to the env, same as for every other endpoint.
+- The file is rewritten on every change and read once, at startup — after
+  editing it by hand, restart the service. A file that cannot be parsed is left
+  alone: titles stay off and saving is refused until it is fixed or removed.
+
 ## Deployment (docker-compose)
 
 Standard compose template that runs the API alongside the static UI host on
@@ -100,6 +155,7 @@ services:
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
     - ./.docker-statistics-api:/root/.docker-statistics-api:ro
+    - ./docker-statistics-api-data:/root/.docker-statistics-api-data
     deploy:
       resources:
         limits:
@@ -118,6 +174,9 @@ networks:
 
 Notes on the mounts:
 - `./.docker-statistics-api` — your settings YAML (see [Settings](#settings)).
+- `./docker-statistics-api-data` — the [data folder](#data-folder): the one
+  writable mount, holding a file per kind of data the service keeps. Mount the
+  folder, not the files in it.
 - `/var/run/docker.sock` — only needed if this same host also runs a local
   collector that the api talks to over the same socket; otherwise drop it.
 - `~/unix-sockets/*` — shared unix-socket dirs used when api talks to other

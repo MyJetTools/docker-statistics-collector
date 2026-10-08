@@ -6,7 +6,7 @@ use tokio::sync::Mutex;
 
 use crate::settings_reader::AppSettingsReader;
 
-use super::DataCacheByEnv;
+use super::{DataCacheByEnv, DataFolder, DiskTitles};
 
 use crate::background::UpdateMetricsCacheTimer;
 use rust_extensions::MyTimer;
@@ -19,6 +19,9 @@ pub struct AppCtx {
     pub data_cache_by_env: Mutex<DataCacheByEnv>,
     pub app_states: Arc<AppStates>,
     pub settings_reader: Arc<AppSettingsReader>,
+    /// Operator-given disk names — read from their file of the data folder
+    /// once, here.
+    pub disk_titles: DiskTitles,
 }
 
 impl AppCtx {
@@ -39,10 +42,15 @@ impl AppCtx {
 
         let settings_reader = Arc::new(AppSettingsReader::new());
 
+        // Everything this service persists is a file of this one folder; a store
+        // added later takes a file name of its own from it, right here.
+        let data_folder = DataFolder::new();
+
         Self {
             data_cache_by_env: Mutex::new(DataCacheByEnv::new()),
             app_states,
             settings_reader,
+            disk_titles: DiskTitles::load(&data_folder),
         }
     }
 

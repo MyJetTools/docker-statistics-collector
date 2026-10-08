@@ -225,6 +225,21 @@ impl MainState {
         self.top_n.trim().parse::<usize>().unwrap_or(DEFAULT_TOP_N)
     }
 
+    /// Put a just-saved disk title on screen at once, ahead of the next poll —
+    /// which carries the same title and merely confirms it.
+    pub fn set_disk_title(&mut self, vm: &str, mount_point: &str, title: Option<String>) {
+        let disks = self
+            .vms_state
+            .get_mut(vm)
+            .and_then(|vm| vm.host_disks.as_mut());
+        let Some(disks) = disks else {
+            return;
+        };
+        if let Some(disk) = disks.iter_mut().find(|d| d.mount_point == mount_point) {
+            disk.title = title;
+        }
+    }
+
     pub fn get_data_age_secs(&self) -> Option<i64> {
         self.data_age_secs
     }

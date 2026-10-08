@@ -11,6 +11,8 @@ pub struct HostDiskRow {
     /// `vm`: disks are read from the VM map, which is keyed by it.
     pub vm: String,
     pub mount_point: String,
+    /// Name an operator gave the disk; the row leads with it when there is one.
+    pub title: Option<String>,
     pub device: String,
     pub fs_type: String,
     pub total: i64,
@@ -28,6 +30,7 @@ impl HostDiskRow {
         Self {
             vm: vm.to_string(),
             mount_point: disk.mount_point.clone(),
+            title: disk.title.clone(),
             device: disk.device.clone(),
             fs_type: disk.fs_type.clone(),
             total: disk.total,
@@ -124,6 +127,7 @@ mod tests {
             total: total_gib * GIB,
             used: used_gib * GIB,
             available: (total_gib - used_gib) * GIB,
+            title: None,
         }
     }
 

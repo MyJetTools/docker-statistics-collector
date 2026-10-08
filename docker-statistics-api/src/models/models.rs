@@ -165,6 +165,11 @@ pub struct DiskModel {
     pub total: i64,
     pub used: i64,
     pub available: i64,
+    /// Name an operator gave the disk in the UI, shown in place of the mount
+    /// point. This service's own field — stamped on from `DiskTitles` when the
+    /// answer to the UI is built, and never read from a collector's payload.
+    #[serde(skip_deserializing, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]

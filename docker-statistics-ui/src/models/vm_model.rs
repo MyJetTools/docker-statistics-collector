@@ -46,9 +46,19 @@ pub struct DiskModel {
     pub total: i64,
     pub used: i64,
     pub available: i64,
+    /// Name an operator gave the disk, shown in place of the mount point.
+    /// `None` for a disk nobody has named.
+    #[serde(default)]
+    pub title: Option<String>,
 }
 
 impl DiskModel {
+    /// What the disk is called on screen: its title, or the mount point when
+    /// it has none.
+    pub fn label(&self) -> &str {
+        self.title.as_deref().unwrap_or(self.mount_point.as_str())
+    }
+
     /// Percent of the filesystem in use, 0..100. Defined once, here, so the VM
     /// rail and the Host disks board cannot show the same disk at two fill levels.
     pub fn used_pct(&self) -> f64 {
