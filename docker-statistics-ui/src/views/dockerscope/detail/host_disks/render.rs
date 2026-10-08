@@ -9,7 +9,7 @@ use crate::views::dockerscope::helpers::{fmt_mem_short, DiskSeverity, DISK_WARN_
 use crate::views::dockerscope::icons::icon_disk;
 
 /// The physical disks of the selected host — or of the whole fleet — fullest
-/// first. It sits next to the container disk board: that one says who is
+/// first. It sits under the container disk board: that one says who is
 /// writing, this one says how much room there is left to write into.
 ///
 /// A plain function, like the container boards: the VM map is borrowed straight
@@ -37,7 +37,7 @@ pub fn render_host_disks_board(
     };
 
     rsx! {
-        div { class: "panel top-consumers",
+        div { class: "panel top-consumers tc-wide",
             div { class: "panel-head",
                 h3 { "Host disks" }
                 span { class: "tc-hint", "fullest first" }

@@ -12,9 +12,9 @@ use crate::views::dockerscope::helpers::{
 
 /// Fills the detail column while a VM is selected but no container is: the
 /// heaviest containers of that VM ranked by CPU on the left and by memory on
-/// the right, so the two can be read against each other at a glance. The row
-/// under them does the same for storage — the containers ranked by what they
-/// wrote, next to the disks of the host they are writing to.
+/// the right, so the two can be read against each other at a glance. Under
+/// them, each across the full width, storage: the containers ranked by what
+/// they wrote, then the disks of the host they are writing to.
 #[component]
 pub fn TopConsumersPanel() -> Element {
     let main_state = consume_context::<Signal<MainState>>();
@@ -101,9 +101,14 @@ fn render_board(
     let title = format!("Top by {}", metric.label());
     let max = board.max;
     let sum = board.total;
+    // CPU and memory share a row; the disk board takes a whole one.
+    let panel_class = match metric {
+        TopMetric::Disk => "panel top-consumers tc-wide",
+        TopMetric::Cpu | TopMetric::Mem => "panel top-consumers",
+    };
 
     rsx! {
-        div { class: "panel top-consumers",
+        div { class: "{panel_class}",
             div { class: "panel-head",
                 h3 { "{title}" }
                 // Only memory has a "reserved" to be measured against — the

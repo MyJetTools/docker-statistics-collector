@@ -1250,10 +1250,11 @@ button, input { font-family: inherit; color: inherit; }
 }
 
 /* ─── Top consumers boards (detail column, no container selected) ─── */
-/* Equal boards, two to a row — CPU and memory on the first, containers by disk
-   and the host's own disks on the second. `.app` enforces a 1280px floor and
-   the detail column is the `1fr`, so each board gets ~330px even at the
-   narrowest supported window; no breakpoint is needed. */
+/* CPU and memory side by side as two equal boards; under them the two disk
+   boards — containers by disk, then the host's own disks — each across the
+   full width. `.app` enforces a 1280px floor and the detail column is the
+   `1fr`, so a half-width board gets ~330px even at the narrowest supported
+   window; no breakpoint is needed. */
 .tc-wrap { display: flex; flex-direction: column; gap: 10px; }
 .tc-head { display: flex; align-items: center; gap: 10px; }
 /* Narrower than the dialog's input group — it holds two or three digits, and the
@@ -1284,6 +1285,7 @@ button, input { font-family: inherit; color: inherit; }
 /* The boards are `.panel`s that are siblings in a grid, so the stacked-panel
    rule (`.panel + .panel`) would push every board but the first 16px down. */
 .tc-boards > .panel { margin-top: 0; }
+.tc-boards > .tc-wide { grid-column: 1 / -1; }
 .top-consumers { min-width: 0; }
 /* Only the memory board carries a control in its head. Without a floor the
    other heads come out shorter, and the rows of two boards side by side stop
