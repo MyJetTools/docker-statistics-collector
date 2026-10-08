@@ -25,14 +25,17 @@ impl AppCtx {
     pub fn new() -> Self {
         let app_states = Arc::new(AppStates::create_initialized());
 
-        let mut timer_3s = MyTimer::new(std::time::Duration::from_secs(3));
+        let mut timer_3s = MyTimer::new(
+            std::time::Duration::from_secs(3),
+            my_logger::LOGGER.clone(),
+        );
 
         timer_3s.register_timer(
             "MetricsUpdate",
             std::sync::Arc::new(UpdateMetricsCacheTimer),
         );
 
-        timer_3s.start(app_states.clone(), my_logger::LOGGER.clone());
+        timer_3s.start();
 
         let settings_reader = Arc::new(AppSettingsReader::new());
 
@@ -58,16 +61,22 @@ impl AppCtx {
             return Err(format!("url {url} not found in env {env}"));
         }
 
-        let fl_url = FlUrl::try_new(env_settings.url.as_str()).map_err(|err| {
-            format!("env {env}: cannot parse url {}: {:?}", env_settings.url, err)
-        })?;
+        // FlUrl carries a url it cannot use as an error and reports it only when
+        // the request is sent; asked for here, it is answered before any proxying.
+        let fl_url = FlUrl::new(env_settings.url.as_str());
+        if let Some(err) = fl_url.get_error() {
+            return Err(format!(
+                "env {env}: cannot parse url {}: {:?}",
+                env_settings.url, err
+            ));
+        }
 
         Ok(self.configure_fl_url(fl_url))
     }
 
-    /// Polling-timer path. It runs inside `tokio::spawn`, where a panic costs one
-    /// tick of one env and the runtime logs it — so `FlUrl::new` is enough, and
-    /// there is nothing to gain from threading an error out.
+    /// Polling-timer path. A url FlUrl cannot use comes back as the error of the
+    /// request itself, which the timer logs — there is nothing to gain from
+    /// checking it here as well.
     pub fn create_fl_url(&self, url: &str) -> FlUrl {
         self.configure_fl_url(FlUrl::new(url))
     }
