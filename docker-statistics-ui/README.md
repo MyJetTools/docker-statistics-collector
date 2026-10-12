@@ -15,6 +15,7 @@ The UI talks to **one** federated [`docker-statistics-collector`](../docker-stat
 - Port, label, state, status, and "created" age visualization.
 - Logs viewer dialog per container — the master auto-routes the log fetch to whichever peer owns the container.
 - Optional per-user environment access control.
+- With a VM — or "All VMs" — selected and no container picked, the detail column ranks what runs there: **Top by CPU** and **Top by Memory** side by side (memory by bytes or by share of the limit), then, each across the full width, **Top by Disk** (every container's writable layer) and **Host disks** (the hosts' physical filesystems, fullest first — amber from 75% used, red from 90%). One box sets the rows per board; `0` shows all.
 - Host disks can be named: click a disk's icon in the VM rail and give it a title, shown in place of the mount point. Titles are kept by the api — see its [Disk titles](../docker-statistics-hub/README.md#disk-titles).
 
 ## Architecture
