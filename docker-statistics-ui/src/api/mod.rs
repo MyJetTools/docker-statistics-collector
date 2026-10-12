@@ -13,3 +13,5 @@ mod exec_permission;
 pub use exec_permission::*;
 mod disk_titles;
 pub use disk_titles::*;
+mod service_metrics;
+pub use service_metrics::*;

@@ -6,3 +6,5 @@ mod prefs;
 pub use prefs::*;
 mod env_list_state;
 pub use env_list_state::*;
+mod service_history;
+pub use service_history::*;

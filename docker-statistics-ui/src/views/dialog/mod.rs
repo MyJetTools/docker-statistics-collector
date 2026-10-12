@@ -8,3 +8,5 @@ mod show_exec;
 pub use show_exec::*;
 mod edit_disk_title;
 pub use edit_disk_title::*;
+mod service_history;
+pub use service_history::*;

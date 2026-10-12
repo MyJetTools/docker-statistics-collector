@@ -773,6 +773,14 @@ button, input { font-family: inherit; color: inherit; }
   display: inline-flex; align-items: center; gap: 7px;
 }
 .chart-card .label .sw { width: 7px; height: 7px; border-radius: 2px; }
+/* The name of a chart opens the whole history of its metric. Dotted under the
+   word, so that it reads as something to press without shouting like a link. */
+.chart-card .label.history {
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 4px;
+}
+.chart-card .label.history:hover { color: var(--text); }
 .chart-card .value-row {
   display: flex; align-items: baseline; gap: 10px;
   margin-bottom: 8px;
@@ -1398,3 +1406,138 @@ a.tc-row:hover .name { color: var(--accent); }
 }
 .tc-val .v .u { font-size: 10px; color: var(--text-muted); margin-left: 2px; font-weight: 400; }
 .tc-val .sub { font-family: var(--mono); font-size: 10px; color: var(--text-muted); }
+
+/* ─── Service history dialog ─── */
+.hist { display: flex; flex-direction: column; gap: 14px; }
+/* Everything that scopes the chart sits in one row above it: the metric on the
+   left, the period on the right. */
+.hist-controls {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+}
+
+.hist-figures { display: flex; align-items: flex-end; gap: 28px; flex-wrap: wrap; }
+.hist-figures .fig { display: flex; flex-direction: column; gap: 3px; }
+.hist-figures .fig .k {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.hist-figures .fig .v {
+  font-family: var(--mono); font-size: 16px; font-weight: 600; color: var(--text);
+}
+.hist-legend {
+  margin-left: auto;
+  display: flex; align-items: center; gap: 16px;
+  font-family: var(--mono); font-size: 10.5px; color: var(--text-dim);
+}
+.hist-legend .item { display: inline-flex; align-items: center; gap: 6px; }
+
+/* The marks a series is known by, in the legend and in the readout: a stroke for
+   the line, a block for the band. The colour is the metric's, set by class. */
+.hist .key { display: inline-block; flex: 0 0 auto; }
+.hist .key.line { width: 14px; height: 2px; border-radius: 1px; }
+.hist .key.band { width: 14px; height: 8px; border-radius: 2px; opacity: .3; }
+.hist .key.limit { width: 14px; height: 0; border-top: 1px solid var(--danger); }
+
+/* One colour per metric — the ones its chart on the container panel wears. A
+   class per metric, never an inline var(): see `TopMetric::fill_class`. */
+.hist .cpu     { --series: var(--cpu); }
+.hist .mem     { --series: var(--mem); }
+.hist .files   { --series: var(--text-dim); }
+.hist .net-in  { --series: var(--purple); }
+.hist .net-out { --series: var(--net); }
+.hist .key.line, .hist .key.band, .hist-dot { background: var(--series); }
+
+/* The chart: the marks of the value axis on the left, of the time axis below,
+   and the plot in what is left. The height includes the time axis. */
+.hist-chart {
+  position: relative;
+  height: 356px;
+  padding: 24px 12px 26px 58px;
+  transition: opacity .15s ease;
+}
+/* A reload keeps the frame: the previous answer stays, dimmed, until the next
+   one lands — no blank, no jump. */
+.hist-chart.dimmed { opacity: .45; }
+.hist-plot { position: relative; width: 100%; height: 100%; }
+.hist-svg { display: block; width: 100%; height: 100%; overflow: visible; }
+/* The box is stretched to the dialog; the strokes are not. */
+.hist-svg line, .hist-svg path { vector-effect: non-scaling-stroke; }
+.hist-grid { stroke: var(--chart-grid); stroke-width: 1; }
+.hist-line {
+  fill: none; stroke: var(--series); stroke-width: 2;
+  stroke-linejoin: round; stroke-linecap: round;
+}
+.hist-band { fill: var(--series); fill-opacity: .14; stroke: none; }
+.hist-limit { stroke: var(--danger); stroke-width: 1; }
+.hist-limit-label {
+  position: absolute; right: 0;
+  transform: translateY(-3px);
+  font-family: var(--mono); font-size: 10px; color: var(--text-dim);
+  background: var(--surface-0); padding: 0 4px;
+}
+
+.hist-y { position: absolute; left: 0; top: 24px; bottom: 26px; width: 50px; }
+.hist-y-tick {
+  position: absolute; right: 0;
+  transform: translateY(50%);
+  font-family: var(--mono); font-size: 10px; color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+/* The unit sits over the axis, clear of its top mark whatever the width of both. */
+.hist-y-unit {
+  position: absolute; right: 0; top: -22px;
+  font-family: var(--mono); font-size: 9.5px; color: var(--text-muted);
+  white-space: nowrap;
+}
+.hist-x { position: absolute; left: 58px; right: 12px; bottom: 4px; height: 14px; }
+.hist-x-tick {
+  position: absolute;
+  transform: translateX(-50%);
+  font-family: var(--mono); font-size: 10px; color: var(--text-muted);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+
+/* What the pointer is over. None of it takes the pointer itself — the strips
+   underneath are what it talks to. */
+.hist-cross {
+  position: absolute; top: 0; bottom: 0; width: 1px;
+  background: var(--border-strong);
+  pointer-events: none;
+}
+.hist-dot {
+  position: absolute;
+  width: 8px; height: 8px; border-radius: 50%;
+  transform: translate(-50%, 50%);
+  box-shadow: 0 0 0 2px var(--surface-0);
+  pointer-events: none;
+}
+.hist-tip {
+  position: absolute; top: 6px;
+  transform: translateX(12px);
+  min-width: 150px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  font-family: var(--mono); font-size: 11px; color: var(--text-dim);
+  pointer-events: none;
+  z-index: 2;
+}
+.hist-tip.left { transform: translateX(calc(-100% - 12px)); }
+.hist-tip .when { color: var(--text-muted); margin-bottom: 6px; white-space: nowrap; }
+.hist-tip .row { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+.hist-tip .row + .row { margin-top: 3px; }
+/* The figure leads, what it is follows: here the reader has the series and
+   wants the number. */
+.hist-tip .row b { color: var(--text); font-weight: 600; }
+.hist-tip .row .what { margin-left: auto; padding-left: 10px; color: var(--text-muted); }
+
+.hist-hit { position: absolute; inset: 0; display: flex; }
+.hist-slot { flex: 1 1 0; min-width: 0; }
+
+.hist-empty {
+  display: grid; place-items: center; height: 356px;
+  font-family: var(--mono); font-size: 11.5px; color: var(--text-muted);
+}
+.hist-caption { font-family: var(--mono); font-size: 10.5px; color: var(--text-muted); }

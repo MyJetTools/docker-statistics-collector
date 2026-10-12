@@ -35,6 +35,9 @@ pub fn render_dialog() -> Element {
                         container_id: container_id.clone(),
                     }
                 },
+                DialogType::ServiceHistory(model) => rsx! {
+                    service_history { model: model.clone() }
+                },
                 DialogType::EditDiskTitle(model) => {
                     let model_to_save = model.clone();
                     rsx! {

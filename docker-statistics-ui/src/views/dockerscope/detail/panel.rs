@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use dioxus::prelude::*;
 
-use crate::states::MainState;
+use crate::states::{primary_name, DialogState, HistoryMetric, MainState, ServiceHistoryModel};
 use crate::views::dockerscope::charts::AreaChart;
 use crate::views::dockerscope::detail::*;
 use crate::views::dockerscope::helpers::*;
@@ -38,7 +38,17 @@ pub fn DetailPanel(env: Rc<String>) -> Element {
         .clone()
         .or_else(|| cs_ra.get_active_container_vm().map(|v| v.to_string()))
         .unwrap_or_default();
-    let _ = env;
+    // What the hub keeps the history of this container by: its name on its host,
+    // or the start of its id when it has none — the same rule the hub applies.
+    let history_of = |metric: HistoryMetric| ServiceHistoryModel {
+        env: env.clone(),
+        vm: vm_name.clone(),
+        service: match primary_name(&container.names) {
+            "" => shorten_id(&container.id, 12).to_string(),
+            name => name.to_string(),
+        },
+        metric,
+    };
 
     let mem_limit = container.mem.limit.unwrap_or(0);
     let mem_now = container.mem.usage.unwrap_or(0);
@@ -104,6 +114,7 @@ pub fn DetailPanel(env: Rc<String>) -> Element {
                     delta_up: cpu_delta >= 0.0,
                     sub: "2s window".to_string(),
                     values: cpu_history,
+                    history: history_of(HistoryMetric::Cpu),
                 }
                 ChartCard {
                     label: "Memory".to_string(),
@@ -114,6 +125,7 @@ pub fn DetailPanel(env: Rc<String>) -> Element {
                     delta_up: true,
                     sub: format!("limit {} {} · {}% used", lim_v, lim_u, mem_pct_now),
                     values: mem_history_mib,
+                    history: history_of(HistoryMetric::Mem),
                 }
                 ChartCard {
                     label: "Net In".to_string(),
@@ -124,6 +136,7 @@ pub fn DetailPanel(env: Rc<String>) -> Element {
                     delta_up: true,
                     sub: "2s window".to_string(),
                     values: net_in_history,
+                    history: history_of(HistoryMetric::NetIn),
                 }
                 ChartCard {
                     label: "Net Out".to_string(),
@@ -134,6 +147,7 @@ pub fn DetailPanel(env: Rc<String>) -> Element {
                     delta_up: true,
                     sub: "2s window".to_string(),
                     values: net_out_history,
+                    history: history_of(HistoryMetric::NetOut),
                 }
             }
 
@@ -179,6 +193,7 @@ fn ChartCard(
     delta_up: bool,
     sub: String,
     values: Vec<f64>,
+    history: ServiceHistoryModel,
 ) -> Element {
     let delta_class = if delta_up { "delta up" } else { "delta down" };
     let arrow = if delta_up { "▲" } else { "▼" };
@@ -186,7 +201,17 @@ fn ChartCard(
     rsx! {
         div { class: "chart-card",
             div { class: "head",
-                span { class: "label",
+                // The graph below is the last minutes. The name of the chart is the
+                // way to everything before them.
+                span {
+                    class: "label history",
+                    title: "the whole history of {label}",
+                    onclick: move |_| {
+                        consume_context::<Signal<DialogState>>().write().show_dialog(
+                            format!("History · {} · {}", history.service, history.vm),
+                            crate::states::DialogType::ServiceHistory(history.clone()),
+                        );
+                    },
                     span { class: "sw", style: "background: {color};" }
                     "{label}"
                 }

@@ -28,6 +28,7 @@ pub enum DialogType {
         container_id: String,
     },
     EditDiskTitle(EditDiskTitleModel),
+    ServiceHistory(super::ServiceHistoryModel),
     /*
     SecretUsage(String),
     SecretUsageBySecret(String),

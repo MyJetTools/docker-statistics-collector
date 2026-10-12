@@ -45,7 +45,32 @@ limit is marked, from 90% in red.
   ports and mounts; the tail of its log, live; the `docker-compose.yaml` it was
   started from, when it carries one; the switch of the
   [exec unlock](mcp.md#the-exec-unlock) of its host; its labels. Buttons open the
-  whole log, the processes inside the container, and a console.
+  whole log, the processes inside the container, and a console; the name of a
+  graph opens [its history](#the-history-of-a-container).
+
+## The history of a container
+
+The graphs on the panel of a container are the last minutes. The **name of a
+graph** — CPU, Memory, Net In, Net Out — opens everything before them: a dialog
+with the history the hub keeps on disk (see [Service metrics](service-metrics.md)).
+
+- One metric at a time, picked in a row above the chart: the four of the panel
+  and the open files. One period: the last hour, 6 hours, 24 hours, 3 days or 7.
+- The line is the average of each point; the band around it runs from the lowest
+  to the highest measurement of that point, so a short spike stays visible in a
+  week. A stretch the container was down in is a break in the line.
+- The limit of the metric is drawn while it is within four times the highest
+  value — the memory limit of a container usually is. A limit far above the data,
+  as the cores of the host are for most containers, would flatten the line, so it
+  is only named among the figures.
+- Moving the pointer over the chart reads out the nearest point: when, its
+  average, highest and lowest, and the limit. The figures above the chart — last,
+  average, peak, limit — say the same of the whole period without the pointer.
+- While the dialog is open it asks again every 30 seconds.
+
+CPU is shown here in **cores** in use, which is what the collector measures.
+
+The dialog is [service_history/](../docker-statistics-ui/src/views/dialog/service_history/).
 
 ## Addresses
 
@@ -75,7 +100,8 @@ All of it relative to the page, which is why the reverse proxy has to route
 - `GET /api/logs`, `GET /api/processes`, `GET /api/exec-permission` and its
   `enable` / `disable` — when their part of the page is opened;
 - `WS /ws/logs`, `WS /ws/exec` — the live log and the console;
-- `POST /api/disk-title` — naming a disk.
+- `POST /api/disk-title` — naming a disk;
+- `GET /api/service-metrics/chart` — the history dialog.
 
 The calls are in [api/](../docker-statistics-ui/src/api/).
 
