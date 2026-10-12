@@ -44,7 +44,7 @@ fn Stat(k: String, v: String, u: String, history: Option<ServiceHistoryModel>) -
                         title: "the whole history of {k}",
                         onclick: move |_| {
                             consume_context::<Signal<DialogState>>().write().show_dialog(
-                                format!("History · {} · {}", history.service, history.vm),
+                                history.title(),
                                 DialogType::ServiceHistory(history.clone()),
                             );
                         },

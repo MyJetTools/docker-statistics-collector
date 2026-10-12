@@ -82,12 +82,23 @@ impl HistoryPeriod {
     }
 }
 
-/// The service a history dialog is about, and the metric it opens on. A service
-/// is a container by its name on its host — that is what the hub keeps history by.
+/// What a history dialog is about, and the metric it opens on: a service — a
+/// container by its name on its host, which is what the hub keeps history by — or,
+/// with no service, the machine as a whole: what its containers come to.
 #[derive(Clone, PartialEq)]
 pub struct ServiceHistoryModel {
     pub env: Rc<String>,
     pub vm: String,
-    pub service: String,
+    pub service: Option<String>,
     pub metric: HistoryMetric,
+}
+
+impl ServiceHistoryModel {
+    /// The header of the dialog: whose history it is.
+    pub fn title(&self) -> String {
+        match self.service.as_deref() {
+            Some(service) => format!("History · {} · {}", service, self.vm),
+            None => format!("History · {}", self.vm),
+        }
+    }
 }

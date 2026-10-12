@@ -2,7 +2,8 @@ use dioxus::prelude::*;
 
 use crate::models::MetricsByVm;
 use crate::router::AppRoute;
-use crate::states::{MainState, MemBasis, TopMetric};
+use crate::states::{HistoryMetric, MainState, MemBasis, TopMetric};
+use crate::views::dialog::open_vm_history;
 use crate::views::dockerscope::detail::{
     build_top_consumers, render_host_disks_board, TopConsumerRow,
 };
@@ -106,11 +107,32 @@ fn render_board(
         TopMetric::Disk => "panel top-consumers tc-wide",
         TopMetric::Cpu | TopMetric::Mem => "panel top-consumers",
     };
+    // Scoped to one machine, the name of a board is the way into the history of
+    // its metric for that machine as a whole — the same press as the name of a
+    // graph on the panel of a container. Across the fleet there is no one machine
+    // to show, and the disk of containers is not something the hub keeps history of.
+    let history = single_vm_name.clone().zip(match metric {
+        TopMetric::Cpu => Some(HistoryMetric::Cpu),
+        TopMetric::Mem => Some(HistoryMetric::Mem),
+        TopMetric::Disk => None,
+    });
 
     rsx! {
         div { class: "{panel_class}",
             div { class: "panel-head",
-                h3 { "{title}" }
+                match history {
+                    Some((vm, history_metric)) => rsx! {
+                        h3 {
+                            class: "history",
+                            title: "the whole history of {history_metric.label()} of {vm}",
+                            onclick: move |_| open_vm_history(vm.clone(), history_metric),
+                            "{title}"
+                        }
+                    },
+                    None => rsx! {
+                        h3 { "{title}" }
+                    },
+                }
                 // Only memory has a "reserved" to be measured against — the
                 // payload carries no CPU quota, so the CPU board has no choice
                 // to offer and is not given a dead control.

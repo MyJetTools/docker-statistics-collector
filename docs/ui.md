@@ -72,6 +72,20 @@ graphs, **Open FDs**, opens the same dialog on them.
 
 CPU is shown here in **cores** in use, which is what the collector measures.
 
+### The history of a machine
+
+The same dialog shows a machine as a whole — what all of its containers came to
+(see [Service metrics](service-metrics.md#the-machine-as-a-whole)). Its CPU is
+measured against the cores of the host and its memory against the RAM. There are
+two ways in:
+
+- on the card of a machine in the left column, the glyph in front of a figure —
+  CPU, network, memory — opens the history of that figure. It works for any
+  machine without selecting it; the "All VMs" card has none, the hub keeps
+  history machine by machine;
+- with one machine selected, the names of the boards **Top by CPU** and **Top by
+  Memory** open the history of that metric for the machine.
+
 The dialog is [service_history/](../docker-statistics-ui/src/views/dialog/service_history/).
 
 ## Addresses
@@ -103,7 +117,8 @@ All of it relative to the page, which is why the reverse proxy has to route
   `enable` / `disable` — when their part of the page is opened;
 - `WS /ws/logs`, `WS /ws/exec` — the live log and the console;
 - `POST /api/disk-title` — naming a disk;
-- `GET /api/service-metrics/chart` — the history dialog.
+- `GET /api/service-metrics/chart`, `GET /api/vm-metrics/chart` — the history
+  dialog, of a container and of a machine.
 
 The calls are in [api/](../docker-statistics-ui/src/api/).
 

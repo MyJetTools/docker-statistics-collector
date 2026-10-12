@@ -11,9 +11,10 @@ use crate::views::dialog::{
 /// chart whose finest point is ten, half a minute is as live as it can look.
 const REFRESH_EVERY: Duration = Duration::from_secs(30);
 
-/// The history of one service, as far back as the hub keeps it: one metric at a
-/// time, over the period picked. Opened from the name of a chart on the
-/// container panel, on the metric of that chart.
+/// The history of one service — or of a machine as a whole — as far back as the
+/// hub keeps it: one metric at a time, over the period picked. Opened from the
+/// name of a chart on the container panel, or from the card or the boards of a
+/// machine, on the metric that was pressed.
 #[component]
 pub fn service_history(model: ServiceHistoryModel) -> Element {
     let mut cs = use_signal(|| ServiceHistoryState::new(model.metric));

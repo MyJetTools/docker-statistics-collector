@@ -396,6 +396,10 @@ button, input { font-family: inherit; color: inherit; }
 /* The glyph doubles as the handle for naming the disk. */
 .vm-card .vm-disk-head .dico { cursor: pointer; }
 .vm-card .vm-disk-head .dico:hover { color: var(--accent); opacity: 1; }
+/* And the glyphs in front of the figures of a machine — CPU, network, memory —
+   are the handles for the history of those figures. */
+.vm-card .history { cursor: pointer; }
+.vm-card .history:hover { color: var(--accent); opacity: 1; }
 .vm-card .vm-disk-head .mp {
   flex: 1 1 auto; min-width: 0;
   color: var(--text-muted);
@@ -774,14 +778,16 @@ button, input { font-family: inherit; color: inherit; }
 }
 .chart-card .label .sw { width: 7px; height: 7px; border-radius: 2px; }
 /* The name of a chart — and of the open-files figure under the charts, which
-   has no chart of its own — opens the whole history of its metric. Dotted under
-   the word, so that it reads as something to press without shouting like a link. */
-.chart-card .label.history, .stat .k.history {
+   has no chart of its own — opens the whole history of its metric; the name of a
+   board does the same for the machine it is scoped to. Dotted under the word, so
+   that it reads as something to press without shouting like a link. */
+.chart-card .label.history, .stat .k.history, .panel .panel-head h3.history {
   cursor: pointer;
   text-decoration: underline dotted;
   text-underline-offset: 4px;
 }
-.chart-card .label.history:hover, .stat .k.history:hover { color: var(--text); }
+.chart-card .label.history:hover, .stat .k.history:hover,
+.panel .panel-head h3.history:hover { color: var(--text); }
 .chart-card .value-row {
   display: flex; align-items: baseline; gap: 10px;
   margin-bottom: 8px;

@@ -43,10 +43,10 @@ pub fn DetailPanel(env: Rc<String>) -> Element {
     let history_of = |metric: HistoryMetric| ServiceHistoryModel {
         env: env.clone(),
         vm: vm_name.clone(),
-        service: match primary_name(&container.names) {
+        service: Some(match primary_name(&container.names) {
             "" => shorten_id(&container.id, 12).to_string(),
             name => name.to_string(),
-        },
+        }),
         metric,
     };
 
@@ -211,7 +211,7 @@ fn ChartCard(
                     title: "the whole history of {label}",
                     onclick: move |_| {
                         consume_context::<Signal<DialogState>>().write().show_dialog(
-                            format!("History · {} · {}", history.service, history.vm),
+                            history.title(),
                             crate::states::DialogType::ServiceHistory(history.clone()),
                         );
                     },

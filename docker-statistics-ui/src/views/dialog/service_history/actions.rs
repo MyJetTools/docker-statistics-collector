@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use rust_extensions::date_time::DateTimeAsMicroseconds;
 
-use crate::states::{HistoryPeriod, ServiceHistoryModel};
+use crate::states::{DialogState, DialogType, HistoryMetric, HistoryPeriod, MainState, ServiceHistoryModel};
 
 use super::ServiceHistoryState;
 
@@ -21,20 +21,58 @@ pub async fn load_history(
     let now = DateTimeAsMicroseconds::now().unix_microseconds / 1_000_000;
     let (from, to) = interval(period, now);
 
-    let result = crate::api::get_service_metrics_chart(
-        target.env.as_str(),
-        target.vm.as_str(),
-        target.service.as_str(),
-        metric.as_key(),
-        from,
-        to,
-        CHART_POINTS,
-    )
-    .await
+    let result = match target.service.as_deref() {
+        Some(service) => {
+            crate::api::get_service_metrics_chart(
+                target.env.as_str(),
+                target.vm.as_str(),
+                service,
+                metric.as_key(),
+                from,
+                to,
+                CHART_POINTS,
+            )
+            .await
+        }
+        None => {
+            crate::api::get_vm_metrics_chart(
+                target.env.as_str(),
+                target.vm.as_str(),
+                metric.as_key(),
+                from,
+                to,
+                CHART_POINTS,
+            )
+            .await
+        }
+    }
     .map_err(|err| err.to_string());
 
     cs.write()
         .load_finished(request_no, metric, from, to, result);
+}
+
+/// Open the history of a machine as a whole, on `metric`. The env is read here, at
+/// the press, rather than carried to every place a machine can be pressed from.
+pub fn open_vm_history(vm: String, metric: HistoryMetric) {
+    let Some(env) = consume_context::<Signal<MainState>>()
+        .read()
+        .envs
+        .get_selected_env()
+    else {
+        return;
+    };
+
+    let model = ServiceHistoryModel {
+        env,
+        vm,
+        service: None,
+        metric,
+    };
+
+    consume_context::<Signal<DialogState>>()
+        .write()
+        .show_dialog(model.title(), DialogType::ServiceHistory(model));
 }
 
 /// The interval a period covers at `now`, ending on a whole point. With the end

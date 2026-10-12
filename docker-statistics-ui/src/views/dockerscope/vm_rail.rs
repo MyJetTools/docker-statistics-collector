@@ -1,7 +1,8 @@
 use dioxus::prelude::*;
 
 use crate::router::AppRoute;
-use crate::states::{DialogState, EditDiskTitleModel, MainState};
+use crate::states::{DialogState, EditDiskTitleModel, HistoryMetric, MainState};
+use crate::views::dialog::open_vm_history;
 use crate::views::dockerscope::helpers::*;
 use crate::views::dockerscope::icons::*;
 
@@ -156,6 +157,10 @@ fn VmCard(
     let reserved_cls = if over_commit { "over-commit" } else { "" };
     let denom_label = host_total_short.clone().unwrap_or_else(|| reserved_short.clone());
 
+    // The machine whose history the glyphs of this card open. Not the "All VMs"
+    // card: the hub keeps history machine by machine, there is no one of the fleet.
+    let history_vm = (!is_all).then(|| name.clone());
+
     let net_in_str = fmt_throughput(vm.net_in_mbps);
     let net_out_str = fmt_throughput(vm.net_out_mbps);
 
@@ -204,7 +209,12 @@ fn VmCard(
                 div { class: "info",
                     div { class: "name", "{name}" }
                     div { class: "cpu-line",
-                        span { class: "cico", {icon_cpu()} }
+                        HistoryGlyph {
+                            class: "cico",
+                            vm: history_vm.clone(),
+                            metric: HistoryMetric::Cpu,
+                            {icon_cpu()}
+                        }
                         if let Some(c) = vm.host_cpu_count {
                             span { class: "cores", title: "host cores", "{c}" }
                         }
@@ -216,11 +226,21 @@ fn VmCard(
             div {
                 class: "net-line",
                 title: "network in / out (sum across containers)",
-                span { class: "nico", {icon_network()} }
+                HistoryGlyph {
+                    class: "nico",
+                    vm: history_vm.clone(),
+                    metric: HistoryMetric::NetIn,
+                    {icon_network()}
+                }
                 span { class: "net", "↓{net_in_str} ↑{net_out_str}" }
             }
             div { class: "vm-mem-text",
-                span { class: "mico", {icon_memory()} }
+                HistoryGlyph {
+                    class: "mico",
+                    vm: history_vm.clone(),
+                    metric: HistoryMetric::Mem,
+                    {icon_memory()}
+                }
                 span { class: "used", "{used_short}" }
                 span { class: "denom", " / {denom_label}" }
                 span { class: "sep", " · " }
@@ -281,6 +301,36 @@ fn VmCard(
                     }
                 }
             }
+        }
+    }
+}
+
+/// The glyph in front of a figure of a machine. With a machine to show, it is the
+/// way into the history of that figure — pressed like the disk glyph is to name a
+/// disk, and for the same reason without following the link the card is.
+#[component]
+fn HistoryGlyph(
+    class: String,
+    vm: Option<String>,
+    metric: HistoryMetric,
+    children: Element,
+) -> Element {
+    let Some(vm) = vm else {
+        return rsx! {
+            span { class: "{class}", {children} }
+        };
+    };
+
+    rsx! {
+        span {
+            class: "{class} history",
+            title: "the whole history of {metric.label()} of {vm}",
+            onclick: move |evt: MouseEvent| {
+                evt.prevent_default();
+                evt.stop_propagation();
+                open_vm_history(vm.clone(), metric);
+            },
+            {children}
         }
     }
 }
