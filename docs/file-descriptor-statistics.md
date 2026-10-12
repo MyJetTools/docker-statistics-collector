@@ -6,11 +6,14 @@ limit** (`RLIMIT_NOFILE`). The "main process" is the one started by the image
 `ENTRYPOINT`/`CMD` — PID 1 inside the container. `RLIMIT_NOFILE` is enforced
 per process, so this is the process whose `open / limit` ratio actually matters.
 
-In the UI each container shows a `Files: <open>/<limit>` line — colour-coded
-green / orange / red as it approaches the limit — and an open-files **history
-graph** next to the CPU/memory graphs: a steadily climbing line is a
-file-descriptor leak. The values are also in the `files` block of
-`GET /api/containers`.
+In the UI the panel of a container shows them as **Open FDs** —
+`<open> / <limit>` — next to **FD %**, how full the limit is. The name of the
+figure opens its history, which the hub keeps on disk: a steadily climbing line
+is a file-descriptor leak. With no container picked, the **Top by Open files**
+board ranks the containers of a host, or of all of them, by the count, marks the
+ones from 80% of their limit, and says how many there are even when they fall
+below the rows it shows (see [UI](ui.md)). The values are also in the `files`
+block of `GET /api/containers`.
 
 The container's **Processes** button opens a dialog listing every process
 inside the container with its own open file descriptors and `nofile` limit
@@ -60,4 +63,7 @@ pid: host
 cannot be read — i.e. the volume is not mounted, the Docker daemon is on a
 **remote** host (`docker_url` points elsewhere), or the platform has no `/proc`
 (e.g. running the collector on macOS for development). This is non-fatal: CPU and
-memory stats keep working regardless.
+memory stats keep working regardless. On the **Top by Open files** board such a
+container has a dash for a count and is named in the header as not measured — it
+is not ranked as a container with nothing open. A container that is not running
+has no process to count, and is shown as not running instead.

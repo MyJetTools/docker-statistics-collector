@@ -81,6 +81,8 @@ pub enum TopMetric {
     #[default]
     Cpu,
     Mem,
+    /// File descriptors the container's main process has open.
+    Files,
     /// The container's writable layer — what it wrote on top of its image.
     Disk,
 }
@@ -90,6 +92,7 @@ impl TopMetric {
         match self {
             TopMetric::Cpu => "CPU",
             TopMetric::Mem => "Memory",
+            TopMetric::Files => "Open files",
             TopMetric::Disk => "Disk",
         }
     }
@@ -107,6 +110,7 @@ impl TopMetric {
         match self {
             TopMetric::Cpu => "cpu",
             TopMetric::Mem => "mem",
+            TopMetric::Files => "files",
             TopMetric::Disk => "disk",
         }
     }

@@ -34,9 +34,14 @@ limit is marked, from 90% in red.
 
 - *A host, or all of them, and no container* — the boards. **Top by CPU** and
   **Top by Memory** side by side; memory ranks either by bytes or by how full the
-  container's limit is. Under them, each across the full width, **Top by Disk** —
+  container's limit is. Under them, each across the full width: **Top by Open
+  files** — the file descriptors the main process of every container holds
+  open, and under each count how much of its `nofile` limit that is; a row is
+  marked from 80% of the limit and in red from 90%, and the header counts every
+  container that close to its limit, shown or cut off (see
+  [File descriptor statistics](file-descriptor-statistics.md)); **Top by Disk** —
   every container's writable layer, what it wrote on top of its image, volumes
-  not counted — and **Host disks**, the hosts' physical filesystems, fullest
+  not counted; and **Host disks**, the hosts' physical filesystems, fullest
   first, amber from 75% used and red from 90%. One box sets the rows per board
   (10; `0` is all). The container boards follow the filter and the chips; the
   host disks do not. In "All VMs" a row of Host disks leads to its host.
@@ -83,8 +88,9 @@ two ways in:
   CPU, network, memory — opens the history of that figure. It works for any
   machine without selecting it; the "All VMs" card has none, the hub keeps
   history machine by machine;
-- with one machine selected, the names of the boards **Top by CPU** and **Top by
-  Memory** open the history of that metric for the machine.
+- with one machine selected, the names of the boards **Top by CPU**, **Top by
+  Memory** and **Top by Open files** open the history of that metric for the
+  machine.
 
 The dialog is [service_history/](../docker-statistics-ui/src/views/dialog/service_history/).
 

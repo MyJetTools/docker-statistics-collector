@@ -5,7 +5,8 @@ use crate::router::AppRoute;
 use crate::states::{HistoryMetric, MainState, MemBasis, TopMetric};
 use crate::views::dialog::open_vm_history;
 use crate::views::dockerscope::detail::{
-    build_top_consumers, render_host_disks_board, TopConsumerRow,
+    build_top_consumers, render_host_disks_board, TopConsumerRow, FILES_DANGER_PCT,
+    FILES_WARN_PCT,
 };
 use crate::views::dockerscope::helpers::{
     disk_size_title, fmt_disk_pair, fmt_mem_pair, fmt_mem_short,
@@ -14,8 +15,9 @@ use crate::views::dockerscope::helpers::{
 /// Fills the detail column while a VM is selected but no container is: the
 /// heaviest containers of that VM ranked by CPU on the left and by memory on
 /// the right, so the two can be read against each other at a glance. Under
-/// them, each across the full width, storage: the containers ranked by what
-/// they wrote, then the disks of the host they are writing to.
+/// them, each across the full width: the containers ranked by the files they
+/// hold open, then storage — the containers ranked by what they wrote, and the
+/// disks of the host they are writing to.
 #[component]
 pub fn TopConsumersPanel() -> Element {
     let main_state = consume_context::<Signal<MainState>>();
@@ -58,6 +60,7 @@ pub fn TopConsumersPanel() -> Element {
             div { class: "tc-boards",
                 {render_board(TopMetric::Cpu, &containers, mem_basis, top_n, single_vm_name.clone())}
                 {render_board(TopMetric::Mem, &containers, mem_basis, top_n, single_vm_name.clone())}
+                {render_board(TopMetric::Files, &containers, mem_basis, top_n, single_vm_name.clone())}
                 {render_board(TopMetric::Disk, &containers, mem_basis, top_n, single_vm_name.clone())}
                 {render_host_disks_board(&cs_ra.vms_state, single_vm_name.as_deref(), top_n)}
             }
@@ -83,6 +86,7 @@ fn render_board(
             let (value, unit) = fmt_mem_pair(board.total_mem);
             format!("{} {} total", value, unit)
         }
+        TopMetric::Files => format!("{} total", board.total_files),
         TopMetric::Disk => {
             let (value, unit) = fmt_disk_pair(board.total_disk);
             format!("{} {} total", value, unit)
@@ -96,15 +100,28 @@ fn render_board(
         (TopMetric::Disk, missing) if missing > 0 => {
             format!("{} · {} not measured yet", summary, missing)
         }
+        (TopMetric::Files, _) => {
+            let summary = match board.files_unmeasured {
+                0 => summary,
+                missing => format!("{} · {} not measured", summary, missing),
+            };
+            // Counted over every container, not only the rows shown: the board
+            // ranks by the count, and one about to run out of a low limit can sit
+            // far below the cut.
+            match board.files_near_limit {
+                0 => summary,
+                near => format!("{} · {} above {:.0}% of the limit", summary, near, FILES_WARN_PCT),
+            }
+        }
         _ => summary,
     };
 
     let title = format!("Top by {}", metric.label());
     let max = board.max;
     let sum = board.total;
-    // CPU and memory share a row; the disk board takes a whole one.
+    // CPU and memory share a row; the boards under them take a whole one each.
     let panel_class = match metric {
-        TopMetric::Disk => "panel top-consumers tc-wide",
+        TopMetric::Files | TopMetric::Disk => "panel top-consumers tc-wide",
         TopMetric::Cpu | TopMetric::Mem => "panel top-consumers",
     };
     // Scoped to one machine, the name of a board is the way into the history of
@@ -114,6 +131,7 @@ fn render_board(
     let history = single_vm_name.clone().zip(match metric {
         TopMetric::Cpu => Some(HistoryMetric::Cpu),
         TopMetric::Mem => Some(HistoryMetric::Mem),
+        TopMetric::Files => Some(HistoryMetric::Files),
         TopMetric::Disk => None,
     });
 
@@ -152,6 +170,15 @@ fn render_board(
                                 "{basis.label()}"
                             }
                         }
+                    }
+                }
+                // A container is many processes and the limit is per process, so
+                // the board names the one both figures are of.
+                if metric == TopMetric::Files {
+                    span {
+                        class: "tc-hint",
+                        title: "file descriptors open by the main process of the container (PID 1), against its nofile soft limit",
+                        "main process"
                     }
                 }
                 // "Disk" on its own is ambiguous for a container, so the board
@@ -204,6 +231,7 @@ fn TopRow(
     let row_vm = row.vm.clone().or_else(|| single_vm_name.clone());
 
     let mem_pct = row.mem_pct();
+    let files_pct = row.files_pct();
 
     // The headline figure is always the number the row was RANKED on, and the
     // bar always tracks that same figure — so a row can never be sorted by one
@@ -264,6 +292,32 @@ fn TopRow(
                 0.0,
             ),
         },
+        // Ranked on the count, and the count leads. Under it goes what makes a
+        // count matter — how much of the limit it is — rather than its share of
+        // the total, which says nothing of how close the process is to failing.
+        (TopMetric::Files, _) => match row.files_open {
+            Some(open) => (
+                open.to_string(),
+                String::new(),
+                match (files_pct, row.files_limit) {
+                    (Some(pct), Some(limit)) => format!("{} of {}", fmt_files_pct(pct), limit),
+                    _ => "no limit known".to_string(),
+                },
+                row.bar_pct(max),
+            ),
+            // No process to count them of, or no `/proc` to count them in — a
+            // dash either way, and the reason under it.
+            None => (
+                "—".to_string(),
+                String::new(),
+                if row.files_unmeasured() {
+                    "not measured".to_string()
+                } else {
+                    "not running".to_string()
+                },
+                0.0,
+            ),
+        },
         // Ranked on bytes, the same way as memory on its `Total` basis.
         (TopMetric::Disk, _) => match row.disk_bytes {
             Some(bytes) => {
@@ -289,19 +343,33 @@ fn TopRow(
     };
 
     // Memory heat mirrors the container list so a hot row reads the same in
-    // both columns — but only on the board that ranks by memory.
-    let heat = match (metric, mem_pct) {
-        (TopMetric::Mem, Some(p)) if p >= 90.0 => " mem-danger",
-        (TopMetric::Mem, Some(p)) if p >= 80.0 => " mem-warn",
+    // both columns — but only on the board that ranks by memory. The open files
+    // board marks a row the same way, by how full its own limit is.
+    let heat = match (metric, mem_pct, files_pct) {
+        (TopMetric::Mem, Some(p), _) if p >= 90.0 => " mem-danger",
+        (TopMetric::Mem, Some(p), _) if p >= 80.0 => " mem-warn",
+        (TopMetric::Files, _, Some(p)) if p >= FILES_DANGER_PCT => " files-danger",
+        (TopMetric::Files, _, Some(p)) if p >= FILES_WARN_PCT => " files-warn",
         _ => "",
     };
-    let row_class = format!("tc-row{}", heat);
+    // The open files rows carry a modifier of their own: their value column has
+    // a width fixed in the stylesheet, where the reason is.
+    let row_class = match metric {
+        TopMetric::Files => format!("tc-row tc-files-row{}", heat),
+        _ => format!("tc-row{}", heat),
+    };
     let state_cls = format!("state {}", row.state_class);
     let bar_width = (bar_pct * 10.0).round() / 10.0;
     let fill_class = format!("tc-fill {}", metric.fill_class());
     let bar_title = match (metric, mem_pct, row.mem_limit_is_declared) {
         (TopMetric::Mem, Some(p), true) => format!("{:.0}% of declared mem limit", p),
         (TopMetric::Mem, Some(p), false) => format!("{:.0}% of host RAM (no container limit)", p),
+        (TopMetric::Files, _, _) => match (row.files_open, row.share_pct(total)) {
+            (Some(open), Some(of_total)) => {
+                format!("{} open — {:.1}% of total", open, of_total)
+            }
+            _ => share.clone(),
+        },
         (TopMetric::Disk, _, _) => disk_size_title(row.disk_bytes, row.disk_root_fs),
         _ => format!("{} {} — {}", value, unit, share),
     };
@@ -349,5 +417,16 @@ fn TopRow(
                 span { class: "sub", "{share}" }
             }
         }
+    }
+}
+
+/// How full a `nofile` limit is, for the row of the open files board. The limit
+/// is often a million and the count a few dozen, and "0.0%" would read as none
+/// at all.
+fn fmt_files_pct(pct: f64) -> String {
+    if pct > 0.0 && pct < 0.1 {
+        "<0.1%".to_string()
+    } else {
+        format!("{:.1}%", pct)
     }
 }

@@ -1277,11 +1277,11 @@ button, input { font-family: inherit; color: inherit; }
 }
 
 /* ─── Top consumers boards (detail column, no container selected) ─── */
-/* CPU and memory side by side as two equal boards; under them the two disk
-   boards — containers by disk, then the host's own disks — each across the
-   full width. `.app` enforces a 1280px floor and the detail column is the
-   `1fr`, so a half-width board gets ~330px even at the narrowest supported
-   window; no breakpoint is needed. */
+/* CPU and memory side by side as two equal boards; under them, each across the
+   full width, the open files, then the two disk boards — containers by disk,
+   and the host's own disks. `.app` enforces a 1280px floor and the detail
+   column is the `1fr`, so a half-width board gets ~330px even at the narrowest
+   supported window; no breakpoint is needed. */
 .tc-wrap { display: flex; flex-direction: column; gap: 10px; }
 .tc-head { display: flex; align-items: center; gap: 10px; }
 /* Narrower than the dialog's input group — it holds two or three digits, and the
@@ -1346,8 +1346,8 @@ button, input { font-family: inherit; color: inherit; }
    `.cont-row` does in the container column. Hover is scoped to `a`: a host-disk
    row is a link only in the fleet view, and scoped to one VM it leads nowhere,
    so there it must not light up as if it did. */
-.tc-row.mem-warn,   .tc-row.disk-warn   { background: linear-gradient(90deg, var(--warn-soft),   transparent 60%); }
-.tc-row.mem-danger, .tc-row.disk-danger { background: linear-gradient(90deg, var(--danger-soft), transparent 60%); }
+.tc-row.mem-warn,   .tc-row.files-warn,   .tc-row.disk-warn   { background: linear-gradient(90deg, var(--warn-soft),   transparent 60%); }
+.tc-row.mem-danger, .tc-row.files-danger, .tc-row.disk-danger { background: linear-gradient(90deg, var(--danger-soft), transparent 60%); }
 a.tc-row:hover { background: var(--surface-1); }
 /* Host-disk row: a drive glyph where a container row has its state dot, and a
    value column of fixed width — the bar is a share of the disk itself, not of
@@ -1358,6 +1358,11 @@ a.tc-row:hover { background: var(--surface-1); }
   color: var(--text-muted);
 }
 .tc-disk-row .tc-val { min-width: 116px; }
+/* A row of the open files board: under its count goes a limit of anything from
+   four digits to ten. Left to its content the value column would differ row by
+   row, the tracks with it — and bars scaled against one leader could no longer
+   be compared. 124px holds the longest it gets, `100.0% of 1073741816`. */
+.tc-files-row .tc-val { min-width: 124px; }
 
 .tc-row .rank {
   font-family: var(--mono); font-size: 11px; font-weight: 600;
@@ -1396,6 +1401,9 @@ a.tc-row:hover .name { color: var(--accent); }
 .tc-fill { height: 100%; border-radius: 3px; transition: width .25s ease; }
 .tc-fill.cpu { background: var(--cpu); }
 .tc-fill.mem { background: var(--mem); }
+/* The open files have no colour of their own on the container panel; this is the
+   one their chart wears in the history dialog (`.hist .files`). */
+.tc-fill.files { background: var(--text-dim); }
 .tc-fill.disk { background: var(--disk); }
 /* Host disks only: the fill level overrides the board's own colour, under the
    same two names the VM rail's disk bars use. Declared after `.disk` — the
