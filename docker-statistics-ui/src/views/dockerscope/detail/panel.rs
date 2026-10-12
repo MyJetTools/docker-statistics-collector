@@ -151,7 +151,10 @@ pub fn DetailPanel(env: Rc<String>) -> Element {
                 }
             }
 
-            StatLine { container: container.clone() }
+            StatLine {
+                container: container.clone(),
+                files_history: history_of(HistoryMetric::Files),
+            }
 
             div { class: "detail-bottom",
                 div { class: "ports-mounts-row",

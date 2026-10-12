@@ -773,14 +773,15 @@ button, input { font-family: inherit; color: inherit; }
   display: inline-flex; align-items: center; gap: 7px;
 }
 .chart-card .label .sw { width: 7px; height: 7px; border-radius: 2px; }
-/* The name of a chart opens the whole history of its metric. Dotted under the
-   word, so that it reads as something to press without shouting like a link. */
-.chart-card .label.history {
+/* The name of a chart — and of the open-files figure under the charts, which
+   has no chart of its own — opens the whole history of its metric. Dotted under
+   the word, so that it reads as something to press without shouting like a link. */
+.chart-card .label.history, .stat .k.history {
   cursor: pointer;
   text-decoration: underline dotted;
   text-underline-offset: 4px;
 }
-.chart-card .label.history:hover { color: var(--text); }
+.chart-card .label.history:hover, .stat .k.history:hover { color: var(--text); }
 .chart-card .value-row {
   display: flex; align-items: baseline; gap: 10px;
   margin-bottom: 8px;

@@ -53,6 +53,8 @@ limit is marked, from 90% in red.
 The graphs on the panel of a container are the last minutes. The **name of a
 graph** — CPU, Memory, Net In, Net Out — opens everything before them: a dialog
 with the history the hub keeps on disk (see [Service metrics](service-metrics.md)).
+The open files have no graph on the panel, so the name of their figure under the
+graphs, **Open FDs**, opens the same dialog on them.
 
 - One metric at a time, picked in a row above the chart: the four of the panel
   and the open files. One period: the last hour, 6 hours, 24 hours, 3 days or 7.
