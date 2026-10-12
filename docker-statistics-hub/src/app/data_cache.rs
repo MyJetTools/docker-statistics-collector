@@ -3,6 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use rust_extensions::date_time::DateTimeAsMicroseconds;
 
 use crate::{
+    metrics_storage::ServiceSample,
     models::{
         ContainerJsonModel, ContainerModel, DiskModel, HostMemEntryModel, MetricsByVm,
         NetSample, NetUsageJsonMode, VmModel,
@@ -135,12 +136,15 @@ impl DataCache {
     /// [`MISSING_TICKS_BEFORE_PRUNE`]. It keeps its last known containers so a peer
     /// that merely answered slowly stays on the rail, and only a host that is
     /// persistently absent disappears.
+    ///
+    /// Returns what this poll measured, service by service — the cache keeps the
+    /// last minutes of it, the metrics storage keeps it by the day.
     pub fn update_from_master(
         &mut self,
         containers_by_instance: BTreeMap<String, Vec<ContainerJsonModel>>,
         host_mem_by_instance: HashMap<String, HostMemSnapshot>,
         master_url: String,
-    ) {
+    ) -> Vec<ServiceSample> {
         let active: std::collections::HashSet<String> =
             containers_by_instance.keys().cloned().collect();
 
@@ -172,12 +176,24 @@ impl DataCache {
             self.missing_ticks.remove(instance);
         }
 
+        let now = DateTimeAsMicroseconds::now();
+        let mut samples = Vec::new();
+
         for (instance, containers) in containers_by_instance {
             let host_mem = host_mem_by_instance.get(&instance).cloned();
-            self.update_one_vm(&instance, containers, host_mem, master_url.clone());
+            self.update_one_vm(
+                &instance,
+                containers,
+                host_mem,
+                master_url.clone(),
+                now,
+                &mut samples,
+            );
         }
 
-        self.last_successful_poll_at = Some(DateTimeAsMicroseconds::now());
+        self.last_successful_poll_at = Some(now);
+
+        samples
     }
 
     fn update_one_vm(
@@ -186,7 +202,14 @@ impl DataCache {
         containers: Vec<ContainerJsonModel>,
         host_mem: Option<HostMemSnapshot>,
         api_url: String,
+        now: DateTimeAsMicroseconds,
+        samples: &mut Vec<ServiceSample>,
     ) {
+        // What the cpu of a container is measured against in the metrics storage: the
+        // collector reports no cpu limit of a container, the cores of its host it does.
+        let host_cpu_count = host_mem.as_ref().and_then(|host| host.cpu_count);
+        let now_unix_seconds = now.unix_microseconds / 1_000_000;
+
         let mut src = BTreeMap::new();
 
         for container in containers {
@@ -234,6 +257,16 @@ impl DataCache {
             if let Some(sample) = container.net.as_sample() {
                 side.net_prev = Some(sample);
             }
+
+            // Taken here, where the reading of the collector and the rate derived from
+            // it are both at hand. A reading which measured nothing gives no sample.
+            samples.extend(ServiceSample::of_container(
+                vm,
+                &container,
+                &net,
+                host_cpu_count,
+                now_unix_seconds,
+            ));
 
             if let Some(usage) = container.cpu.usage {
                 if !self.metrics_history.contains_key(&id) {

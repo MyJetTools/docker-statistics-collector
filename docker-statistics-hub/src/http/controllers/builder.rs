@@ -23,6 +23,10 @@ pub fn build(app: &Arc<AppCtx>) -> ControllersMiddleware {
         app.clone(),
     )));
 
+    result.register_get_action(Arc::new(
+        super::service_metrics::GetServiceMetricsAction::new(app.clone()),
+    ));
+
     // exec permission — time-limited unlock of the exec_in_container MCP tool
 
     result.register_get_action(Arc::new(

@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 
+use crate::metrics_storage::ServiceSample;
 use crate::models::ContainerJsonModel;
 
 use super::{DataCache, HostMemSnapshot};
@@ -21,7 +22,7 @@ impl DataCacheByEnv {
         containers_by_instance: BTreeMap<String, Vec<ContainerJsonModel>>,
         host_mem_by_instance: HashMap<String, HostMemSnapshot>,
         master_url: String,
-    ) {
+    ) -> Vec<ServiceSample> {
         if !self.envs.contains_key(env) {
             self.envs.insert(env.to_string(), DataCache::new());
         }
@@ -30,6 +31,6 @@ impl DataCacheByEnv {
             containers_by_instance,
             host_mem_by_instance,
             master_url,
-        );
+        )
     }
 }

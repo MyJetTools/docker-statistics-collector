@@ -10,6 +10,7 @@ mod auth;
 mod background;
 mod http;
 mod http_client;
+mod metrics_storage;
 mod models;
 mod selected_vm;
 mod settings_reader;

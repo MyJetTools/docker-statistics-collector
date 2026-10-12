@@ -15,8 +15,8 @@ descriptors) and the Prometheus metrics of containers running under
 - [docker-statistics-hub/](docker-statistics-hub/) — the backend of the UI: polls
   the collectors and keeps the cache and history. It is the only service that
   writes to disk, and only into its one
-  [data folder](docker-statistics-hub/README.md#data-folder) — a file per kind
-  of data, so anything stored later is one more file there.
+  [data folder](docker-statistics-hub/README.md#data-folder) — a file or a
+  folder per kind of data, so anything stored later is one more entry there.
 - [docker-statistics-ui/](docker-statistics-ui/) — the Dioxus (WASM) frontend.
 
 ## How it works

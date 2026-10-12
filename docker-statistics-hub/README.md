@@ -9,9 +9,10 @@ Backend REST + WebSocket service for the `docker-statistics-ui` client-side WASM
 - Keeps a per-env in-memory cache of container metrics + history. **The collector stores
   nothing** — it answers every request from a live Docker scan — so this service is the
   only side that remembers anything, and a restart starts from an empty cache.
-- Keeps on disk only what cannot be read back from a collector — today the names
-  operators give to host disks. All of it lives in one [data folder](#data-folder),
-  a file per kind of data.
+- Keeps on disk only what cannot be read back from a collector: the names operators
+  give to host disks, and the history of what the polls measured — see
+  [Service metrics](#service-metrics). All of it lives in one
+  [data folder](#data-folder), a file or a folder per kind of data.
 - **Derives network throughput.** The collector ships raw cumulative `rx_bytes`/`tx_bytes`
   plus the instant they were read; `NetSample::rate_to` turns two consecutive readings
   into the `in_mbps`/`out_mbps` the UI shows. This requires a collector built after the
@@ -25,9 +26,26 @@ Backend REST + WebSocket service for the `docker-statistics-ui` client-side WASM
   - `GET  /api/logs?env&url&id&lines_amount` — one-shot proxy of container logs from the env's master collector
   - `GET  /api/processes?env&url&id` — one-shot proxy of container processes
   - `POST /api/disk-title` — name a host disk (JSON body: `env`, `vm`, `disk`, `title`); see [Disk titles](#disk-titles)
+  - `GET  /api/service-metrics?env&vm&service&metric&from&to` — history of one metric of one service, up to 48 hours per request; see [Service metrics](#service-metrics)
   - `WS   /ws/logs?env&id&tail=N` — live log stream proxied from the collector's `/ws/logs?id` endpoint
 
 Listens on `0.0.0.0:8000`.
+
+## Formerly docker-statistics-api
+
+Up to `0.2.20` this service was called `docker-statistics-api`. The rename moved
+everything that carried the name:
+
+|               | before                                     | now                                        |
+| ------------- | ------------------------------------------ | ------------------------------------------ |
+| release tag   | `docker-statistics-api-<version>`          | `docker-statistics-hub-<version>`          |
+| image         | `ghcr.io/myjettools/docker-statistics-api` | `ghcr.io/myjettools/docker-statistics-hub` |
+| settings file | `~/.docker-statistics-api`                 | `~/.docker-statistics-hub`                 |
+| data folder   | `~/.docker-statistics-api-data`            | `~/.docker-statistics-hub-data`            |
+
+Upgrading a deployment means retargeting its two mounts to the new paths inside
+the container. The host side can stay where it is — the same settings file and
+the same data folder — so disk titles saved before the rename are kept.
 
 ## Settings
 
@@ -63,6 +81,11 @@ users:
 user_groups:
   admins: [prod, staging, dev]
   dev-only: [dev]
+
+# ── Service metrics (optional) ───────────────────────────────────────────────
+# How many days of metric history are kept on disk; older day files are deleted.
+# Default 7 — some 2 GB for a hundred services. See "Service metrics" below.
+metrics_days_to_keep: 7
 ```
 
 ## Data folder
@@ -71,25 +94,30 @@ user_groups:
 it as a volume (see [Deployment](#deployment-docker-compose)) and everything the
 service keeps survives the container; nothing else needs mounting for that.
 
-Each kind of data is a **file of its own** in the folder. Keeping something new
-later means one more file here — the mount stays as it is.
+Each kind of data is a **file of its own** in the folder — or a folder of its
+own, when it is many files. Keeping something new later means one more entry
+here — the mount stays as it is.
 
-| File               | What it holds                                                        |
-| ------------------ | -------------------------------------------------------------------- |
-| `disk-titles.yaml` | Names given to host disks in the UI — see [Disk titles](#disk-titles) |
+| Entry              | What it holds                                                                           |
+| ------------------ | --------------------------------------------------------------------------------------- |
+| `disk-titles.yaml` | Names given to host disks in the UI — see [Disk titles](#disk-titles)                   |
+| `metrics/`         | What the polls measured, service by service, in files by the day — see [Service metrics](#service-metrics) |
 
 **Storing something new** — the rule for whoever changes this service next: do
-not add a mount, a second folder, or a section to a file that is about something
-else. Give the data a file name of its own and take that file from `DataFolder`
-([data_folder.rs](src/app/data_folder.rs)), the way `DiskTitles`
-([disk_titles.rs](src/app/disk_titles.rs)) does; create the store next to it in
-`AppCtx::new`, and add a row to the table above.
+not add a mount, a second top-level folder, or a section to a file that is about
+something else. Give the data a name of its own and take it from `DataFolder`
+([data_folder.rs](src/app/data_folder.rs)): `file(name)` the way `DiskTitles`
+([disk_titles.rs](src/app/disk_titles.rs)) does, or `folder(name)` for a kind of
+data that is many files, the way `MetricsStorage`
+([metrics_storage.rs](src/metrics_storage/metrics_storage.rs)) does. Create the
+store next to them in `AppCtx::new`, and add a row to the table above.
 
-The folder is created on the first write. A file is replaced atomically — written
-beside itself and renamed — which is why the folder is mounted and not a single
-file: a rename onto a file that is itself a mount point is refused. Without the
-mount the files live in the container's own filesystem and are gone when the
-container is recreated.
+The folder is created on the first write. A file taken with `file(name)` is
+replaced atomically — written beside itself and renamed — which is why the folder
+is mounted and not a single file: a rename onto a file that is itself a mount
+point is refused. Without the mount everything lives in the container's own
+filesystem: it is gone when the container is recreated, and until then the
+metrics grow there, by gigabytes.
 
 ## Disk titles
 
@@ -115,6 +143,46 @@ prod:
 - The file is rewritten on every change and read once, at startup — after
   editing it by hand, restart the service. A file that cannot be parsed is left
   alone: titles stay off and saving is refused until it is fixed or removed.
+
+## Service metrics
+
+Every poll is also written down: what each service measured goes to disk, so its
+history outlives both the in-memory cache and a restart. The cache keeps the last
+minutes for the live graphs; this keeps days.
+
+| Metric    | Value                         | Limit kept next to it           |
+| --------- | ----------------------------- | ------------------------------- |
+| `cpu`     | cpu in use, as the collector reports it | cores of the host     |
+| `mem`     | bytes of memory in use        | memory limit of the container   |
+| `files`   | open file descriptors         | its `nofile` limit              |
+| `net-in`  | inbound throughput, MB/s      | —                               |
+| `net-out` | outbound throughput, MB/s     | —                               |
+
+- A **service** is a container by its name, not its id: the id changes with every
+  release, the name does not, so the history runs on through releases. Services
+  are kept per env and per VM.
+- A measurement is stamped with the second the collector took it. A reading that
+  measured nothing — a stopped container, stats that did not read — leaves no
+  record.
+- The files are `metrics/<env>/<vm>/<YYYYMMDD>.<metric>` in the
+  [data folder](#data-folder): one per VM, UTC day and metric, in a binary format
+  of this service's own (described in [frame.rs](src/metrics_storage/frame.rs)).
+  A record is 20 bytes, so a service polled every 3 seconds takes about 3 MB a day
+  across its five metrics.
+- Days older than `metrics_days_to_keep` (default `7`) are deleted, checked every
+  10 minutes. The default is some 2 GB for a hundred services.
+
+`GET /api/service-metrics?env&vm&service&metric&from&to` reads it back: `from`
+(inclusive) and `to` (exclusive) are unix seconds, at most 48 hours apart;
+`service` is the container name as the UI shows it; `metric` is one of the five
+above. The caller needs access to the env. The answer is three columns of one
+length, in time order — an interval nothing was measured in is three empty ones:
+
+```json
+{ "time": [1791763200, 1791763203], "value": [0.5, 1.5], "limit": [8.0, null] }
+```
+
+`limit` is `null` where the value has none.
 
 ## Deployment (docker-compose)
 

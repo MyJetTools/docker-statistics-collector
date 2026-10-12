@@ -11,7 +11,13 @@ pub struct SettingsModel {
     pub users: Option<HashMap<String, String>>,
     /// `group name -> list of env names the group can see`.
     pub user_groups: Option<HashMap<String, Vec<String>>>,
+    /// How many days the metrics of the services are kept on disk; older day files
+    /// are deleted. [`DEFAULT_METRICS_DAYS_TO_KEEP`] when it is not set.
+    pub metrics_days_to_keep: Option<u32>,
 }
+
+/// A week of metrics: some 2 GB for a hundred services polled every 3 seconds.
+pub const DEFAULT_METRICS_DAYS_TO_KEEP: u32 = 7;
 
 impl SettingsModel {
     /// Returns `(env, master_url)` per configured environment.
@@ -55,6 +61,11 @@ impl SettingsModel {
 
     pub fn is_env_allowed_for_user(&self, user_id: &str, env: &str) -> bool {
         self.get_envs_for_user(user_id).iter().any(|e| e == env)
+    }
+
+    pub fn get_metrics_days_to_keep(&self) -> u32 {
+        self.metrics_days_to_keep
+            .unwrap_or(DEFAULT_METRICS_DAYS_TO_KEEP)
     }
 }
 

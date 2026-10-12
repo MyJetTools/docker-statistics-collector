@@ -2,9 +2,9 @@ use std::path::PathBuf;
 
 /// The one folder this service writes to — and so the one thing that has to be
 /// mounted for its data to outlive the container. Each kind of data it keeps is
-/// a file of its own in here: keeping something new means adding a file to this
-/// folder, not another mount and not another section in a file that is about
-/// something else.
+/// a file of its own in here — or a folder of its own, when it is many files:
+/// keeping something new means adding one to this folder, not another mount and
+/// not another section in a file that is about something else.
 const DATA_FOLDER: &str = "~/.docker-statistics-hub-data";
 
 pub struct DataFolder {
@@ -26,6 +26,13 @@ impl DataFolder {
         DataFile {
             path: self.path.join(name),
         }
+    }
+
+    /// One folder of the folder, by name — for a kind of data that is many
+    /// files, as the metrics are by the day. Whoever keeps its data there
+    /// creates it, on its first write.
+    pub fn folder(&self, name: &str) -> PathBuf {
+        self.path.join(name)
     }
 }
 

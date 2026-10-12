@@ -4,11 +4,12 @@ use flurl::FlUrl;
 use rust_extensions::AppStates;
 use tokio::sync::Mutex;
 
+use crate::metrics_storage::MetricsStorage;
 use crate::settings_reader::AppSettingsReader;
 
 use super::{DataCacheByEnv, DataFolder, DiskTitles};
 
-use crate::background::UpdateMetricsCacheTimer;
+use crate::background::{MetricsGcTimer, UpdateMetricsCacheTimer};
 use rust_extensions::MyTimer;
 
 /// Must exceed the master's worst case: its own live scan plus the peer fan-out
@@ -22,6 +23,9 @@ pub struct AppCtx {
     /// Operator-given disk names — read from their file of the data folder
     /// once, here.
     pub disk_titles: DiskTitles,
+    /// What the polls measured, service by service, kept by the day in its folder
+    /// of the data folder.
+    pub metrics_storage: Arc<MetricsStorage>,
 }
 
 impl AppCtx {
@@ -40,6 +44,15 @@ impl AppCtx {
 
         timer_3s.start();
 
+        let mut timer_10m = MyTimer::new(
+            std::time::Duration::from_secs(600),
+            my_logger::LOGGER.clone(),
+        );
+
+        timer_10m.register_timer("MetricsGc", std::sync::Arc::new(MetricsGcTimer));
+
+        timer_10m.start();
+
         let settings_reader = Arc::new(AppSettingsReader::new());
 
         // Everything this service persists is a file of this one folder; a store
@@ -51,6 +64,7 @@ impl AppCtx {
             app_states,
             settings_reader,
             disk_titles: DiskTitles::load(&data_folder),
+            metrics_storage: Arc::new(MetricsStorage::in_data_folder(&data_folder)),
         }
     }
 

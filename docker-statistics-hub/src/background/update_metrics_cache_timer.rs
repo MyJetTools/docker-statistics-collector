@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use rust_extensions::{MyTimerTick, RepeatTimerIteration};
+use rust_extensions::{date_time::DateTimeAsMicroseconds, MyTimerTick, RepeatTimerIteration};
 
 use crate::app::DataCache;
 use crate::APP_CTX;
@@ -50,14 +50,33 @@ impl MyTimerTick for UpdateMetricsCacheTimer {
                     return;
                 }
 
-                {
+                let samples = {
                     let mut data_cache = APP_CTX.data_cache_by_env.lock().await;
                     data_cache.update_from_master(
                         &env,
                         by_instance,
                         host_mem_by_instance,
                         master_url,
-                    );
+                    )
+                };
+
+                // Written once the cache is let go: the disk is not what a request of
+                // the UI waits for.
+                let storage = APP_CTX.metrics_storage.clone();
+
+                let written = tokio::task::spawn_blocking(move || {
+                    let now = DateTimeAsMicroseconds::now().unix_microseconds / 1_000_000;
+                    storage.write(&env, &samples, now)
+                })
+                .await;
+
+                match written {
+                    Ok(messages) => {
+                        for message in messages {
+                            println!("MetricsStorage: {}", message);
+                        }
+                    }
+                    Err(err) => println!("MetricsStorage: the write did not complete: {:?}", err),
                 }
             });
 
