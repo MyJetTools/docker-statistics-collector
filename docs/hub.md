@@ -32,6 +32,7 @@ disk. One runs per installation; how to run it is in the
   - `POST /api/disk-title` — name a host disk (JSON body: `env`, `vm`, `disk`, `title`); see [Disk titles](disk-titles.md)
   - `GET  /api/service-metrics?env&vm&service&metric&from&to` — history of one metric of one service, up to 48 hours per request; see [Service metrics](service-metrics.md)
   - `GET  /api/service-metrics/chart?env&vm&service&metric&from&to&points` — the same history thinned to a chart, up to 31 days; see [Service metrics](service-metrics.md#as-a-chart)
+  - `GET  /api/vm-metrics/chart?env&vm&metric&from&to&points` — the chart of a machine as a whole: what its containers came to; see [Service metrics](service-metrics.md#the-machine-as-a-whole)
   - `WS   /ws/logs?env&id&tail=N` — live log stream proxied from the collector's `/ws/logs?id` endpoint; see [Live logs](live-logs.md)
 
 Listens on `0.0.0.0:8000`.

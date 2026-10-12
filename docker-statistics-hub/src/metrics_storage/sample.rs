@@ -93,19 +93,112 @@ impl ServiceSample {
     }
 }
 
+/// What a machine as a whole is kept under, next to its services: a name no container can
+/// have - a Docker name starts with a letter or a digit.
+pub const VM_SERIES: &str = "*";
+
+/// What the containers of one VM come to in one poll: the figures the card of the machine
+/// shows, kept as one more series next to those of its services.
+#[derive(Debug, Default)]
+pub struct VmTotals {
+    cpu: Option<f64>,
+    mem: Option<f64>,
+    files: Option<f64>,
+    net_in: Option<f64>,
+    net_out: Option<f64>,
+}
+
+impl VmTotals {
+    /// A container of the VM, and the throughput derived for this reading of it. What a
+    /// container did not measure adds nothing - and a total nothing was added to is not a
+    /// zero, it is not there.
+    pub fn add(&mut self, container: &ContainerJsonModel, net: &NetUsageJsonMode) {
+        add_to(&mut self.cpu, container.cpu.usage);
+        add_to(&mut self.mem, container.mem.usage.map(|usage| usage as f64));
+        add_to(
+            &mut self.files,
+            container.files.open.map(|open| open as f64),
+        );
+        add_to(&mut self.net_in, net.in_mbps);
+        add_to(&mut self.net_out, net.out_mbps);
+    }
+
+    /// `None` when no container of the VM measured anything.
+    ///
+    /// The cpu of a machine is measured against its cores and its memory against its RAM;
+    /// open files and throughput add up to nothing that has a limit. The time is the one
+    /// the poll came at: the readings of the containers are not of one second.
+    pub fn into_sample(
+        self,
+        vm: &str,
+        host_cpu_count: Option<u32>,
+        host_mem_total: Option<i64>,
+        now_unix_seconds: i64,
+    ) -> Option<ServiceSample> {
+        let limit_of = |limit: Option<f64>| {
+            limit
+                .filter(|limit| limit.is_finite() && *limit > 0.0)
+                .unwrap_or(f64::NAN)
+        };
+
+        let values: Vec<MetricValue> = [
+            (
+                Metric::Cpu,
+                self.cpu,
+                host_cpu_count.map(|count| count as f64),
+            ),
+            (
+                Metric::Mem,
+                self.mem,
+                host_mem_total.map(|total| total as f64),
+            ),
+            (Metric::Files, self.files, None),
+            (Metric::NetIn, self.net_in, None),
+            (Metric::NetOut, self.net_out, None),
+        ]
+        .into_iter()
+        .filter_map(|(metric, value, limit)| {
+            Some(MetricValue {
+                metric,
+                value: value?,
+                limit: limit_of(limit),
+            })
+        })
+        .collect();
+
+        if values.is_empty() {
+            return None;
+        }
+
+        Some(ServiceSample {
+            vm: vm.to_string(),
+            service: VM_SERIES.to_string(),
+            time: u32::try_from(now_unix_seconds)
+                .ok()
+                .filter(|seconds| *seconds > 0)?,
+            values,
+        })
+    }
+}
+
+fn add_to(total: &mut Option<f64>, value: Option<f64>) {
+    if let Some(value) = value.filter(|value| value.is_finite()) {
+        *total = Some(total.unwrap_or(0.0) + value);
+    }
+}
+
 /// The second the reading was taken at: the stamp the collector puts next to the reading.
 /// A stamp which is not there - a collector older than the stamp - or is a day away from
 /// the clock of this service is replaced by the time the reading came.
 fn sample_time(sampled_at_unix_ms: i64, now_unix_seconds: i64) -> Option<u32> {
     let stamped = sampled_at_unix_ms.div_euclid(1000);
 
-    let seconds = if sampled_at_unix_ms <= 0
-        || (stamped - now_unix_seconds).abs() > MAX_CLOCK_SKEW_SECONDS
-    {
-        now_unix_seconds
-    } else {
-        stamped
-    };
+    let seconds =
+        if sampled_at_unix_ms <= 0 || (stamped - now_unix_seconds).abs() > MAX_CLOCK_SKEW_SECONDS {
+            now_unix_seconds
+        } else {
+            stamped
+        };
 
     u32::try_from(seconds).ok().filter(|seconds| *seconds > 0)
 }
@@ -235,13 +328,81 @@ mod tests {
     }
 
     #[test]
+    fn a_machine_is_the_sum_of_its_containers_against_its_own_cores_and_ram() {
+        let mut second = running();
+        second["names"] = serde_json::json!(["/db"]);
+        second["cpu"]["usage"] = 1.13.into();
+        second["mem"]["usage"] = 300.into();
+        second["files"]["open"] = 8.into();
+
+        let mut totals = VmTotals::default();
+        totals.add(&container(running()), &net(1.5, 0.25));
+        totals.add(&container(second), &net(0.5, 0.25));
+
+        let sample = totals
+            .into_sample("vm-1", Some(8), Some(4000), NOW)
+            .unwrap();
+
+        assert_eq!(sample.vm, "vm-1");
+        assert_eq!(sample.service, VM_SERIES);
+        // The second the poll came at: the readings it sums are not of one second
+        assert_eq!(sample.time as i64, NOW);
+
+        assert_eq!(value_of(&sample, Metric::Cpu), Some((1.5, 8.0)));
+        assert_eq!(value_of(&sample, Metric::Mem), Some((500.0, 4000.0)));
+
+        // The limits of the containers do not add up to a limit of the machine
+        let (files, files_limit) = value_of(&sample, Metric::Files).unwrap();
+        assert_eq!(files, 50.0);
+        assert!(files_limit.is_nan());
+        assert_eq!(value_of(&sample, Metric::NetIn).unwrap().0, 2.0);
+        assert_eq!(value_of(&sample, Metric::NetOut).unwrap().0, 0.5);
+    }
+
+    #[test]
+    fn a_total_nothing_was_added_to_is_not_a_zero() {
+        // The first poll: nothing has a rate yet. And a container which is not running
+        let mut stopped = running();
+        stopped["cpu"]["usage"] = serde_json::Value::Null;
+        stopped["mem"] = serde_json::json!({ "usage": null, "available": null, "limit": null });
+        stopped["files"] = serde_json::json!({ "open": null, "limit": null });
+
+        let mut totals = VmTotals::default();
+        totals.add(&container(running()), &NetUsageJsonMode::default());
+        totals.add(&container(stopped.clone()), &NetUsageJsonMode::default());
+
+        let sample = totals.into_sample("vm-1", None, None, NOW).unwrap();
+
+        assert_eq!(value_of(&sample, Metric::Cpu).unwrap().0, 0.37);
+        assert!(value_of(&sample, Metric::Cpu).unwrap().1.is_nan());
+        assert!(value_of(&sample, Metric::NetIn).is_none());
+        assert!(value_of(&sample, Metric::NetOut).is_none());
+
+        // A machine none of whose containers measured anything leaves no record
+        let mut totals = VmTotals::default();
+        totals.add(&container(stopped), &NetUsageJsonMode::default());
+        assert!(totals
+            .into_sample("vm-1", Some(8), Some(4000), NOW)
+            .is_none());
+    }
+
+    #[test]
     fn a_stamp_which_can_not_be_right_is_replaced_by_the_time_it_came() {
-        assert_eq!(sample_time((NOW - 3) * 1000 + 999, NOW), Some((NOW - 3) as u32));
+        assert_eq!(
+            sample_time((NOW - 3) * 1000 + 999, NOW),
+            Some((NOW - 3) as u32)
+        );
         // A collector which does not stamp its readings
         assert_eq!(sample_time(0, NOW), Some(NOW as u32));
         // A host whose clock is days away
-        assert_eq!(sample_time((NOW + 3 * 86_400) * 1000, NOW), Some(NOW as u32));
-        assert_eq!(sample_time((NOW - 3 * 86_400) * 1000, NOW), Some(NOW as u32));
+        assert_eq!(
+            sample_time((NOW + 3 * 86_400) * 1000, NOW),
+            Some(NOW as u32)
+        );
+        assert_eq!(
+            sample_time((NOW - 3 * 86_400) * 1000, NOW),
+            Some(NOW as u32)
+        );
     }
 
     #[test]

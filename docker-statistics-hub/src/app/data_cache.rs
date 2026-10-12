@@ -3,10 +3,10 @@ use std::collections::{BTreeMap, HashMap};
 use rust_extensions::date_time::DateTimeAsMicroseconds;
 
 use crate::{
-    metrics_storage::ServiceSample,
+    metrics_storage::{ServiceSample, VmTotals},
     models::{
-        ContainerJsonModel, ContainerModel, DiskModel, HostMemEntryModel, MetricsByVm,
-        NetSample, NetUsageJsonMode, VmModel,
+        ContainerJsonModel, ContainerModel, DiskModel, HostMemEntryModel, MetricsByVm, NetSample,
+        NetUsageJsonMode, VmModel,
     },
     selected_vm::SelectedVm,
 };
@@ -208,7 +208,12 @@ impl DataCache {
         // What the cpu of a container is measured against in the metrics storage: the
         // collector reports no cpu limit of a container, the cores of its host it does.
         let host_cpu_count = host_mem.as_ref().and_then(|host| host.cpu_count);
+        // And what the memory of the machine as a whole is measured against
+        let host_mem_total = host_mem.as_ref().map(|host| host.total);
         let now_unix_seconds = now.unix_microseconds / 1_000_000;
+
+        // The machine as a whole: what its containers come to in this poll
+        let mut totals = VmTotals::default();
 
         let mut src = BTreeMap::new();
 
@@ -267,6 +272,7 @@ impl DataCache {
                 host_cpu_count,
                 now_unix_seconds,
             ));
+            totals.add(&container, &net);
 
             if let Some(usage) = container.cpu.usage {
                 if !self.metrics_history.contains_key(&id) {
@@ -317,6 +323,8 @@ impl DataCache {
                 by_id.update(container, net);
             }
         }
+
+        samples.extend(totals.into_sample(vm, host_cpu_count, host_mem_total, now_unix_seconds));
 
         for id in gone {
             self.side_state.remove(&id);
@@ -471,7 +479,10 @@ impl DataCache {
 
 /// Turn the collector's raw counters into MB/s using the reading kept from the
 /// previous poll. `None`/`None` until two readings exist for the container.
-fn derive_net_rate(previous: Option<&NetSample>, incoming: &ContainerJsonModel) -> NetUsageJsonMode {
+fn derive_net_rate(
+    previous: Option<&NetSample>,
+    incoming: &ContainerJsonModel,
+) -> NetUsageJsonMode {
     let (Some(prev), Some(next)) = (previous, incoming.net.as_sample()) else {
         return NetUsageJsonMode::default();
     };

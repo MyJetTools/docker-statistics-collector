@@ -38,6 +38,33 @@ length, in time order — an interval nothing was measured in is three empty one
 
 `limit` is `null` where the value has none.
 
+## The machine as a whole
+
+Next to its services every machine has one more series: what its containers came
+to in each poll — the figures its card in the UI shows. The same five metrics, in
+the same day files, under the name `*`, which no container can have.
+
+| Metric    | Value                              | Limit kept next to it |
+| --------- | ---------------------------------- | --------------------- |
+| `cpu`     | cpu in use, all containers         | cores of the host     |
+| `mem`     | memory in use, all containers      | RAM of the host       |
+| `files`   | open file descriptors, all containers | —                  |
+| `net-in`  | inbound throughput, all containers | —                     |
+| `net-out` | outbound throughput, all containers | —                    |
+
+- It is a sum over the containers, so `mem` is what they use — not what the host
+  has in use by everything else as well. The limits of the containers do not add
+  up to a limit of the machine, which is why open files have none here.
+- A total nothing was added to is not written as a zero: a machine none of whose
+  containers measured a metric has no record of it for that poll.
+- A record is stamped with the second the poll came at — the readings it sums are
+  not of one second.
+
+It costs what one more service does: about 3 MB a day per machine. It is read
+with `GET /api/vm-metrics/chart?env&vm&metric&from&to&points`, which answers
+exactly as the chart of a service below does. See
+[sample.rs](../docker-statistics-hub/src/metrics_storage/sample.rs).
+
 ## As a chart
 
 A week of one metric is two hundred thousand measurements, and a chart is a few
