@@ -61,21 +61,21 @@ pub async fn exec_permission(
 
     let status_code = response.get_status_code();
 
-    let body = match response.get_body_as_slice().await {
+    let body = match super::read_body(&mut response).await {
         Ok(body) => body,
         Err(err) => return Err(format!("Error reading body: {:?}", err)),
     };
 
     if status_code == 404 {
         // The collector answers 404 with a plain-text explanation — pass it through.
-        return Err(String::from_utf8_lossy(body).into_owned());
+        return Err(String::from_utf8_lossy(&body).into_owned());
     }
 
     if status_code != 200 {
         return Err(format!("Collector returned status {}", status_code));
     }
 
-    match serde_json::from_slice::<ExecPermissionModel>(body) {
+    match serde_json::from_slice::<ExecPermissionModel>(&body) {
         Ok(parsed) => Ok(parsed),
         Err(err) => Err(format!("Parse error: {}", err)),
     }

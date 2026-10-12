@@ -27,7 +27,7 @@ pub async fn get_processes(
 
     let status_code = response.get_status_code();
 
-    let body = match response.get_body_as_slice().await {
+    let body = match super::read_body(&mut response).await {
         Ok(body) => body,
         Err(err) => return Err(format!("Error reading body: {:?}", err)),
     };
@@ -36,7 +36,7 @@ pub async fn get_processes(
         return Err(format!("Collector returned status {}", status_code));
     }
 
-    match serde_json::from_slice::<ProcessesResponseModel>(body) {
+    match serde_json::from_slice::<ProcessesResponseModel>(&body) {
         Ok(parsed) => Ok(parsed.processes),
         Err(err) => Err(format!("Parse error: {}", err)),
     }

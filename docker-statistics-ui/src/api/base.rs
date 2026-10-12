@@ -39,14 +39,24 @@ pub async fn handle_http_response<T: serde::de::DeserializeOwned>(
     let mut response = response?;
 
     if (200..300).contains(&response.get_status_code()) {
-        return Ok(response.get_json().await?);
+        return Ok(response
+            .get_body()?
+            .into_json(MAX_RESPONSE_BODY_LEN)
+            .await?);
     }
 
-    let message = response
-        .get_body_as_str()
-        .await
-        .map(|body| body.to_string())
-        .unwrap_or_else(|err| err.to_string());
+    let message = match response.get_body() {
+        Ok(body) => body
+            .into_string(MAX_RESPONSE_BODY_LEN)
+            .await
+            .unwrap_or_else(|err| err.to_string()),
+        Err(err) => err.to_string(),
+    };
 
     Err(crate::models::RequestError { message })
 }
+
+/// The most of an answer of the api this page reads into memory through FlUrl,
+/// which reads a body whole only up to a bound it is given. The answers that go
+/// this way are a few fields, or the line that says why a request was refused.
+const MAX_RESPONSE_BODY_LEN: usize = 1024 * 1024;

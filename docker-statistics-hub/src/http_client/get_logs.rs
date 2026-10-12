@@ -10,15 +10,12 @@ pub async fn get_logs(fl_url: FlUrl, container_id: String, lines: u32) -> Result
         .get()
         .await;
 
-    if let Err(err) = &url_response {
-        return Err(format!("Error: {:?}", err));
+    let mut url_response = match url_response {
+        Ok(url_response) => url_response,
+        Err(err) => return Err(format!("Error: {:?}", err)),
     };
 
-    let result = url_response.unwrap().receive_body().await;
-
-    if let Err(err) = &result {
-        return Err(format!("Error: {:?}", err));
-    };
-
-    Ok(result.unwrap())
+    super::read_body(&mut url_response)
+        .await
+        .map_err(|err| format!("Error: {:?}", err))
 }

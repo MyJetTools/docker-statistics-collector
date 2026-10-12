@@ -9,5 +9,8 @@ pub async fn get_statistics(fl_url: FlUrl) -> Result<StatisticsContract, FlUrlEr
         .get()
         .await?;
 
-    url_response.get_json().await
+    url_response
+        .get_body()?
+        .into_json(super::MAX_RESPONSE_BODY_LEN)
+        .await
 }
