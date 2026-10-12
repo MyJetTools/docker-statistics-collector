@@ -37,3 +37,38 @@ length, in time order — an interval nothing was measured in is three empty one
 ```
 
 `limit` is `null` where the value has none.
+
+## As a chart
+
+A week of one metric is two hundred thousand measurements, and a chart is a few
+hundred pixels wide. So the hub thins the history itself, and the page asks for
+it already thinned:
+
+`GET /api/service-metrics/chart?env&vm&service&metric&from&to&points`
+
+The interval — up to 31 days — is cut into no more than `points` stretches of
+equal length (`360` when absent, `2000` at most), and every stretch something was
+measured in becomes a point:
+
+```json
+{ "step": 1680,
+  "time": [1791763200, 1791764880],
+  "avg": [0.61, 0.58], "min": [0.40, 0.41], "max": [3.57, 0.92],
+  "limit": [16.0, 16.0] }
+```
+
+- `step` is the seconds a point stands for; `time` is where it starts.
+- `avg` is what a line goes through. `min` and `max` are there so that a spike is
+  not averaged away: a minute at four cores inside half an hour at one still
+  shows as four.
+- `limit` is the limit of the latest measurement of the point.
+- A stretch nothing was measured in has **no point** — a service that was down is
+  a hole in the chart, not a line through zero.
+
+The history is read a day at a time and folded into the points as it is read, so
+the memory a request takes does not grow with the interval. A week of a metric
+answers in tens of milliseconds and about 10 KB. See
+[chart.rs](../docker-statistics-hub/src/metrics_storage/chart.rs).
+
+This is what the [history dialog](ui.md#the-history-of-a-container) of the UI
+is drawn from.

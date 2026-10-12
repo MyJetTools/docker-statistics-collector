@@ -10,3 +10,5 @@ mod sample;
 pub use sample::*;
 mod metrics_storage;
 pub use metrics_storage::*;
+mod chart;
+pub use chart::*;
