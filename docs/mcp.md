@@ -1,6 +1,58 @@
-# MCP tools — usage guide
+# MCP endpoint
 
-This server exposes three tools for inspecting Docker containers across one or more hosts. Every result carries an `instance` field that identifies which physical host the container runs on. Use it to disambiguate when several hosts run containers with similar names.
+The collector exposes an MCP (Model Context Protocol) endpoint at `POST /mcp`, on
+the same port as its HTTP API (`8000`). Every tool is federation-aware: asked of
+the master collector, it answers for the whole fleet, and each result carries an
+`instance` field naming the host a container runs on.
+
+Client config:
+
+```json
+{
+  "mcpServers": {
+    "docker-statistics": {
+      "type": "http",
+      "url": "http://localhost:8000/mcp"
+    }
+  }
+}
+```
+
+## Tools
+
+| Tool | What it does |
+| --- | --- |
+| `list_servers_and_services` | Instances and the compose services on each, with their port mappings |
+| `find_application` | Regex match on the identity of an application: compose service, container names, image |
+| `find_containers` | Substring search across id, names, image and labels, with a CPU / memory snapshot |
+| `get_container_logs` | Tail of a container's logs, routed to the host that owns it |
+| `get_compose_yaml` | The docker-compose.yaml a container was started from, read from its `com.release-mcp.compose-yaml` label |
+| `get_host_info` | RAM, CPU count and physical disks of every host |
+| `list_exposed_ports` | Every host-published port per instance |
+| `exec_in_container` | Runs a shell command inside a container. **Locked by default** — see below |
+
+They are registered in [start_up.rs](../docker-statistics-collector/src/http/start_up.rs)
+and implemented in [mcp/](../docker-statistics-collector/src/mcp/).
+
+What a model is told about them is not written here but in two files compiled into
+the binary, which is where to edit it:
+
+- [MCP_INSTRUCTION.md](../docker-statistics-collector/MCP_INSTRUCTION.md) — the
+  server instructions every session gets on `initialize`;
+- [MCP_PROMPT_HOW_TO_USE_IT.md](../docker-statistics-collector/MCP_PROMPT_HOW_TO_USE_IT.md)
+  — the `how_to_use_it` prompt, loaded on demand.
+
+### The exec unlock
+
+`exec_in_container` does nothing until a person unlocks it: in the UI, on the
+panel of a container of that VM, "enable exec" opens a window of
+`exec_unlock_duration_secs` (10 minutes by default) on that VM only, and it closes
+by itself. The window is enforced by the collector that owns the container, so
+unlocking one VM never opens exec anywhere else. The same window is behind
+`GET /api/exec-permission` and `POST /api/exec-permission/enable|disable`.
+
+The rest of this file is the usage guide of the three tools most sessions start
+with.
 
 ## Recommended flow
 
