@@ -1,5 +1,5 @@
 [package]
-name = "docker-statistics-api"
+name = "docker-statistics-hub"
 version = "0.1.0"
 edition = "2021"
 

@@ -65,7 +65,7 @@ pub struct AppSettingsReader {
 impl AppSettingsReader {
     pub fn new() -> Self {
         Self {
-            settings: SettingsReader::new("~/.docker-statistics-api"),
+            settings: SettingsReader::new("~/.docker-statistics-hub"),
         }
     }
 

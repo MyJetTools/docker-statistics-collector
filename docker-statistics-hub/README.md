@@ -1,10 +1,10 @@
-# docker-statistics-api
+# docker-statistics-hub
 
 Backend REST + WebSocket service for the `docker-statistics-ui` client-side WASM frontend.
 
 ## What it does
 
-- Reads its `envs` config from `~/.docker-statistics-api`
+- Reads its `envs` config from `~/.docker-statistics-hub`
 - Polls each env's master `docker-statistics-collector` every 3 seconds via `GET /api/containers`
 - Keeps a per-env in-memory cache of container metrics + history. **The collector stores
   nothing** — it answers every request from a live Docker scan — so this service is the
@@ -31,7 +31,7 @@ Listens on `0.0.0.0:8000`.
 
 ## Settings
 
-`~/.docker-statistics-api` (YAML):
+`~/.docker-statistics-hub` (YAML):
 
 ```yaml
 envs:
@@ -67,7 +67,7 @@ user_groups:
 
 ## Data folder
 
-`~/.docker-statistics-api-data` is the one folder this service writes to. Mount
+`~/.docker-statistics-hub-data` is the one folder this service writes to. Mount
 it as a volume (see [Deployment](#deployment-docker-compose)) and everything the
 service keeps survives the container; nothing else needs mounting for that.
 
@@ -120,7 +120,7 @@ prod:
 
 Standard compose template that runs the API alongside the static UI host on
 one machine. The reverse-proxy sitting in front of `docker-statistics-ui` is
-expected to forward `/api/*` and `/ws/*` to `docker-statistics-api:8000` and
+expected to forward `/api/*` and `/ws/*` to `docker-statistics-hub:8000` and
 to inject the `x-ssl-user` header on authenticated requests.
 
 ```yaml
@@ -145,17 +145,17 @@ services:
     networks:
     - docker_net
 
-  docker-statistics-api:
-    image: ghcr.io/myjettools/docker-statistics-api:0.2.12
-    hostname: docker-statistics-api
-    container_name: docker-statistics-api
+  docker-statistics-hub:
+    image: ghcr.io/myjettools/docker-statistics-hub:0.2.12
+    hostname: docker-statistics-hub
+    container_name: docker-statistics-hub
     restart: always
     environment:
     - ENV_INFO
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
-    - ./.docker-statistics-api:/root/.docker-statistics-api:ro
-    - ./docker-statistics-api-data:/root/.docker-statistics-api-data
+    - ./.docker-statistics-hub:/root/.docker-statistics-hub:ro
+    - ./docker-statistics-hub-data:/root/.docker-statistics-hub-data
     deploy:
       resources:
         limits:
@@ -173,8 +173,8 @@ networks:
 ```
 
 Notes on the mounts:
-- `./.docker-statistics-api` — your settings YAML (see [Settings](#settings)).
-- `./docker-statistics-api-data` — the [data folder](#data-folder): the one
+- `./.docker-statistics-hub` — your settings YAML (see [Settings](#settings)).
+- `./docker-statistics-hub-data` — the [data folder](#data-folder): the one
   writable mount, holding a file per kind of data the service keeps. Mount the
   folder, not the files in it.
 - `/var/run/docker.sock` — only needed if this same host also runs a local

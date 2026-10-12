@@ -179,7 +179,7 @@ mod tests {
     /// A data folder of its own per test, under the system temp dir.
     fn temp_folder(test: &str) -> std::path::PathBuf {
         let path = std::env::temp_dir().join(format!(
-            "docker-statistics-api-disk-titles-{}-{}",
+            "docker-statistics-hub-disk-titles-{}-{}",
             test,
             std::process::id()
         ));

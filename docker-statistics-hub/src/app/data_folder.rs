@@ -5,7 +5,7 @@ use std::path::PathBuf;
 /// a file of its own in here: keeping something new means adding a file to this
 /// folder, not another mount and not another section in a file that is about
 /// something else.
-const DATA_FOLDER: &str = "~/.docker-statistics-api-data";
+const DATA_FOLDER: &str = "~/.docker-statistics-hub-data";
 
 pub struct DataFolder {
     path: PathBuf,
@@ -82,7 +82,7 @@ mod tests {
     /// A folder of its own per test, under the system temp dir, not created yet.
     fn temp_folder(test: &str) -> PathBuf {
         let path = std::env::temp_dir().join(format!(
-            "docker-statistics-api-data-folder-{}-{}",
+            "docker-statistics-hub-data-folder-{}-{}",
             test,
             std::process::id()
         ));

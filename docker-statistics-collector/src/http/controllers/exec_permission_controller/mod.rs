@@ -17,7 +17,7 @@ use crate::peers_client::{
 use contracts::{ExecPermissionHttpInput, ExecPermissionHttpResponse};
 
 /// Header the upstream reverse proxy injects to identify the authenticated user.
-/// Mirrors `docker-statistics-api`'s `auth.rs` — we never validate it ourselves.
+/// Mirrors `docker-statistics-hub`'s `auth.rs` — we never validate it ourselves.
 const SSL_USER_HEADER: &str = "x-ssl-user";
 
 /// The three actions differ only by the command, so they all funnel through here.

@@ -87,7 +87,7 @@ impl ContainerStatsJsonModel {
     }
 
     /// Total received bytes across all interfaces (cumulative since container
-    /// start). Rate is derived by docker-statistics-api from the delta between two
+    /// start). Rate is derived by docker-statistics-hub from the delta between two
     /// consecutive collector readings; the collector only forwards the raw counter
     /// plus its sample timestamp.
     pub fn total_rx_bytes(&self) -> i64 {
